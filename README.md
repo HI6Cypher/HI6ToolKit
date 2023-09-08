@@ -129,7 +129,7 @@ The network listener allows you to monitor and log incoming data from network co
     ```text
     email1@hotmail.com email2@gmail.com email3@outlook.com...
     ```
-- Note : HI6ToolKit is a script, but it can use modular
+- Note : HI6ToolKit is a script, but it can use modular(set module argument, True)
     ```python
     from hi6toolkit import PacketSniff, DoS_SYN, DoS_UDP, DoS_HTTP, SendEmail, Listen
     ```
