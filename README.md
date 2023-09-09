@@ -15,15 +15,15 @@ The network listener allows you to monitor and log incoming data from network co
 ## Usage :
 - Download :
     ```bash
-    git clone https://github.com/HI6Cypher/NetStatus.git
+    git clone https://github.com/HI6Cypher/HI6ToolKit.git
     ```
     or download directly
     ```bash
-    https://github.com/HI6Cypher/NetStatus/archive/refs/heads/master.zip
+    https://github.com/HI6Cypher/HI6ToolKit/archive/refs/heads/master.zip
     ```
     even raw code
     ```bash
-    https://raw.githubusercontent.com/HI6Cypher/NetStatus/master/hi6toolkit.py
+    https://raw.githubusercontent.com/HI6Cypher/HI6ToolKit/master/hi6toolkit.py
     ```
 
 
