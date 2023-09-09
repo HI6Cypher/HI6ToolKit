@@ -336,14 +336,11 @@ class DoS_SYN :
         return
 
 
-class DoS_UDP :
+class DoS_UDP(DoS_SYN) :
     def __init__(self, host, port, rate, packet_size) :
-        self.host = socket.gethostbyname(host)
-        self.port = int(port) if not isinstance(port, int) else port
-        self.rate = int(rate) if not isinstance(rate, int) else rate
+        super().__init__(host, port, rate)
         self.packet_size = int(packet_size) if not isinstance(packet_size, int) else packet_size
         self.payload = b""
-        self.symbol = "█"
 
     def flood(self, module = False) :
         if not module :
@@ -386,12 +383,9 @@ class DoS_UDP :
         return
 
 
-class DoS_HTTP :
+class DoS_HTTP(DoS_SYN) :
     def __init__(self, host, port, rate) :
-        self.host = host
-        self.port = int(port) if not isinstance(port, int) else port
-        self.rate = int(rate) if not isinstance(rate, int) else rate
-        self.symbol = "█"
+        super().__init__(host, port, rate)
 
     def flood(self, module = False) :
         if not module :
@@ -561,7 +555,7 @@ class SendEmail :
         return
 
 
-class Listen :
+class Listen(DoS_SYN) :
     def __init__(self, host, port, timeout) :
         self.host = host
         self.port = int(port) if not isinstance(port, int) else port
