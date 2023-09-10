@@ -555,11 +555,12 @@ class SendEmail :
         return
 
 
-class Listen(DoS_SYN) :
-    def __init__(self, host, port, timeout) :
+class Listen :
+    def __init__(self, host, port, timeout, proto) :
         self.host = host
         self.port = int(port) if not isinstance(port, int) else port
         self.timeout = int(timeout) if not isinstance(timeout, int) else timeout
+        self.proto = proto
         self.all_data = str()
         self.time = datetime.datetime.today()
 
@@ -575,16 +576,16 @@ class Listen(DoS_SYN) :
             print(art)
             input("\nPress anykey to continue...\n")
         counter = 1
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listen :
+        with socket.socket(socket.AF_INET, self.proto) as listen :
             listen.settimeout(self.timeout)
             listen.bind((self.host, int(self.port)))
-            listen.listen(5)
+            listen.listen(5) if self.proto == socket.SOCK_STREAM else None
             while True :
                 try :
                     time = datetime.datetime.today()
                     time = time.strftime('%Y%m%d%H%M%S')
-                    conn, address = listen.accept()
-                    payload = conn.recv(1024)
+                    conn, address = listen.accept() if self.proto == socket.SOCK_STREAM else listen.recvfrom(1024)
+                    payload = conn.recv(1024) if self.proto == socket.SOCK_STREAM else conn
                     text = f"[{counter}][{time}] connection from {address}\n"
                     print(text)
                     if payload :
@@ -682,9 +683,16 @@ if __name__ == "__main__" :
                 help_message()
             return
 
-        def Listen_args(host, port, timeout) :
+        def Listen_args(host, port, timeout, proto) :
             try :
-                listen = Listen(host, port, timeout)
+                protos = ["TCP", "Tcp", "tcp", "UDP", "Udp", "udp"]
+                if proto in protos[:3] :
+                    proto = socket.SOCK_STREAM
+                elif proto in protos[3:] :
+                    proto = socket.SOCK_DGRAM
+                else :
+                    raise TypeError(f"{proto} is not in {protos}")
+                listen = Listen(host, port, timeout, proto)
                 listen.listen()
             except Exception as error :
                 print(error)
@@ -703,7 +711,7 @@ if __name__ == "__main__" :
         elif args.Tool in email_names :
             SendEmail_args(args.smtp, args.sender, args.key, args.rcptpath, args.subject, args.textpath)
         elif args.Tool in listen_names :
-            Listen_args(args.host, args.port, args.time)
+            Listen_args(args.host, args.port, args.time, args.method)
         else :
             help_message()
         return
