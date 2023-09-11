@@ -123,7 +123,7 @@ The network listener allows you to monitor and log incoming data from network co
 
 - To start the network listener :
     ```bash
-    python hi6toolkit.py LISTEN -x [host] -p [port] -t [time-out]
+    python hi6toolkit.py LISTEN -m [TCP/UDP] -x [host] -p [port] -t [time-out]
     ```
 - Note : what's recipients file look like? (saperate with space)
     ```text
