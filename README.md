@@ -55,7 +55,7 @@ The network listener allows you to monitor and log incoming data from network co
 		Urgent Pointer : 0
 		Raw Data :
 			b'\x04\xb2\xeb\xa1y\xf9\xaf\x90\x9a\xc0\xd5
-			xe5P\x18\x08\x00$\xc9\x00\x00{"time": "09/03/
+			\xe5P\x18\x08\x00$\xc9\x00\x00{"time": "09/03/
             2023--19:07:19", "sender": "127.0.0.1", "hostname":
             "HI6Cypher", "host": "127.0.0.1", "message": "H3ll0 W0r1d"}'\
 
