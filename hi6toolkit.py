@@ -245,7 +245,7 @@ class DoS_SYN :
         self.port = int(port) if not isinstance(port, int) else port
         self.rate = int(rate) if not isinstance(rate, int) else rate
         self.socket_protocol = socket.IPPROTO_TCP if platform.system() != "Windows" else socket.IPPROTO_IP
-        self.symbol = "█"
+        self.symbol = chr(9608)
 
     def __ip_header(self, version = 4, ihl = 5, tos = 0, 
                 tlen = 40, iden = 321, offset = 0, 
