@@ -158,7 +158,7 @@ class Sniff :
             if counter % 10 != 0 :
                 text += f"{i}\\"
             else :
-                text += f"{i}\n\t\t\t"
+                text += f"{i}\n\t\t\t\\"
             counter += 1
         text += "\n\n\n"
         return text
