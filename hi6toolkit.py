@@ -699,12 +699,15 @@ if __name__ == "__main__" :
                 help_message()
             return
 
+        art_names = ["ART", "Art", "art"]
         sniff_names = ["SNIFF", "Sniff", "sniff"]
         dos_names = ["DOS", "DoS", "Dos", "dos"]
         email_names = ["EMAIL", "Email", "email"]
         listen_names = ["LISTEN", "Listen", "listen"]
 
-        if args.Tool in sniff_names :
+        if args.Tool in art_names :
+            print(art)
+        elif args.Tool in sniff_names :
             PacketSniff_args(args.host, args.method)
         elif args.Tool in dos_names :
             DoS_args(args.method, args.host, args.port, args.rate, args.size)

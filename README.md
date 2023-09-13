@@ -102,7 +102,7 @@ The network listener allows you to monitor and log incoming data from network co
 
 
     System: [os info] [Intel64 Family 6 Model 15 Stepping 13, GenuineIntel]
-    Hostname: [a name]
+    Hostname: [hostname]
     Python: [CPython 3.6.0]
 
     GitHub: [github.com/HI6Cypher]
@@ -124,6 +124,11 @@ The network listener allows you to monitor and log incoming data from network co
 - To start the network listener :
     ```bash
     python hi6toolkit.py LISTEN -m [TCP/UDP] -x [host] -p [port] -t [time-out]
+    ```
+
+- To see some information of os,.. and ascii art :
+    ```bash
+    python hi6toolkit.py ART
     ```
 - Note : what's recipients file look like? (saperate with space)
     ```text
