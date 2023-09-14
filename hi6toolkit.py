@@ -45,12 +45,12 @@ $R@i.~~ !  :  :   ~$$$$$B$$en:``
 |_|  |_||_____| \___/   |_|  \___/  \___/ |_||_|\_\|_| \__|
 
 
-System: [{platform.platform()}] [{platform.processor()}]
-Hostname: [{platform.node()}]
-Python: [{platform.python_implementation()} {platform.python_version()}]
+[System] : [{platform.platform()}] [{platform.processor()}]
+[Hostname] : [{platform.node()}]
+[Python] : [{platform.python_implementation()} {platform.python_version()}]
 
-GitHub: [github.com/HI6Cypher]
-Email: [huaweisclu31@hotmail.com]
+[GitHub] : [github.com/HI6Cypher]
+[Email] : [huaweisclu31@hotmail.com]
 
 
 """
@@ -507,7 +507,6 @@ class SendEmail :
 			print(f"[+] {response_fi[-1]}")
 		else :
 			print(f"[-] we've got problem here ({response_fi[0]})")
-		
 		return
 
 	def __wrap(self, smtp_server, sender, sender_password, recipients, subject, text) :
@@ -568,7 +567,7 @@ class Listen :
 		path = f"data{self.time.strftime('%Y%m%d%H%M%S')}.txt"
 		mode = "a" if os.path.exists(path) else "x"
 		with open(path, mode) as file :
-			file.write(self.all_data)
+			file.write(self.all_data.replace("\r", ""))
 		return
 
 	def listen(self, module = False) :
@@ -586,7 +585,7 @@ class Listen :
 					time = time.strftime('%Y%m%d%H%M%S')
 					conn, address = listen.accept() if self.proto == socket.SOCK_STREAM else listen.recvfrom(1024)
 					payload = conn.recv(1024) if self.proto == socket.SOCK_STREAM else conn
-					text = f"[{counter}][{time}] connection from {address}\n"
+					text = f"\n[{counter}][{time}] connection from {address}\n"
 					print(text)
 					if payload :
 						self.all_data += text + payload.decode()
@@ -605,7 +604,7 @@ class Listen :
 		return
 
 if __name__ == "__main__" :
-	info = "GitHub : github.com/HI6Cypher    Email : huaweisclu31@hotmail.com"
+	info = "[GitHub] : github.com/HI6Cypher [Email] : huaweisclu31@hotmail.com"
 	os.system("clear || cls")
 	def manage_args() :
 		parser = argparse.ArgumentParser(prog = "hi6toolkit", epilog = info, add_help = True)
