@@ -5,7 +5,6 @@ import base64
 import binascii
 import argparse
 import platform
-import ipaddress
 import datetime
 import time
 import sys
@@ -78,8 +77,8 @@ class Sniff :
 		protos = {1: "ICMP", 2: "IGMP", 6: "TCP", 17: "UDP"}
 		proto = protos[payload[6]] if payload[6] in protos.keys() else payload[6]
 		csum = hex(payload[7])
-		src = ipaddress.ip_address(payload[8])
-		dest = ipaddress.ip_address(payload[9])
+		src = socket.inet_ntop(socket.AF_INET, payload[8])
+		dest = socket.inet_ntop(socket.AF_INET, payload[9])
 		return ver, ihl, tos, tlen, iden, flags, \
 			offset, ttl, proto, csum, src, dest
 
