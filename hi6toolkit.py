@@ -296,9 +296,12 @@ class DoS_SYN :
 		return payload
 
 	def flood(self, module = False) :
-		if not module :
-			print(art)
-			input("\nPress anykey to continue...\n")
+		try :
+			if not module :
+				print(art)
+				input("\nPress anykey to continue...\n")
+		except KeyboardInterrupt :
+			sys.exit(1)
 		with concurrent.futures.ThreadPoolExecutor() as task :
 			task.submit(self.__flood())
 		return
@@ -343,9 +346,12 @@ class DoS_UDP(DoS_SYN) :
 		self.payload = b""
 
 	def flood(self, module = False) :
-		if not module :
-			print(art)
-			input("\nPress anykey to continue...\n")
+		try :
+			if not module :
+				print(art)
+				input("\nPress anykey to continue...\n")
+		except KeyboardInterrupt :
+			sys.exit(1)
 		with concurrent.futures.ThreadPoolExecutor() as task :
 			task.submit(self.__flood())
 		return
@@ -388,9 +394,12 @@ class DoS_HTTP(DoS_SYN) :
 		super().__init__(host, port, rate)
 
 	def flood(self, module = False) :
-		if not module :
-			print(art)
-			input("\nPress anykey to continue...\n")
+		try :
+			if not module :
+				print(art)
+				input("\nPress anykey to continue...\n")
+		except KeyboardInterrupt :
+			sys.exit(1)
 		with concurrent.futures.ThreadPoolExecutor() as task :
 			task.submit(self.__flood())
 		return
@@ -438,9 +447,12 @@ class SendEmail :
 		self.text = text
 
 	def sendemail(self, module = False) :
-		if not module :
-			print(art)
-			input("\nPress anykey to continue...\n")
+		try :
+			if not module :
+				print(art)
+				input("\nPress anykey to continue...\n")
+		except KeyboardInterrupt :
+			sys.exit(1)
 		print(f"[*] setting up socket : socket.SOCK_STREAM")
 		with concurrent.futures.ThreadPoolExecutor() as task :
 			task.submit(self.__wrap(self.smtp, self.sender, self.sender_password,
@@ -570,36 +582,39 @@ class Listen :
 		return
 
 	def listen(self, module = False) :
-		if not module :
-			print(art)
-			input("\nPress anykey to continue...\n")
+		try :
+			if not module :
+				print(art)
+				input("\nPress anykey to continue...\n")
+		except KeyboardInterrupt :
+			sys.exit(1)
 		counter = 1
-		with socket.socket(socket.AF_INET, self.proto) as listen :
-			listen.settimeout(self.timeout)
-			listen.bind((self.host, int(self.port)))
-			listen.listen(5) if self.proto == socket.SOCK_STREAM else None
-			while True :
+		try :
+			with socket.socket(socket.AF_INET, self.proto) as listen :
+				listen.settimeout(self.timeout)
+				listen.bind((self.host, int(self.port)))
+				listen.listen(5) if self.proto == socket.SOCK_STREAM else None
 				try :
-					time = datetime.datetime.today()
-					time = time.strftime('%Y%m%d%H%M%S')
-					conn, address = listen.accept() if self.proto == socket.SOCK_STREAM else listen.recvfrom(1024)
-					payload = conn.recv(1024) if self.proto == socket.SOCK_STREAM else conn
-					text = f"\n[{counter}][{time}] connection from {address}\n"
-					print(text)
-					if payload :
-						self.all_data += text + payload.decode()
-						self.__save()
-						print(payload.decode())
-						counter += 1
-						self.all_data = str()
+					while True :
+						time = datetime.datetime.today()
+						time = time.strftime('%Y%m%d%H%M%S')
+						conn, address = listen.accept() if self.proto == socket.SOCK_STREAM else listen.recvfrom(1024)
+						payload = conn.recv(1024) if self.proto == socket.SOCK_STREAM else conn
+						text = f"\n[{counter}][{time}] connection from {address}\n"
+						print(text)
+						if payload :
+							self.all_data += text + payload.decode()
+							self.__save()
+							print(payload.decode())
+							counter += 1
+							self.all_data = str()
 				except KeyboardInterrupt :
-					break
-				except socket.error as error:
-					error = " ".join(str(error).split()[2:])
-					print(f"[!] Error - {error or None}")
-					break
-				except Exception as error :
-					print(f"[!] Error - {error or None}")
+					sys.exit(1)
+		except socket.error as error:
+			error = " ".join(str(error).split()[2:])
+			print(f"[!] Error - {error or None}")
+		except Exception as error :
+			print(f"[!] Error - {error or None}")
 		return
 
 if __name__ == "__main__" :
