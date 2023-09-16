@@ -120,6 +120,10 @@ The network listener allows you to monitor and log incoming data from network co
     ```bash
     python hi6toolkit.py EMAIL --sender=[sender email] --key=[sender password] --rcptpath=[path of recipients file] --subject=[subject] --textpath=[path of message file]
     ```
+- Note : in recpfile, emails should saperate with space like this
+    ```
+    email@hotmail.com email@outlook.com email@gmail.com ...
+    ```
 
 - To start the network listener :
     ```bash
