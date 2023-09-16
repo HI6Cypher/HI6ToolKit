@@ -138,10 +138,7 @@ The network listener allows you to monitor and log incoming data from network co
     ```python
     from hi6toolkit import Sniff, DoS_SYN, DoS_UDP, DoS_HTTP, SendEmail, Listen
     ```
-- Note : in KEYSfile, passwords must saperate with space like this
-    ```text
-    examplepassword helloworld unknownpass pass12345 12345admin...
-    ```
+
 - Exception :
     To send TCP/IP packet we need raw socket with `socket.IPPROTO_TCP` that 
     we have limitations :\ on raw socket in some Windows versions(XP, Vista, 7,...)
