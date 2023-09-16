@@ -1,11 +1,11 @@
 # HI6ToolKit :|
 This script provides PacketSniffer that captures and analyzes the incoming packets(ICMP, IGMP, TCP, UDP).
-The sniffed data can be saved to a file for further analysis. it provides functionality for launching DoS attacks and listening for incoming network connections. It supports SYN flood(Exception*), HTTP, UDP and The DoS attacks can be customized with parameters such as the target host, port, rate, and packet size.
+The sniffed data can be saved to a file for further analysis. it provides functionality for launching DoS attacks, it supports SYN flood(Exception*), HTTP, UDP and The DoS attacks can be customized with parameters such as the target host, port, rate, and packet size.
 it provides emailing tools like send email to list of targets(mass emailing)
 The network listener allows you to monitor and log incoming data from network connections
 
 ## Classes :
-- PacketSniff : Represents a Packet sniffing
+- Sniff : Represents a Packet sniffing
 - DoS_SYN : Represents a SYN flooding attack
 - DoS_UDP : Represents a UDP flooding attack
 - DoS_HTTP : Represents a HTTP flooding attack
@@ -69,7 +69,7 @@ The network listener allows you to monitor and log incoming data from network co
     ```bash
     python hi6toolkit.py DOS -m [SYN/HTTP] -x [host] -p [port] -r [rate]
     ```
-- Example of UDP flood :
+- Example of UDP flood (127.0.0.1) :
     ```
                         :::!~!!!!!:.
                     .xUHWH!! !!?M88WHX:.
@@ -130,13 +130,9 @@ The network listener allows you to monitor and log incoming data from network co
     ```bash
     python hi6toolkit.py ART
     ```
-- Note : what's recipients file look like? (saperate with space)
-    ```text
-    email1@hotmail.com email2@gmail.com email3@outlook.com...
-    ```
 - Note : HI6ToolKit is a script, but it can use modular(set module argument, True)
     ```python
-    from hi6toolkit import PacketSniff, DoS_SYN, DoS_UDP, DoS_HTTP, SendEmail, Listen
+    from hi6toolkit import Sniff, DoS_SYN, DoS_UDP, DoS_HTTP, SendEmail, Listen
     ```
 - Note : in KEYSfile, passwords must saperate with space like this
     ```text
@@ -147,10 +143,10 @@ The network listener allows you to monitor and log incoming data from network co
     we have limitations :\ on raw socket in some Windows versions(XP, Vista, 7,...)
     to more information visit [Site](https://learn.microsoft.com/en-us/windows/win32/winsock/tcp-ip-raw-sockets-2).
 
-    so for this feature u have to use non-windows :\
+    so for this feature(DoS_SYN) limited to use non-windows(fuck microsoft :|) :\
 ## License
 
-This project is licensed under the [MIT License](https://opensource.org/licenses/MIT)
+This project is licensed under the [GPL v3.0 License](https://www.gnu.org/licenses/gpl-3.0.html)
 
 GitHub : [github.com/HI6Cypher](https://github.com/HI6Cypher) :)
 
