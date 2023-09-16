@@ -101,6 +101,8 @@ The network listener allows you to monitor and log incoming data from network co
     |_|  |_||_____| \___/   |_|  \___/  \___/ |_||_|\_\|_| \__|
 
 
+    HI6ToolKit Copyright (C) 2023 HI6Cypher
+
     System: [os info] [Intel64 Family 6 Model 15 Stepping 13, GenuineIntel]
     Hostname: [hostname]
     Python: [CPython 3.6.0]
