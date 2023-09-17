@@ -1,6 +1,6 @@
 # HI6ToolKit :|
 This script provides PacketSniffer that captures and analyzes the incoming packets(ICMP, IGMP, TCP, UDP).
-The sniffed data can be saved to a file for further analysis. it provides functionality for launching DoS attacks, it supports SYN flood(Exception*), HTTP, UDP and The DoS attacks can be customized with parameters such as the target host, port, rate, and packet size.
+The sniffed data can be saved to a file for further analysis. it provides functionality for launching DoS attacks, it supports SYN flood(Exception*) and UDP and The DoS attacks can be customized with parameters such as the target host, port, rate, and packet size.
 it provides emailing tools like send email to list of targets(mass emailing)
 The network listener allows you to monitor and log incoming data from network connections
 
@@ -8,7 +8,6 @@ The network listener allows you to monitor and log incoming data from network co
 - Sniff : Represents a Packet sniffing
 - DoS_SYN : Represents a SYN flooding attack
 - DoS_UDP : Represents a UDP flooding attack
-- DoS_HTTP : Represents a HTTP flooding attack
 - SendEmail : Represents a mass email sender
 - Listen : Represents a network listener
 
@@ -67,8 +66,9 @@ The network listener allows you to monitor and log incoming data from network co
     ```
     and
     ```bash
-    python hi6toolkit.py DOS -m [SYN/HTTP] -x [host] -p [port] -r [rate]
+    python hi6toolkit.py DOS -m [SYN] -x [host] -p [port] -r [rate]
     ```
+
 - Example of UDP flood (127.0.0.1) :
     ```
                         :::!~!!!!!:.
@@ -118,6 +118,10 @@ The network listener allows you to monitor and log incoming data from network co
     [-] 13.73s
     ```
 
+- To sending HTTP request :
+    ```bash
+    python hi6toolkit.py HTTP -x [host] -p [port] -e [endpoint]
+    ```
 - To Send mass email :
     ```bash
     python hi6toolkit.py EMAIL --sender=[sender email] --key=[sender password] --rcptpath=[path of recipients file] --subject=[subject] --textpath=[path of message file]
@@ -138,7 +142,7 @@ The network listener allows you to monitor and log incoming data from network co
     ```
 - Note : HI6ToolKit is a script, but it can use modular(set module argument, True)
     ```python
-    from hi6toolkit import Sniff, DoS_SYN, DoS_UDP, DoS_HTTP, SendEmail, Listen
+    from hi6toolkit import Sniff, DoS_SYN, DoS_UDP, HTTP_Request, SendEmail, Listen
     ```
 
 - Exception :

