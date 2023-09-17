@@ -392,10 +392,11 @@ class DoS_UDP(DoS_SYN) :
 
 
 class HTTP_Request :
-	def __init__(self, host, port, end) :
+	def __init__(self, host, port, end, decode) :
 		self.host = host
 		self.port = int(port) if not isinstance(port, int) else port
 		self.end = end if end else "/"
+		self.decode = bool(decode) if not isinstance(decode, bool) else decode
 
 	def request(self, module = False) :
 		try :
@@ -415,7 +416,11 @@ class HTTP_Request :
 				print(payload)
 				flood.connect((self.host, self.port))
 				flood.send(payload.encode())
-				print(flood.recv(4096).decode())
+				raw_data = flood.recv(4096)
+				header = b"\r\n".join(raw_data.split(b"\r\n")[:-1])
+				data = raw_data.split(b"\r\n")[-1]
+				print(header.decode() if isinstance(header, bytes) else header)
+				print(data.decode() if self.decode else data)
 		except KeyboardInterrupt :
 			pass
 		except OSError as error :
@@ -616,6 +621,7 @@ if __name__ == "__main__" :
 		parser.add_argument("-x", "--host", type = str, help = "To specify host")
 		parser.add_argument("-p", "--port", type = int, help = "To specify port")
 		parser.add_argument("-e", "--endpoint", type = str, help = "To specify endpoint")
+		parser.add_argument("-d", "--decode", action = "store_true", help = "To specify decode boolean")
 		parser.add_argument("-r", "--rate", type = int, help = "To specify rate")
 		parser.add_argument("-s", "--size", type = int, help = "To specify packet size")
 		parser.add_argument("-t", "--time", type = int, help = "To specify timeout")
@@ -666,10 +672,10 @@ if __name__ == "__main__" :
 				help_message()
 			return
 
-		def HTTP_Request_args(host, port, endpoint) :
+		def HTTP_Request_args(host, port, endpoint, decode) :
 			port = port if port else 80
 			host = host if host else "127.0.0.1"
-			client = HTTP_Request(host, port, endpoint)
+			client = HTTP_Request(host, port, endpoint, decode)
 			client.request()
 
 		def SendEmail_args(smtp, sender, sender_password, recipient_path, subject, text_path) :
@@ -718,7 +724,7 @@ if __name__ == "__main__" :
 		elif args.Tool in dos_names :
 			DoS_args(args.method, args.host, args.port, args.rate, args.size)
 		elif args.Tool in http_names :
-			HTTP_Request_args(args.host, args.port, args.endpoint)
+			HTTP_Request_args(args.host, args.port, args.endpoint, args.decode)
 		elif args.Tool in email_names :
 			SendEmail_args(args.smtp, args.sender, args.key, args.rcptpath, args.subject, args.textpath)
 		elif args.Tool in listen_names :
