@@ -412,15 +412,21 @@ class HTTP_Request :
 	def __request(self) :
 		try :
 			with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as flood :
-				payload = f"GET {self.end} HTTP/1.1\r\nHost: {self.host}\r\nUser-Agent: HI6ToolKit\r\nAccept: */*\r\n\r\n"
+				payload = f"GET {self.end} HTTP/1.1\r\nHost: {self.host}\r\nUser-Agent: HI6ToolKit\r\nAccept: */*\r\nConnection: closed\r\n\r\n"
 				print(payload)
 				flood.connect((self.host, self.port))
 				flood.send(payload.encode())
-				raw_data = flood.recv(4096)
-				header = b"\r\n".join(raw_data.split(b"\r\n")[:-1])
-				data = raw_data.split(b"\r\n")[-1]
-				print(header.decode() if isinstance(header, bytes) else header)
-				print(data.decode() if self.decode else data)
+				raw_data = b""
+				while True :
+					response = flood.recv(4096)
+					if not response :
+						header = b"\r\n".join(raw_data.split(b"\r\n")[:-1])
+						data = raw_data.split(b"\r\n")[-1]
+						print(header.decode() if isinstance(header, bytes) else header)
+						print(data.decode() if self.decode else data)
+						break
+					else :
+						raw_data += response
 		except KeyboardInterrupt :
 			pass
 		except OSError as error :
