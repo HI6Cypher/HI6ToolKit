@@ -118,7 +118,11 @@ The network listener allows you to monitor and log incoming data from network co
     [-] 13.73s
     ```
 
-- To sending HTTP request :
+- To sending HTTP request (decode output) :
+    ```bash
+    python hi6toolkit.py HTTP -x [host] -p [port] -e [endpoint] -d
+    ```
+- To sending HTTP request (encode output) :
     ```bash
     python hi6toolkit.py HTTP -x [host] -p [port] -e [endpoint]
     ```
