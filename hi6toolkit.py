@@ -146,7 +146,7 @@ class Sniff :
 	def __proto(self) :
 		if platform.system() == "Windows" and self.proto == socket.IPPROTO_TCP :
 			raise OSError("[WinError 10022] An invalid argument was supplied")
-		if platform.system() == "Linux" and self.proto == socket.IPPROTO_IP and self.proto == socket.IPPROTO_RAW :
+		if platform.system() == "Linux" and self.proto == socket.IPPROTO_IP or self.proto == socket.IPPROTO_RAW :
 			raise OSError("[WinError 10022] An invalid argument was supplied")
 		return self.proto
 
@@ -412,7 +412,13 @@ class HTTP_Request :
 	def __request(self) :
 		try :
 			with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as flood :
-				payload = f"GET {self.end} HTTP/1.1\r\nHost: {self.host}\r\nUser-Agent: HI6ToolKit\r\nAccept: */*\r\nConnection: closed\r\n\r\n"
+				payload = [f"GET {self.end} HTTP/1.1", 
+					f"Host: {self.host}", 
+					"User-Agent: HI6ToolKit", 
+					"Accept: */*", 
+					"Connection: closed", 
+					"\r\n"]
+				payload = "\r\n".join(payload)
 				print(payload)
 				flood.connect((self.host, self.port))
 				flood.send(payload.encode())
