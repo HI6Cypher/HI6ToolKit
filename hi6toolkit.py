@@ -420,9 +420,10 @@ class HTTP_Request :
 				while True :
 					response = flood.recv(4096)
 					if not response :
-						header = b"\r\n".join(raw_data.split(b"\r\n")[:-1])
-						data = raw_data.split(b"\r\n")[-1]
-						print(header.decode() if isinstance(header, bytes) else header)
+						raw_data = raw_data.split(b"\r\n\r\n", 1)
+						header = raw_data[0]
+						data = raw_data[-1]
+						print(header.decode() if isinstance(header, bytes) else header, end = "\n\n")
 						print(data.decode() if self.decode else data)
 						break
 					else :
