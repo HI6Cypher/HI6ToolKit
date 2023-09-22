@@ -91,7 +91,7 @@ class Sniff :
 		csum = hex(payload[2])
 		iden = payload[3]
 		sequ = payload[4]
-		data = raw_payload
+		data = raw_payload[8:]
 		return typ, code, csum, iden, sequ, data
 
 	def __IGMPv1header(self, raw_payload) :
@@ -100,7 +100,7 @@ class Sniff :
 		typ = payload[0] & 0xf
 		csum = hex(payload[2])
 		gr_ad = payload[3]
-		data = raw_payload
+		data = raw_payload[8:]
 		return version, typ, csum, gr_ad, data
 
 	def __IGMPv2header(self, raw_payload) :
@@ -109,7 +109,7 @@ class Sniff :
 		mrtime = payload[1]
 		csum = hex(payload[2])
 		gr_ad = payload[3]
-		data = raw_payload
+		data = raw_payload[8:]
 		return typ, mrtime, csum, gr_ad, data
 
 	def __TCPheader(self, raw_payload) :
@@ -130,7 +130,7 @@ class Sniff :
 		win = payload[6]
 		csum = hex(payload[7])
 		urgp = payload[8]
-		data = raw_payload
+		data = raw_payload[offset:]
 		return srcp, destp, sequ, ackn, offset, flags, \
 			win, csum, urgp, data
 
@@ -140,7 +140,7 @@ class Sniff :
 		destp = payload[1]
 		tlen = payload[2]
 		csum = hex(payload[3])
-		data = raw_payload
+		data = raw_payload[8:]
 		return srcp, destp, tlen, csum, data
 
 	def __proto(self) :
