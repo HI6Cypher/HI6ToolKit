@@ -645,19 +645,15 @@ if __name__ == "__main__" :
 			return
 
 		def DoS_args(method, host, port, rate, size) :
-			try :
-				syn_names = ["SYN", "Syn", "syn"]
-				udp_names = ["UDP", "Udp", "udp"]
-				if method in syn_names :
-					flood = DoS_SYN(host, port, rate)
-					flood.flood()
-				elif method in udp_names :
-					flood = DoS_UDP(host, port, rate, size)
-					flood.flood()
-				else :
-					help_message()
-			except Exception as error :
-				print(error)
+			syn_names = ["SYN", "Syn", "syn"]
+			udp_names = ["UDP", "Udp", "udp"]
+			if method in syn_names :
+				flood = DoS_SYN(host, port, rate)
+				flood.flood()
+			elif method in udp_names :
+				flood = DoS_UDP(host, port, rate, size)
+				flood.flood()
+			else :
 				help_message()
 			return
 
@@ -668,35 +664,27 @@ if __name__ == "__main__" :
 			client.request()
 
 		def SendEmail_args(smtp, sender, sender_password, recipient_path, subject, text_path) :
-			try :
-				if os.path.exists(recipient_path) :
-					with open(recipient_path) as file :
-						recitpients = file.read()
-					with open(text_path) as file :
-						message = file.read()
-					sendemail = SendEmail(smtp, sender, sender_password, recitpients, subject, message)
-					sendemail.sendemail()
-				else :
-					raise FileNotFoundError(recipient_path)
-			except Exception as error :
-				print(error)
-				help_message()
+			if os.path.exists(recipient_path) :
+				with open(recipient_path) as file :
+					recitpients = file.read()
+				with open(text_path) as file :
+					message = file.read()
+				sendemail = SendEmail(smtp, sender, sender_password, recitpients, subject, message)
+				sendemail.sendemail()
+			else :
+				print(f"[!] Error - {recipient_path} not found")
 			return
 
 		def Listen_args(host, port, timeout, proto) :
-			try :
-				protos = ["TCP", "Tcp", "tcp", "UDP", "Udp", "udp"]
-				if proto in protos[:3] :
-					proto = socket.SOCK_STREAM
-				elif proto in protos[3:] :
-					proto = socket.SOCK_DGRAM
-				else :
-					raise TypeError(f"{proto} is not in {protos}")
-				listen = Listen(host, port, timeout, proto)
-				listen.listen()
-			except Exception as error :
-				print(error)
-				help_message()
+			protos = ["TCP", "Tcp", "tcp", "UDP", "Udp", "udp"]
+			if proto in protos[:3] :
+				proto = socket.SOCK_STREAM
+			elif proto in protos[3:] :
+				proto = socket.SOCK_DGRAM
+			else :
+				raise TypeError(f"{proto} is not in {protos}")
+			listen = Listen(host, port, timeout, proto)
+			listen.listen()
 			return
 
 		art_names = ["ART", "Art", "art"]
