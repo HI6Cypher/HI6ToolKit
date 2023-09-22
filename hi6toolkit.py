@@ -233,9 +233,6 @@ class Sniff :
 				except KeyboardInterrupt :
 					sniff.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF) if self.ioctl else None
 					sys.exit(1)
-		except OSError as error :
-			error = " ".join(str(error).split()[2:])
-			print(f"[!] Error - {error or None}")
 		except Exception as error :
 			print(f"[!] Error - {error or None}")
 		return
@@ -331,10 +328,7 @@ class DoS_SYN :
 				print("\n[+] All packets have sent")
 				print(f"[-] {end_time}s")
 		except KeyboardInterrupt :
-			pass
-		except OSError as error :
-			error = " ".join(str(error).split()[2:])
-			print(f"[!] Error - {error or None}")
+			sys.exit(1)
 		except Exception as error :
 			print(f"[!] Error - {error or None}")
 		return
@@ -381,10 +375,7 @@ class DoS_UDP(DoS_SYN) :
 				print("\n[+] All packets have sent")
 				print(f"[-] {end_time}s")
 		except KeyboardInterrupt :
-			pass
-		except OSError as error :
-			error = " ".join(str(error).split()[2:])
-			print(f"[!] Error - {error or None}")
+			sys.exit(1)
 		except Exception as error :
 			print(f"[!] Error - {error or None}")
 		return
@@ -429,10 +420,7 @@ class HTTP_Request :
 					else :
 						raw_data += response
 		except KeyboardInterrupt :
-			pass
-		except OSError as error :
-			error = " ".join(str(error).split()[2:])
-			print(f"[!] Error - {error or None}")
+			sys.exit(1)
 		except Exception as error :
 			print(f"[!] Error - {error or None}")
 		return
@@ -558,9 +546,6 @@ class SendEmail :
 						sys.exit(1)
 		except KeyboardInterrupt :
 			sys.exit(1)
-		except OSError as error:
-			error = " ".join(str(error).split()[2:])
-			print(f"[!] Error - {error or None}")
 		except Exception as error :
 			print(f"[!] Error - {error or None}")
 		return
@@ -606,14 +591,11 @@ class Listen :
 						if payload :
 							self.all_data += text + payload.decode()
 							self.__save()
-							print(payload.decode())
+							print(payload.decod())
 							counter += 1
 							self.all_data = str()
 				except KeyboardInterrupt :
 					sys.exit(1)
-		except socket.error as error:
-			error = " ".join(str(error).split()[2:])
-			print(f"[!] Error - {error or None}")
 		except Exception as error :
 			print(f"[!] Error - {error or None}")
 		return
