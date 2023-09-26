@@ -405,6 +405,7 @@ class HTTP_Request :
 				payload = [f"GET {self.end} HTTP/1.1\r\nHost: {self.host}\r\nUser-Agent: HI6ToolKit\r\nAccept: */*\r\nConnection: closed\r\n\r\n"]
 				payload = "\r\n".join(payload)
 				print(payload)
+				flood.settimeout(30)
 				flood.connect((self.host, self.port))
 				flood.send(payload.encode())
 				raw_data = b""
