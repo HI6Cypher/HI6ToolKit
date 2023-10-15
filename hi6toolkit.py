@@ -402,7 +402,13 @@ class HTTP_Request :
     def __request(self) :
         try :
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as flood :
-                payload = [f"GET {self.end} HTTP/1.1\r\nHost: {self.host}\r\nUser-Agent: HI6ToolKit\r\nAccept: */*\r\nConnection: closed\r\n\r\n"]
+                payload = [
+                            f"GET {self.end} HTTP/1.1", 
+                            f"Host: {self.host}", 
+                            "User-Agent: HI6ToolKit", 
+                            "Accept: */*", 
+                            "Connection: closed", 
+                            "\r\n"]
                 payload = "\r\n".join(payload)
                 print(payload)
                 flood.settimeout(30)
