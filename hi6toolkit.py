@@ -407,7 +407,7 @@ class HTTP_Request :
                             f"Host: {self.host}", 
                             "User-Agent: HI6ToolKit", 
                             "Accept: */*", 
-                            "Connection: closed", 
+                            "Connection: close", 
                             "\r\n"]
                 payload = "\r\n".join(payload)
                 print(payload)
