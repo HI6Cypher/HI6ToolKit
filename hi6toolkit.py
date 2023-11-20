@@ -150,7 +150,6 @@ class Sniff :
             raise OSError("[WinError 10022] An invalid argument was supplied")
         return self.proto
 
-
     def __writedata(self, data) :
         counter = 1
         data = str(data).split("\\")
