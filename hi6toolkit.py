@@ -387,7 +387,6 @@ class HTTP_Request :
         self.end = end if end else "/"
         self.decode = bool(decode) if not isinstance(decode, bool) else decode
         self.symbol = chr(9608)
-        
 
     def request(self, module = False) :
         try :
