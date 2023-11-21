@@ -386,6 +386,8 @@ class HTTP_Request :
         self.port = int(port) if not isinstance(port, int) else port
         self.end = end if end else "/"
         self.decode = bool(decode) if not isinstance(decode, bool) else decode
+        self.symbol = chr(9608)
+        
 
     def request(self, module = False) :
         try :
@@ -414,16 +416,29 @@ class HTTP_Request :
                 flood.connect((self.host, self.port))
                 flood.send(payload.encode())
                 raw_data = b""
+                counter = 0
+                space = str()
                 while True :
                     response = flood.recv(4096)
                     if not response :
                         raw_data = raw_data.split(b"\r\n\r\n", 1)
                         header = raw_data[0]
                         data = raw_data[-1]
+                        print(28 * chr(32), end = "\n")
                         print(header.decode() if isinstance(header, bytes) else header, end = "\n\n")
                         print(data.decode() if self.decode else data)
                         break
                     else :
+                        if counter != 16 :
+                            print(f"{self.symbol} Downloading", end = "\r", flush = True)
+                            counter += 1
+                            self.symbol += chr(9608)
+                            space += 2 * chr(32)
+                        else :
+                            print(space, end = "\r", flush = True)
+                            counter = 0
+                            self.symbol = chr(9608)
+                            space = str()
                         raw_data += response
         except KeyboardInterrupt :
             sys.exit(1)
