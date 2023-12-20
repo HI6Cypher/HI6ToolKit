@@ -120,11 +120,19 @@ The network listener allows you to monitor and log incoming data from network co
 
 - To sending HTTP request (decode output) :
     ```bash
-    python hi6toolkit.py HTTP -x [host] -p [port] -e [endpoint] -d
+    python hi6toolkit.py HTTP -x [host] -p [port/default=80] -e [endpoint] -d
     ```
 - To sending HTTP request (encode output) :
     ```bash
-    python hi6toolkit.py HTTP -x [host] -p [port] -e [endpoint]
+    python hi6toolkit.py HTTP -x [host] -p [port/default=80] -e [endpoint]
+    ```
+- To sending HTTPS request (decode output) :
+    ```bash
+    python hi6toolkit.py HTTPS -x [host] -p [port/default=443] -e [endpoint] -d
+    ```
+- To sending HTTPS request (encode output) :
+    ```bash
+    python hi6toolkit.py HTTPS -x [host] -p [port/default=443] -e [endpoint]
     ```
 - To Send mass email :
     ```bash
