@@ -388,11 +388,12 @@ class DoS_UDP(DoS_SYN) :
 
 
 class HTTP_Request :
-    def __init__(self, host, port, end, decode) :
+    def __init__(self, host, port, end, decode, https) :
         self.host = host
         self.port = int(port) if not isinstance(port, int) else port
         self.end = end if end else "/"
         self.decode = bool(decode) if not isinstance(decode, bool) else decode
+        self.https = bool(https) if not isinstance(https, bool) else https
         self.symbol = chr(9608)
 
     def request(self, module = False) :
@@ -408,7 +409,9 @@ class HTTP_Request :
 
     def __request(self) :
         try :
+            sslcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2) if self.https is True else None
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as flood :
+                flood = sslcontext.wrap_socket(flood, server_hostname = self.host) if self.https is True else flood
                 payload = [
                             f"GET {self.end} HTTP/1.1", 
                             f"Host: {self.host}", 
@@ -433,6 +436,7 @@ class HTTP_Request :
                         print(28 * chr(32), end = "\n")
                         print(header.decode() if isinstance(header, bytes) else header, end = "\n\n")
                         print(data.decode() if self.decode else data)
+                        flood.close()
                         break
                     else :
                         if counter != 16 :
@@ -687,7 +691,13 @@ if __name__ == "__main__" :
         def HTTP_Request_args(host, port, endpoint, decode) :
             port = port if port else 80
             host = host if host else "127.0.0.1"
-            client = HTTP_Request(host, port, endpoint, decode)
+            client = HTTP_Request(host, port, endpoint, decode, https = False)
+            client.request()
+
+        def HTTPS_Request_args(host, port, endpoint, decode) :
+            port = port if port else 443
+            host = host if host else "127.0.0.1"
+            client = HTTP_Request(host, port, endpoint, decode, https = True)
             client.request()
 
         def SendEmail_args(smtp, sender, sender_password, recipient_path, subject, text_path) :
@@ -718,6 +728,7 @@ if __name__ == "__main__" :
         sniff_names = ["SNIFF", "Sniff", "sniff"]
         dos_names = ["DOS", "DoS", "Dos", "dos"]
         http_names = ["HTTP", "Http", "http"]
+        https_names = ["HTTPS", "Https", "https"]
         email_names = ["EMAIL", "Email", "email"]
         listen_names = ["LISTEN", "Listen", "listen"]
 
@@ -729,6 +740,8 @@ if __name__ == "__main__" :
             DoS_args(args.method, args.host, args.port, args.rate, args.size)
         elif args.Tool in http_names :
             HTTP_Request_args(args.host, args.port, args.endpoint, args.decode)
+        elif args.Tool in https_names :
+            HTTPS_Request_args(args.host, args.port, args.endpoint, args.decode)
         elif args.Tool in email_names :
             SendEmail_args(args.smtp, args.sender, args.key, args.rcptpath, args.subject, args.textpath)
         elif args.Tool in listen_names :
