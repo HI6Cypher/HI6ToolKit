@@ -558,7 +558,7 @@ class SendEmail :
                 self.__recv(mail)
                 print("[*] starting TLS connection")
                 print("[*] wraping socket with TLS connection")
-                ssl_conn = ssl.create_default_context()
+                ssl_conn = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
                 with ssl_conn.wrap_socket(sock = mail, server_hostname = smtp_server) as protomail :
                     print("[+] socket successfully wraped")
                     print(f"[*] sending ehlo to the server {smtp_server} on TLS connection")
