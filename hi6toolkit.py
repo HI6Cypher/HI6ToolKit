@@ -573,7 +573,7 @@ class Listen :
                         if payload :
                             self.all_data += text + payload.decode()
                             self.__save()
-                            print(payload.decod())
+                            print(payload.decode())
                             counter += 1
                             self.all_data = str()
                 except KeyboardInterrupt :
@@ -625,13 +625,9 @@ if __name__ == "__main__" :
             sniff.sniff()
             return
 
-        def DoS_args(method, host, port, rate) :
-            syn_names = ["SYN", "Syn", "syn"]
-            if method in syn_names :
-                flood = DoS_SYN(host, port, rate)
-                flood.flood()
-            else :
-                help_message()
+        def DoS_args(host, port, rate) :
+            flood = DoS_SYN(host, port, rate)
+            flood.flood()
             return
 
         def HTTP_Request_args(host, port, endpoint, decode) :
@@ -683,7 +679,7 @@ if __name__ == "__main__" :
         elif args.Tool in sniff_names :
             PacketSniff_args(args.host, args.method)
         elif args.Tool in dos_names :
-            DoS_args(args.method, args.host, args.port, args.rate)
+            DoS_args(args.host, args.port, args.rate)
         elif args.Tool in http_names :
             HTTP_Request_args(args.host, args.port, args.endpoint, args.decode)
         elif args.Tool in https_names :
