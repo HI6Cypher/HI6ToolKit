@@ -594,7 +594,6 @@ if __name__ == "__main__" :
         parser.add_argument("-e", "--endpoint", type = str, help = "To specify endpoint")
         parser.add_argument("-d", "--decode", action = "store_true", help = "To specify decode boolean")
         parser.add_argument("-r", "--rate", type = int, help = "To specify rate")
-        parser.add_argument("-s", "--size", type = int, help = "To specify packet size")
         parser.add_argument("-t", "--time", type = int, help = "To specify timeout")
         parser.add_argument("--smtp", type = str, help = "To specify SMTP server")
         parser.add_argument("--sender", type = str, help = "To specify sender email")
@@ -626,14 +625,10 @@ if __name__ == "__main__" :
             sniff.sniff()
             return
 
-        def DoS_args(method, host, port, rate, size) :
+        def DoS_args(method, host, port, rate) :
             syn_names = ["SYN", "Syn", "syn"]
-            udp_names = ["UDP", "Udp", "udp"]
             if method in syn_names :
                 flood = DoS_SYN(host, port, rate)
-                flood.flood()
-            elif method in udp_names :
-                flood = DoS_UDP(host, port, rate, size)
                 flood.flood()
             else :
                 help_message()
@@ -688,7 +683,7 @@ if __name__ == "__main__" :
         elif args.Tool in sniff_names :
             PacketSniff_args(args.host, args.method)
         elif args.Tool in dos_names :
-            DoS_args(args.method, args.host, args.port, args.rate, args.size)
+            DoS_args(args.method, args.host, args.port, args.rate)
         elif args.Tool in http_names :
             HTTP_Request_args(args.host, args.port, args.endpoint, args.decode)
         elif args.Tool in https_names :
