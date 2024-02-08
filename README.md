@@ -1,13 +1,12 @@
 # HI6ToolKit :|
 This script provides PacketSniffer that captures and analyzes the incoming packets(ICMP, IGMP, TCP, UDP).
-The sniffed data can be saved to a file for further analysis. it provides functionality for launching DoS attacks, it supports SYN flood(Exception*) and UDP and The DoS attacks can be customized with parameters such as the target host, port, rate, and packet size.
+The sniffed data can be saved to a file for further analysis. it provides functionality for launching DoS attacks, it supports SYN flood(Exception*).
 it provides emailing tools like send email to list of targets(mass emailing)
 The network listener allows you to monitor and log incoming data from network connections
 
 ## Classes :
 - Sniff : Represents a Packet sniffing
 - DoS_SYN : Represents a SYN flooding attack
-- DoS_UDP : Represents a UDP flooding attack
 - SendEmail : Represents a mass email sender
 - Listen : Represents a network listener
 
@@ -60,11 +59,7 @@ The network listener allows you to monitor and log incoming data from network co
 
     ```
 
-- To launch a DoS attack :
-    ```bash
-    python hi6toolkit.py DOS -m [UDP] -x [host] -p [port] -r [rate] -s [packet_size]
-    ```
-    and
+- To launch a DoS attack(SYN FLOOD) :
     ```bash
     python hi6toolkit.py DOS -m [SYN] -x [host] -p [port] -r [rate]
     ```
@@ -154,7 +149,7 @@ The network listener allows you to monitor and log incoming data from network co
     ```
 - Note : HI6ToolKit is a script, but it can use modular(set module argument, True)
     ```python
-    from hi6toolkit import Sniff, DoS_SYN, DoS_UDP, HTTP_Request, SendEmail, Listen
+    from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, SendEmail, Listen
     ```
 
 - Exception :
