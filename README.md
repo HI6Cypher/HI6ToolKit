@@ -64,7 +64,7 @@ The network listener allows you to monitor and log incoming data from network co
     python hi6toolkit.py DOS -m [SYN] -x [host] -p [port] -r [rate]
     ```
 
-- Example of UDP flood (127.0.0.1) :
+- Example of SYN flood (127.0.0.1) :
     ```
                         :::!~!!!!!:.
                     .xUHWH!! !!?M88WHX:.
@@ -96,14 +96,12 @@ The network listener allows you to monitor and log incoming data from network co
     |_|  |_||_____| \___/   |_|  \___/  \___/ |_||_|\_\|_| \__|
 
 
-    HI6ToolKit Copyright (C) 2023 HI6Cypher
+    █ [System] : [fuckOS]
+    █ [Hostname] : [HI6Cypher]
+    █ [Python] : [CPython 3.6.0]
 
-    System: [os info] [Intel64 Family 6 Model 15 Stepping 13, GenuineIntel]
-    Hostname: [hostname]
-    Python: [CPython 3.6.0]
-
-    GitHub: [github.com/HI6Cypher]
-    Email: [huaweisclu31@hotmail.com]
+    █ [GitHub] : [github.com/HI6Cypher]
+    █ [Email] : [huaweisclu31@hotmail.com]
 
 
     Press anykey to continue...

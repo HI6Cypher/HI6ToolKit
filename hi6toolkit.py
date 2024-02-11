@@ -18,7 +18,7 @@ art = f"""
                         :::!~!!!!!:.
                 .xUHWH!! !!?M88WHX:.
                 .X*#M@$!!  !X!M$$$$$$WWx:
-            :!!!!!!?H! :!$!$$$$$$$$$$8X:
+            :!!!!!!?H! :!$!3hl0 w0rld!X:
             !!~  ~:~!! :~!$!#$$$$$$$$$$8X:
             :!~::!H!<   ~.U$X!?R$$$$$$$$MM!
             ~!~!!!!~~ .:XW$$$U!!?$$$$$$RMM!
@@ -45,14 +45,12 @@ $R@i.~~ !  :  :   ~$$$$$B$$en:``
 |_|  |_||_____| \___/   |_|  \___/  \___/ |_||_|\_\|_| \__|
 
 
-HI6ToolKit Copyright (C) 2023 HI6Cypher
+█ [System] : [{sys.platform.upper()}]
+█ [Hostname] : [{socket.getfqdn()}]
+█ [Python] : [{sys.implementation.name.title()} {sys.version_info[0]}.{sys.version_info[1]}.{sys.version_info[2]}]
 
-[System] : [{platform.platform()}] [{platform.processor()}]
-[Hostname] : [{platform.node()}]
-[Python] : [{platform.python_implementation()} {platform.python_version()}]
-
-[GitHub] : [github.com/HI6Cypher]
-[Email] : [huaweisclu31@hotmail.com]
+█ [GitHub] : [github.com/HI6Cypher]
+█ [Email] : [huaweisclu31@hotmail.com]
 
 
 """
@@ -72,77 +70,77 @@ class Sniff :
         ver = payload[0] >> 4
         ihl = (payload[0] & 0xf) * 4
         tos = payload[1]
-        tlen = payload[2]
-        iden = payload[3]
-        flags = payload[4] >> 13
-        offset = payload[4] & 0x1fff
+        tln = payload[2]
+        idn = payload[3]
+        flg = payload[4] >> 13
+        oft = payload[4] & 0x1fff
         ttl = payload[5]
         protos = {1: "ICMP", 2: "IGMP", 6: "TCP", 17: "UDP"}
-        proto = protos[payload[6]] if payload[6] in protos.keys() else payload[6]
-        csum = hex(payload[7])
+        prt = protos[payload[6]] if payload[6] in protos.keys() else payload[6]
+        csm = hex(payload[7])
         src = socket.inet_ntop(socket.AF_INET, payload[8])
-        dest = socket.inet_ntop(socket.AF_INET, payload[9])
-        return ver, ihl, tos, tlen, iden, flags, \
-            offset, ttl, proto, csum, src, dest
+        dst = socket.inet_ntop(socket.AF_INET, payload[9])
+        return ver, ihl, tos, tln, idn, flg, \
+            oft, ttl, prt, csm, src, dst
 
     def __ICMPheader(self, raw_payload) :
         payload = struct.unpack("!BBHHH", raw_payload[:8])
         typ = payload[0]
-        code = payload[1]
-        csum = hex(payload[2])
-        iden = payload[3]
-        sequ = payload[4]
+        cod = payload[1]
+        csm = hex(payload[2])
+        idn = payload[3]
+        seq = payload[4]
         data = raw_payload[8:]
-        return typ, code, csum, iden, sequ, data
+        return typ, cod, csm, idn, seq, data
 
     def __IGMPv1header(self, raw_payload) :
         payload = struct.unpack("!BBHL", raw_payload)
-        version = payload[0] >> 4
+        ver = payload[0] >> 4
         typ = payload[0] & 0xf
-        csum = hex(payload[2])
-        gr_ad = payload[3]
+        csm = hex(payload[2])
+        gpa = payload[3]
         data = raw_payload[8:]
-        return version, typ, csum, gr_ad, data
+        return ver, typ, csm, gpa, data
 
     def __IGMPv2header(self, raw_payload) :
         payload = struct.unpack("!BBHL", raw_payload)
         typ = payload[0]
-        mrtime = payload[1]
-        csum = hex(payload[2])
-        gr_ad = payload[3]
+        mrt = payload[1]
+        csm = hex(payload[2])
+        gpa = payload[3]
         data = raw_payload[8:]
-        return typ, mrtime, csum, gr_ad, data
+        return typ, mrt, csm, gpa, data
 
     def __TCPheader(self, raw_payload) :
         payload = struct.unpack("!HHLLBBHHH", raw_payload[:20])
-        srcp = payload[0]
-        destp = payload[1]
-        sequ = payload[2]
-        ackn = payload[3]
-        offset = (payload[4] >> 4) * 4
-        flags = payload[5]
-        urg = (flags & 32) >> 5
-        ack = (flags & 16) >> 4
-        psh = (flags & 8) >> 3
-        rst = (flags & 4) >> 2
-        syn = (flags & 2) >> 1
-        fin = flags & 0x1
-        flags = (urg, ack, psh, rst, syn, fin)
+        src = payload[0]
+        dst = payload[1]
+        seq = payload[2]
+        acn = payload[3]
+        oft = (payload[4] >> 4) * 4
+        flg = payload[5]
+        urg = (flg & 32) >> 5
+        ack = (flg & 16) >> 4
+        psh = (flg & 8) >> 3
+        rst = (flg & 4) >> 2
+        syn = (flg & 2) >> 1
+        fin = flg & 0x1
+        flg = (urg, ack, psh, rst, syn, fin)
         win = payload[6]
-        csum = hex(payload[7])
-        urgp = payload[8]
-        data = raw_payload[offset:]
-        return srcp, destp, sequ, ackn, offset, flags, \
-            win, csum, urgp, data
+        csm = hex(payload[7])
+        urg = payload[8]
+        data = raw_payload[oft:]
+        return src, dst, seq, acn, oft, flg, \
+            win, csm, urg, data
 
     def __UDPheader(self, raw_payload) :
         payload = struct.unpack("!HHHH", raw_payload[:8])
-        srcp = payload[0]
-        destp = payload[1]
-        tlen = payload[2]
-        csum = hex(payload[3])
+        src = payload[0]
+        dst = payload[1]
+        tln = payload[2]
+        csm = hex(payload[3])
         data = raw_payload[8:]
-        return srcp, destp, tlen, csum, data
+        return src, dst, tln, csm, data
 
     def __proto(self) :
         if platform.system() == "Windows" and self.proto == socket.IPPROTO_TCP :
@@ -175,33 +173,33 @@ class Sniff :
         self.__content += text + "\n\n"
 
         if iph[8] == "ICMP" :
-            typ, code, csum, iden, sequ, data = self.__ICMPheader(self.__raw_buffer[iph[1]:])
-            text = f"\tICMP Packet :{t}Type : {typ}{t}Code : {code}{t}Checksum : {csum}{t}Identifier : {iden}{t}Sequence : {sequ}{t}Raw Data :\n{self.__writedata(data)}"
+            typ, cod, csm, idn, seq, data = self.__ICMPheader(self.__raw_buffer[iph[1]:])
+            text = f"\tICMP Packet :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Identifier : {idn}{t}Sequence : {seq}{t}Raw Data :\n{self.__writedata(data)}"
             self.__content += text + "\n"
 
         elif iph[8] == "IGMP" :
             check = int(binascii.hexlify(self.__raw_buffer[iph[1]:]).decode()[:2])
             if check in [16, 17] :
-                typ, mrtime, csum, gr_ad, data = self.__IGMPv2header(self.__raw_buffer[iph[1]:])
-                text = f"\tIGMPv2 Packet :{t}Type : {typ}{t}Max Response Time : {mrtime}{t}Checksum : {csum}{t}Group Address : {gr_ad}{t}Raw Data : \n{self.__writedata(data)}"
+                typ, mrt, csm, gpa, data = self.__IGMPv2header(self.__raw_buffer[iph[1]:])
+                text = f"\tIGMPv2 Packet :{t}Type : {typ}{t}Max Response Time : {mrt}{t}Checksum : {csm}{t}Group Address : {gpa}{t}Raw Data : \n{self.__writedata(data)}"
                 self.__content += text + "\n"
             elif check == 12 :
-                version, typ, csum, gr_ad, data = self.__IGMPv1header(self.__raw_buffer[iph[1]:])
-                text = f"\tIGMPv1 Packet :{t}Version : {version}{t}Type : {typ}{t}Checksum : {csum}{t}Group Address : {gr_ad}{t}Raw Data : \n{self.__writedata(data)}"
+                ver, typ, csm, gpa, data = self.__IGMPv1header(self.__raw_buffer[iph[1]:])
+                text = f"\tIGMPv1 Packet :{t}Version : {ver}{t}Type : {typ}{t}Checksum : {csm}{t}Group Address : {gpa}{t}Raw Data : \n{self.__writedata(data)}"
                 self.__content += text + "\n"
 
         elif iph[8] == "TCP" :
-            srcp, destp, sequ, ackn, offset, flags, win, csum, urgp, data = self.__TCPheader(self.__raw_buffer[iph[1]:])
-            text = f"\tTCP Segment :{t}Source Port : {srcp}{t}Destination Port : {destp}{t}Sequence : {sequ}{t}Acknowledgment : {ackn}{t}Data Offset : {offset}{t}Flags :{t}"
+            src, dst, seq, acn, oft, flg, win, csm, urg, data = self.__TCPheader(self.__raw_buffer[iph[1]:])
+            text = f"\tTCP Segment :{t}Source Port : {src}{t}Destination Port : {dst}{t}Sequence : {seq}{t}Acknowledgment : {acn}{t}Data Offset : {oft}{t}Flags :{t}"
             self.__content += text + "\t"
-            text = f"URG:{flags[0]}  ACK:{flags[1]}  PSH:{flags[2]}{t}\tRST:{flags[3]}  SYN:{flags[4]}  FIN:{flags[5]}"
+            text = f"URG:{flg[0]}  ACK:{flg[1]}  PSH:{flg[2]}{t}\tRST:{flg[3]}  SYN:{flg[4]}  FIN:{flg[5]}"
             self.__content += text + t
-            text = f"Window : {win}{t}Checksum : {csum}{t}Urgent Pointer : {urgp}{t}Raw Data :\n{self.__writedata(data)}"
+            text = f"Window : {win}{t}Checksum : {csm}{t}Urgent Pointer : {urg}{t}Raw Data :\n{self.__writedata(data)}"
             self.__content += text
 
         elif iph[8] == "UDP" :
-            srcp, destp, tlen, csum, data = self.__UDPheader(self.__raw_buffer[iph[1]:])
-            text = f"\tUDP Datagram :{t}Source Port : {srcp}{t}Destination Port : {destp}{t}Length : {tlen}{t}Checksum : {csum}{t}Raw Data :\n{self.__writedata(data)}"
+            src, dst, tln, csm, data = self.__UDPheader(self.__raw_buffer[iph[1]:])
+            text = f"\tUDP Datagram :{t}Source Port : {src}{t}Destination Port : {dst}{t}Length : {tln}{t}Checksum : {csm}{t}Raw Data :\n{self.__writedata(data)}"
             self.__content += text + "\n"
         return
 
