@@ -4,13 +4,10 @@ import struct
 import base64
 import binascii
 import argparse
-import platform
-import datetime
-import random
 import time
-import sys
+import random
+import sys, os
 import ssl
-import os
 
 art = f"""
 
@@ -45,7 +42,7 @@ $R@i.~~ !  :  :   ~$$$$$B$$en:``
 |_|  |_||_____| \___/   |_|  \___/  \___/ |_||_|\_\|_| \__|
 
 
-█ [System] : [{sys.platform.upper()}]
+█ [System] : [{sys.platform.upper()}, {time.ctime()}]
 █ [Hostname] : [{socket.getfqdn()}]
 █ [Python] : [{sys.implementation.name.title()} {sys.version_info[0]}.{sys.version_info[1]}.{sys.version_info[2]}]
 
@@ -60,10 +57,10 @@ class Sniff :
     def __init__(self, host, proto) :
         self.host = host
         self.proto = proto
-        self.ioctl = True if platform.system() == "Windows" else False
+        self.ioctl = True if sys.platform.lower() == "win32" else False
         self.__content = str()
         self.__raw_buffer = b""
-        self.time = datetime.datetime.today()
+        self.time = time.time()
 
     def __IPheader(self, raw_payload) :
         payload = struct.unpack("!BBHHHBBH4s4s", raw_payload)
@@ -143,10 +140,8 @@ class Sniff :
         return src, dst, tln, csm, data
 
     def __proto(self) :
-        if platform.system() == "Windows" and self.proto == socket.IPPROTO_TCP :
-            raise OSError("[WinError 10022] An invalid argument was supplied")
-        if platform.system() == "Linux" and self.proto == socket.IPPROTO_IP or self.proto == socket.IPPROTO_RAW :
-            raise OSError("[WinError 10022] An invalid argument was supplied")
+        if sys.platform.lower() == "win32" and self.proto == socket.IPPROTO_TCP :
+            raise OSError("Can't use socket.IPPROTO_TCP on win32")
         return self.proto
 
     def __writedata(self, data) :
@@ -164,8 +159,7 @@ class Sniff :
 
     def __analysis_proto(self, iph, counter) :
         t = "\n\t\t"
-        time = datetime.datetime.today()
-        self.__content += f"[*][{counter}] Connection________[{time.strftime('%Y%m%d%H%M%S')}]________\n\n"
+        self.__content += f"[*][{counter}] Connection________[{time.time()}]________\n\n"
         text = f"\tIPv4 Packet :{t}Version : {iph[0]}  Header Length : {iph[1]}  Time of Service : {iph[2]}"
         text += f"{t}Total Length : {iph[3]}  Identification : {iph[4]}  Flags : {iph[5]}"
         text += f"{t}Fragment Offset : {iph[6]}  TTL : {iph[7]}  Protocol : {iph[8]}"
@@ -204,7 +198,7 @@ class Sniff :
         return
 
     def __save(self) :
-        path = f"data{self.time.strftime('%Y%m%d%H%M%S')}.txt"
+        path = f"data{self.time}.txt"
         mode = "a" if os.path.exists(path) else "x"
         with open(path, mode) as file :
             file.write(self.__content)
@@ -241,7 +235,7 @@ class DoS_SYN :
         self.host = socket.gethostbyname(host)
         self.port = int(port) if not isinstance(port, int) else port
         self.rate = int(rate) if not isinstance(rate, int) else rate
-        self.socket_protocol = socket.IPPROTO_TCP if platform.system() != "Windows" else socket.IPPROTO_IP
+        self.socket_protocol = socket.IPPROTO_TCP if sys.platform.lower() != "win32" else socket.IPPROTO_IP
         self.randip = str()
         self.symbol = chr(9608)
 
@@ -538,10 +532,10 @@ class Listen :
         self.timeout = int(timeout) if not isinstance(timeout, int) else timeout
         self.proto = proto
         self.all_data = str()
-        self.time = datetime.datetime.today()
+        self.time = time.time()
 
     def __save(self) :
-        path = f"data{self.time.strftime('%Y%m%d%H%M%S')}.txt"
+        path = f"data{self.time}.txt"
         mode = "a" if os.path.exists(path) else "x"
         with open(path, mode) as file :
             file.write(self.all_data.replace("\r", ""))
@@ -562,11 +556,9 @@ class Listen :
                 listen.listen(5) if self.proto == socket.SOCK_STREAM else None
                 try :
                     while True :
-                        time = datetime.datetime.today()
-                        time = time.strftime('%Y%m%d%H%M%S')
                         conn, address = listen.accept() if self.proto == socket.SOCK_STREAM else listen.recvfrom(1024)
                         payload = conn.recv(1024) if self.proto == socket.SOCK_STREAM else conn
-                        text = f"\n[{counter}][{time}] connection from {address}\n"
+                        text = f"\n[{counter}][{time.time()}] connection from {address}\n"
                         print(text)
                         if payload :
                             self.all_data += text + payload.decode()
