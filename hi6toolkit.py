@@ -159,7 +159,7 @@ class Sniff :
 
     def __analysis_proto(self, iph, counter) :
         t = "\n\t\t"
-        self.__content += f"[*][{counter}] Connection________[{time.time()}]________\n\n"
+        self.__content += f"[*][{counter}][Connection]{time.time():_^33}\n\n"
         text = f"\tIPv4 Packet :{t}Version : {iph[0]}  Header Length : {iph[1]}  Time of Service : {iph[2]}"
         text += f"{t}Total Length : {iph[3]}  Identification : {iph[4]}  Flags : {iph[5]}"
         text += f"{t}Fragment Offset : {iph[6]}  TTL : {iph[7]}  Protocol : {iph[8]}"
