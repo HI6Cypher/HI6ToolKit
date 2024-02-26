@@ -573,7 +573,7 @@ class Listen :
                     sys.exit(1)
         except Exception as error :
             print(f"[!] Error - {error or None}")
-        return
+        return None
 
 if __name__ == "__main__" :
     info = "[GitHub] : github.com/HI6Cypher [Email] : huaweisclu31@hotmail.com"
@@ -599,7 +599,7 @@ if __name__ == "__main__" :
         def help_message() :
             print(ART)
             parser.print_help()
-            return
+            return None
 
         def PacketSniff_args(host : str, proto : str) :
             all = ["ALL", "All","all"]
@@ -616,24 +616,26 @@ if __name__ == "__main__" :
                 proto = socket.IPPROTO_ICMP
             sniff = Sniff(host, proto)
             sniff.sniff()
-            return
+            return None
 
         def DoS_args(host : str, port : int, rate : int) :
             flood = DoS_SYN(host, port, rate)
             flood.flood()
-            return
+            return None
 
         def HTTP_Request_args(host : str, port : int, endpoint : str, decode : bool) :
             port = port if port else 80
             host = host if host else "127.0.0.1"
             client = HTTP_Request(host, port, endpoint, decode, https = False)
             client.request()
+            return None
 
         def HTTPS_Request_args(host : str, port : int, endpoint : str, decode : bool) :
             port = port if port else 443
             host = host if host else "127.0.0.1"
             client = HTTP_Request(host, port, endpoint, decode, https = True)
             client.request()
+            return None
 
         def SendEmail_args(smtp : str, sender : str, sender_password : str, 
                         recipient_path : str, subject : str, text_path : str) :
@@ -646,7 +648,7 @@ if __name__ == "__main__" :
                 sendemail.sendemail()
             else :
                 print(f"[!] Error - {recipient_path} not found")
-            return
+            return None
 
         def Listen_args(host : str, port : int, timeout : int, proto : str) :
             protos = ["TCP", "Tcp", "tcp", "UDP", "Udp", "udp"]
@@ -658,7 +660,7 @@ if __name__ == "__main__" :
                 raise TypeError(f"{proto} is not in {protos}")
             listen = Listen(host, port, timeout, proto)
             listen.listen()
-            return
+            return None
 
         art_names = ["ART", "Art", "art"]
         sniff_names = ["SNIFF", "Sniff", "sniff"]
@@ -684,5 +686,5 @@ if __name__ == "__main__" :
             Listen_args(args.host, args.port, args.time, args.method)
         else :
             help_message()
-        return
+        return None
     manage_args()
