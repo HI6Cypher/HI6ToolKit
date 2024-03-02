@@ -1,5 +1,5 @@
 # HI6ToolKit :|
-This script provides PacketSniffer that captures and analyzes the incoming packets(ICMP, IGMP, TCP, UDP).
+This script provides PacketSniffer that captures and analyzes the incoming packets(ICMP, TCP, UDP).
 The sniffed data can be saved to a file for further analysis. it provides functionality for launching DoS attacks, it supports SYN flood(Exception*).
 it provides emailing tools like send email to list of targets(mass emailing)
 The network listener allows you to monitor and log incoming data from network connections

