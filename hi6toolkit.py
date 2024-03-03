@@ -658,4 +658,7 @@ if __name__ == "__main__" :
         else :
             help_message()
         return None
-    manage_args()
+    try :
+        manage_args()
+    except Exception as error :
+        print(f"[!] Error - {error or None}")
