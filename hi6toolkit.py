@@ -234,7 +234,7 @@ class DoS_SYN :
         packet = struct.pack("4s4sBBH", src, dst, res, prt, tcp)
         return packet
         
-    def checksum(self, data : bytes):
+    def checksum(self, data : bytes) :
         checksum = 0
         for i in range(0, len(data), 2) :
             word = (data[i] << 8) + data[i + 1]
