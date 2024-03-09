@@ -143,7 +143,7 @@ class Sniff :
 
     def __analysis_proto(self, iph : tuple, counter : int) :
         t = "\n\t\t"
-        self.__content += f"[*][{counter}][Connection]{time.time():_^33}\n\n"
+        self.__content += f"\n[*][{counter}][Connection]{time.time():_^33}\n\n"
         text = f"\tIPv4 Packet :{t}Version : {iph[0]}  Header Length : {iph[1]}  Time of Service : {iph[2]}"
         text += f"{t}Total Length : {iph[3]}  Identification : {iph[4]}  Flags : {iph[5]}"
         text += f"{t}Fragment Offset : {iph[6]}  TTL : {iph[7]}  Protocol : {iph[8]}"
@@ -152,7 +152,7 @@ class Sniff :
 
         if iph[8] == "ICMP" :
             typ, cod, csm, idn, seq, data = self.icmp_header(self.__raw_buffer[iph[1]:])
-            text = f"\tICMP Packet :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Identifier : {idn}{t}Sequence : {seq}{t}Raw Data :\n{self.__writedata(data)}"
+            text = f"\tICMP Packet :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Identifier : {idn}{t}Sequence : {seq}{t}Raw Data :\n{self.writedata(data)}"
             self.__content += text + "\n"
 
         elif iph[8] == "TCP" :
@@ -161,12 +161,12 @@ class Sniff :
             self.__content += text + "\t"
             text = f"URG:{flg[0]}  ACK:{flg[1]}  PSH:{flg[2]}{t}\tRST:{flg[3]}  SYN:{flg[4]}  FIN:{flg[5]}"
             self.__content += text + t
-            text = f"Window : {win}{t}Checksum : {csm}{t}Urgent Pointer : {urg}{t}Raw Data :\n{self.__writedata(data)}"
+            text = f"Window : {win}{t}Checksum : {csm}{t}Urgent Pointer : {urg}{t}Raw Data :\n{self.writedata(data)}"
             self.__content += text
 
         elif iph[8] == "UDP" :
             src, dst, tln, csm, data = self.udp_header(self.__raw_buffer[iph[1]:])
-            text = f"\tUDP Datagram :{t}Source Port : {src}{t}Destination Port : {dst}{t}Length : {tln}{t}Checksum : {csm}{t}Raw Data :\n{self.__writedata(data)}"
+            text = f"\tUDP Datagram :{t}Source Port : {src}{t}Destination Port : {dst}{t}Length : {tln}{t}Checksum : {csm}{t}Raw Data :\n{self.writedata(data)}"
             self.__content += text + "\n"
         return None
 
@@ -199,7 +199,7 @@ class Sniff :
                     sniff.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF) if self.ioctl else None
                     sys.exit(1)
         except Exception as error :
-            print(f"[!] Error - {error or None}")
+            print(f"[!] Error - {error or None} [CHECK SCRIPT CODE]")
         return None
 
 
@@ -299,7 +299,7 @@ class DoS_SYN :
         except KeyboardInterrupt :
             sys.exit(1)
         except Exception as error :
-            print(f"[!] Error - {error or None}")
+            print(f"[!] Error - {error or None} [CHECK SCRIPT CODE]")
         return None
 
 
@@ -368,7 +368,7 @@ class HTTP_Request :
         except KeyboardInterrupt :
             sys.exit(1)
         except Exception as error :
-            print(f"[!] Error - {error or None}")
+            print(f"[!] Error - {error or None} [CHECK SCRIPT CODE]")
         return None
 
 
@@ -495,7 +495,7 @@ class SendEmail :
         except KeyboardInterrupt :
             sys.exit(1)
         except Exception as error :
-            print(f"[!] Error - {error or None}")
+            print(f"[!] Error - {error or None} [CHECK SCRIPT CODE]")
         return None
 
 
@@ -543,7 +543,7 @@ class Listen :
                 except KeyboardInterrupt :
                     sys.exit(1)
         except Exception as error :
-            print(f"[!] Error - {error or None}")
+            print(f"[!] Error - {error or None} [CHECK SCRIPT CODE]")
         return None
 
 if __name__ == "__main__" :
@@ -573,18 +573,15 @@ if __name__ == "__main__" :
             return None
 
         def PacketSniff_args(host : str, proto : str) :
-            all = ["ALL", "All","all"]
-            tcp = ["TCP", "Tcp", "tcp"]
-            udp = ["UDP", "Udp", "udp"]
-            icmp = ["ICMP", "Icmp", "icmp"]
-            if proto in all :
+            if proto.upper() == "ALL" :
                 proto = socket.IPPROTO_IP
-            elif proto in tcp :
+            elif proto.upper() == "TCP" :
                 proto = socket.IPPROTO_TCP
-            elif proto in udp :
+            elif proto.upper() == "UDP" :
                 proto = socket.IPPROTO_UDP
-            elif proto in icmp :
+            elif proto.upper() == "ICMP" :
                 proto = socket.IPPROTO_ICMP
+            host = socket.gethostbyname(socket.gethostname()) if host.upper() == "DEFAULT" else host
             sniff = Sniff(host, proto)
             sniff.sniff()
             return None
@@ -622,10 +619,10 @@ if __name__ == "__main__" :
             return None
 
         def Listen_args(host : str, port : int, timeout : int, proto : str) :
-            protos = ["TCP", "Tcp", "tcp", "UDP", "Udp", "udp"]
-            if proto in protos[:3] :
+            protos = ["TCP", "UDP"]
+            if proto.upper() in protos[:1] :
                 proto = socket.SOCK_STREAM
-            elif proto in protos[3:] :
+            elif proto.upper() in protos[1:] :
                 proto = socket.SOCK_DGRAM
             else :
                 raise TypeError(f"{proto} is not in {protos}")
@@ -633,27 +630,19 @@ if __name__ == "__main__" :
             listen.listen()
             return None
 
-        art_names = ["ART", "Art", "art"]
-        sniff_names = ["SNIFF", "Sniff", "sniff"]
-        dos_names = ["DOS", "DoS", "Dos", "dos"]
-        http_names = ["HTTP", "Http", "http"]
-        https_names = ["HTTPS", "Https", "https"]
-        email_names = ["EMAIL", "Email", "email"]
-        listen_names = ["LISTEN", "Listen", "listen"]
-
-        if args.Tool in art_names :
+        if args.Tool.upper() == "ART" :
             print(ART)
-        elif args.Tool in sniff_names :
+        elif args.Tool.upper() == "SNIFF" :
             PacketSniff_args(args.host, args.method)
-        elif args.Tool in dos_names :
+        elif args.Tool.upper() == "DOS" :
             DoS_args(args.host, args.port, args.rate)
-        elif args.Tool in http_names :
+        elif args.Tool.upper() == "HTTP" :
             HTTP_Request_args(args.host, args.port, args.endpoint, args.decode)
-        elif args.Tool in https_names :
+        elif args.Tool.upper() == "HTTPS" :
             HTTPS_Request_args(args.host, args.port, args.endpoint, args.decode)
-        elif args.Tool in email_names :
+        elif args.Tool.upper() == "EMAIL" :
             SendEmail_args(args.smtp, args.sender, args.key, args.rcptpath, args.subject, args.textpath)
-        elif args.Tool in listen_names :
+        elif args.Tool.upper() == "LISTEN" :
             Listen_args(args.host, args.port, args.time, args.method)
         else :
             help_message()
@@ -661,4 +650,4 @@ if __name__ == "__main__" :
     try :
         manage_args()
     except Exception as error :
-        print(f"[!] Error - {error or None}")
+        print(f"[!] Error - {error or None} [CHECK SCRIPT CODE]")
