@@ -1,8 +1,5 @@
 # HI6ToolKit :|
-This script provides PacketSniffer that captures and analyzes the incoming packets(ICMP, TCP, UDP).
-The sniffed data can be saved to a file for further analysis. it provides functionality for launching DoS attacks, it supports SYN flood(Exception*).
-it provides emailing tools like send email to list of targets(mass emailing)
-The network listener allows you to monitor and log incoming data from network connections
+
 
 ## Classes :
 - Sniff : Represents a Packet sniffing
@@ -155,7 +152,7 @@ The network listener allows you to monitor and log incoming data from network co
     we have limitations :\ on raw socket in some Windows versions(XP, Vista, 7,...)
     to more information visit [Site](https://learn.microsoft.com/en-us/windows/win32/winsock/tcp-ip-raw-sockets-2).
 
-    so for this feature(DoS_SYN) limited to use non-windows(fuck microsoft :|) :\
+    so DoS_SYN and just-tcp packetsniffer are limited to use non-windows(fuck microsoft) :\
 ## License
 
 This project is licensed under the [GPL v3.0 License](https://www.gnu.org/licenses/gpl-3.0.html)

@@ -177,13 +177,24 @@ class Sniff :
             file.write(self.__content)
         return None
 
-    def sniff(self) :
+    def sniff(self, module : bool = False) :
+        self.module = module
+        try :
+            if not self.module :
+                print(ART)
+                input("\nPress anykey to continue...\n")
+        except KeyboardInterrupt :
+            sys.exit(1)
+        else :
+            self.__sniff()
+        return None
+
+    def __sniff(self) :
         try :
             with socket.socket(socket.AF_INET, socket.SOCK_RAW, self.__proto()) as sniff :
                 sniff.bind((self.host, 0))
                 sniff.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
                 sniff.ioctl(socket.SIO_RCVALL, socket.RCVALL_ON) if self.ioctl else None
-                print(ART)
                 counter = 1
                 try :
                     while True :
@@ -192,7 +203,7 @@ class Sniff :
                         iph = self.ip_header(self.__raw_buffer[0:20])
                         self.__analysis_proto(iph, counter)
                         self.__content = self.__content.expandtabs(4)
-                        print(self.__content)
+                        print(self.__content) if not self.module else None
                         self.__save()
                         counter += 1
                 except KeyboardInterrupt :
@@ -270,8 +281,7 @@ class DoS_SYN :
         except KeyboardInterrupt :
             sys.exit(1)
         else :
-            task = multiprocessing.Process(target = self.__flood())
-            task.start()
+            self.__flood()
         return None
 
     def __flood(self) :
@@ -310,18 +320,20 @@ class HTTP_Request :
         self.end = end if end else "/"
         self.decode = bool(decode) if not isinstance(decode, bool) else decode
         self.https = bool(https) if not isinstance(https, bool) else https
+        self.response = bytes()
+        self.response_header = bytes()
         self.SYMBOL = chr(9608)
 
     def request(self, module : bool = False) :
+        self.module = module
         try :
-            if not module :
+            if not self.module :
                 print(ART)
                 input("\nPress anykey to continue...\n")
         except KeyboardInterrupt :
             sys.exit(1)
         else :
-            task = multiprocessing.Process(target = self.__request())
-            task.start()
+            self.__request()
         return None
 
     def __request(self) :
@@ -337,7 +349,7 @@ class HTTP_Request :
                             "Connection: close", 
                             "\r\n"]
                 payload = "\r\n".join(payload)
-                print(payload)
+                print(payload) if not self.module else None
                 flood.settimeout(30)
                 flood.connect((self.host, self.port))
                 flood.send(payload.encode())
@@ -348,11 +360,12 @@ class HTTP_Request :
                     response = flood.recv(4096)
                     if not response :
                         raw_data = raw_data.split(b"\r\n\r\n", 1)
-                        header = raw_data[0]
-                        data = raw_data[-1]
+                        self.response_header = raw_data[0]
+                        self.response = raw_data[-1]
                         print(28 * chr(32), end = "\n")
-                        print(header.decode() if isinstance(header, bytes) else header, end = "\n\n")
-                        print(data.decode() if self.decode else data)
+                        if not self.module :
+                            print(self.response_header.decode() if isinstance(self.response_header, bytes) else self.response_header, end = "\n\n")
+                            print(self.response.decode() if self.decode else self.response)
                         flood.close()
                         break
                     else :
@@ -390,9 +403,7 @@ class SendEmail :
         except KeyboardInterrupt :
             sys.exit(1)
         print(f"[*] setting up socket : socket.SOCK_STREAM")
-        task = multiprocessing.Process(target = self.__wrap(self.smtp, self.sender, 
-                                    self.sender_password,self.recipients, self.subject, self.text))
-        task.start()
+        self.__wrap(self.smtp, self.sender, self.sender_password,self.recipients, self.subject, self.text)
         return None
 
     def __send(self, socket : socket, payload : str) :
@@ -516,35 +527,40 @@ class Listen :
         return None
 
     def listen(self, module : bool = False) :
+        self.module = module
         try :
-            if not module :
+            if not self.module :
                 print(ART)
                 input("\nPress anykey to continue...\n")
         except KeyboardInterrupt :
             sys.exit(1)
-        counter = 1
-        try :
-            with socket.socket(socket.AF_INET, self.proto) as listen :
-                listen.settimeout(self.timeout)
-                listen.bind((self.host, int(self.port)))
-                listen.listen(5) if self.proto == socket.SOCK_STREAM else None
-                try :
-                    while True :
-                        conn, address = listen.accept() if self.proto == socket.SOCK_STREAM else listen.recvfrom(1024)
-                        payload = conn.recv(1024) if self.proto == socket.SOCK_STREAM else conn
-                        text = f"\n[{counter}][{time.time()}] connection from {address}\n"
-                        print(text)
-                        if payload :
-                            self.all_data += text + payload.decode()
-                            self.__save()
-                            print(payload.decode())
-                            counter += 1
-                            self.all_data = str()
-                except KeyboardInterrupt :
-                    sys.exit(1)
-        except Exception as error :
-            print(f"[!] Error - {error or None} [CHECK SCRIPT CODE]")
-        return None
+        else :
+            self.__listen()
+
+    def __listen(self) :
+            counter = 1
+            try :
+                with socket.socket(socket.AF_INET, self.proto) as listen :
+                    listen.settimeout(self.timeout)
+                    listen.bind((self.host, int(self.port)))
+                    listen.listen(5) if self.proto == socket.SOCK_STREAM else None
+                    try :
+                        while True :
+                            conn, address = listen.accept() if self.proto == socket.SOCK_STREAM else listen.recvfrom(1024)
+                            payload = conn.recv(1024) if self.proto == socket.SOCK_STREAM else conn
+                            text = f"\n[{counter}][{time.time()}] connection from {address}\n"
+                            print(text) if not self.module else None
+                            if payload :
+                                self.all_data += text + payload.decode()
+                                self.__save()
+                                print(payload.decode()) if not self.module else None
+                                counter += 1
+                                self.all_data = str()
+                    except KeyboardInterrupt :
+                        sys.exit(1)
+            except Exception as error :
+                print(f"[!] Error - {error or None} [CHECK SCRIPT CODE]")
+            return None
 
 if __name__ == "__main__" :
     info = "[GitHub] : github.com/HI6Cypher [Email] : huaweisclu31@hotmail.com"
