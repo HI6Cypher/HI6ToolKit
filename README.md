@@ -24,7 +24,7 @@
 
 - To Sniff packets :
     ```bash
-    python hi6toolkit.py SNIFF -x [host] -m [protocol/ALL]
+    python hi6toolkit.py SNIFF -x [host/DEFAULT] -m [TCP/UDP/ICMP/ALL]
     ```
 
 - Example of a sniffed packet from [CyG33k](https://github.com/HI6Cypher/CyGeek)
@@ -63,49 +63,20 @@
 
 - Example of SYN flood (127.0.0.1) :
     ```
-                        :::!~!!!!!:.
-                    .xUHWH!! !!?M88WHX:.
-                    .X*#M@$!!  !X!M$$$$$$WWx:.
-                :!!!!!!?H! :!$!$$$$$$$$$$8X:
-                !!~  ~:~!! :~!$!#$$$$$$$$$$8X:
-                :!~::!H!<   ~.U$X!?R$$$$$$$$MM!
-                ~!~!!!!~~ .:XW$$$U!!?$$$$$$RMM!
-                !:~~~ .:!M"T#$$$$WX??#MRRMMM!
-                ~?WuxiW*`   `"#$$$$8!!!!??!!!
-                :X- M$$$$       `"T#$T~!8$WUXU~
-                :%`  ~#$$$m:        ~!~ ?$$$$$$
-            :!`.-   ~T$$$$8xx.  .xWW- ~""##*"
-    .....   -~~:<` !    ~?T#$$@@W@*?$$      /`
-    W$@@M!!! .!~~ !!     .:XUW$W!~ `"~:    :
-    #"~~`.:x%`!!  !H:   !WM$$$$Ti.: .!WUn+!`
-    :::~:!!`:X~ .: ?H.!u "$$$B$$$!W:U!T$$M~
-    .~~   :X@!.-~   ?@WTWo("*$$$W$TH$! `
-    Wi.~!X$?!-~  : : ?$$$B$Wu("**$RM!
-    $R@i.~~ !  :  :   ~$$$$$B$$en:``
-    ?MXT@Wx.~-~-~:     ~"##*$$$$M~
 
+        █ [System] : [fuckOS]
+        █ [Hostname] : [HI6Cypher]
+        █ [Python] : [CPython 3.6.0]
 
-     _    _  _____    __  _______              _  _  __ _  _
-    | |  | ||_   _|  / / |__   __|            | || |/ /(_)| |
-    | |__| |  | |   / /_    | |    __    ___  | || ' /  _ | |_
-    |  __  |  | |  |  _ \   | |  / _ \  / _ \ | ||  <  | || __|
-    | |  | | _| |_ | (_) |  | | | (_) || (_) || || . \ | || |_
-    |_|  |_||_____| \___/   |_|  \___/  \___/ |_||_|\_\|_| \__|
-
-
-    █ [System] : [fuckOS]
-    █ [Hostname] : [HI6Cypher]
-    █ [Python] : [CPython 3.6.0]
-
-    █ [GitHub] : [github.com/HI6Cypher]
-    █ [Email] : [huaweisclu31@hotmail.com]
+        █ [GitHub] : [github.com/HI6Cypher]
+        █ [Email] : [huaweisclu31@hotmail.com]
 
 
     Press anykey to continue...
 
     [+] ████████████████████████████████  100032 packets sent
     [+] All packets have sent
-    [-] 13.73s
+    [-] 39.73s
     ```
 
 - To sending HTTP request (decode output) :
@@ -128,34 +99,31 @@
     ```bash
     python hi6toolkit.py EMAIL --sender=[sender email] --key=[sender password] --rcptpath=[path of recipients file] --subject=[subject] --textpath=[path of message file]
     ```
-- Note : in recpfile, emails should saperate with space like this
+- Note : in recipients file, emails should saperate with space like this
     ```
     email@hotmail.com email@outlook.com email@gmail.com ...
     ```
 
 - To start the network listener :
     ```bash
-    python hi6toolkit.py LISTEN -m [TCP/UDP] -x [host] -p [port] -t [time-out]
+    python hi6toolkit.py LISTEN -m [TCP/UDP] -x [host] -p [port] -t [timeout]
     ```
 
-- To see some information of os,.. and ascii art :
+- To print information :
     ```bash
-    python hi6toolkit.py ART
+    python hi6toolkit.py INFO
     ```
-- Note : HI6ToolKit is a script, but it can use modular(set module argument, True)
+- Note : HI6ToolKit is a script, but it can use modular
     ```python
     from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, SendEmail, Listen
     ```
 
 - Exception :
     To send TCP/IP packet we need raw socket with `socket.IPPROTO_TCP` that 
-    we have limitations :\ on raw socket in some Windows versions(XP, Vista, 7,...)
+    we have limitations :\ on raw socket in some Windows versions(7, XP, Vista, ,...)
     to more information visit [Site](https://learn.microsoft.com/en-us/windows/win32/winsock/tcp-ip-raw-sockets-2).
 
     so DoS_SYN and just-tcp packetsniffer are limited to use non-windows(fuck microsoft) :\
-## License
-
-This project is licensed under the [GPL v3.0 License](https://www.gnu.org/licenses/gpl-3.0.html)
 
 GitHub : [github.com/HI6Cypher](https://github.com/HI6Cypher) :)
 

