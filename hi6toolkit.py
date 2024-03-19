@@ -1,21 +1,21 @@
 import socket
 import struct
+import sys
+import time
+import ssl
+import os
+import random
 import base64
 import argparse
-import time
-import random
-import sys
-import os
-import ssl
 
 
 class Constant :
-    MODULE = __name__ != "__main__"
-    TIME = time.time()
-    WIN = True if "win" in sys.platform.lower() else False
-    SYMBOL = chr(9608)
-    INPUT = "\nPress anykey to continue...\n"
-    INFO = f"""\n
+    MODULE : bool = __name__ != "__main__"
+    TIME : float = time.time()
+    WIN : bool = True if "win" in sys.platform.lower() else False
+    SYMBOL : str = chr(9608)
+    INPUT : str = "\nPress anykey to continue...\n"
+    INFO : str = f"""\n
         █ [System] : [{sys.platform.upper()}, {time.ctime()}]
         █ [Hostname] : [{socket.getfqdn()}]
         █ [Python] : [{sys.implementation.name.title()} {sys.version_info[0]}.{sys.version_info[1]}.{sys.version_info[2]}]
@@ -97,17 +97,11 @@ class Sniff :
             raise OSError("Can't use socket.IPPROTO_TCP")
         return self.proto
 
-    def writedata(self, data : bytes) :
-        counter = 1
-        secs = str(data).split("\\")
+    def write_data(self, data : bytes) :
+        data = str(data).strip("b'\"")
         text = "\t\t\t"
-        for i in secs :
-            if counter % 10 != 0 :
-                text += f"{i}\\"
-            else :
-                text += f"{i}\n\t\t\t\\"
-            counter += 1
-        text += "\n\n\n"
+        for i in range(0, (len(data) // 50) + 1) :
+            text += data[i * 50 : (i * 50) + 50] + "\n\t\t\t"
         return text
 
     def __analysis_proto(self, iph : tuple, counter : int) :
@@ -121,7 +115,7 @@ class Sniff :
 
         if iph[8] == "ICMP" :
             typ, cod, csm, idn, seq, data = self.icmp_header(self.raw_buffer[iph[1]:])
-            text = f"\tICMP Packet :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Identifier : {idn}{t}Sequence : {seq}{t}Raw Data :\n{self.writedata(data)}"
+            text = f"\tICMP Packet :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Identifier : {idn}{t}Sequence : {seq}{t}Raw Data :\n{self.write_data(data)}"
             self.ordered += text + "\n"
 
         elif iph[8] == "TCP" :
@@ -130,12 +124,12 @@ class Sniff :
             self.ordered += text + "\t"
             text = f"URG:{flg[0]}  ACK:{flg[1]}  PSH:{flg[2]}{t}\tRST:{flg[3]}  SYN:{flg[4]}  FIN:{flg[5]}"
             self.ordered += text + t
-            text = f"Window : {win}{t}Checksum : {csm}{t}Urgent Pointer : {urg}{t}Raw Data :\n{self.writedata(data)}"
+            text = f"Window : {win}{t}Checksum : {csm}{t}Urgent Pointer : {urg}{t}Raw Data :\n{self.write_data(data)}"
             self.ordered += text
 
         elif iph[8] == "UDP" :
             src, dst, tln, csm, data = self.udp_header(self.raw_buffer[iph[1]:])
-            text = f"\tUDP Datagram :{t}Source Port : {src}{t}Destination Port : {dst}{t}Length : {tln}{t}Checksum : {csm}{t}Raw Data :\n{self.writedata(data)}"
+            text = f"\tUDP Datagram :{t}Source Port : {src}{t}Destination Port : {dst}{t}Length : {tln}{t}Checksum : {csm}{t}Raw Data :\n{self.write_data(data)}"
             self.ordered += text + "\n"
         return None
 
