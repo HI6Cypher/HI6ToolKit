@@ -12,7 +12,7 @@ import argparse
 class Constant :
     MODULE : bool = __name__ != "__main__"
     TIME : float = time.time()
-    WIN : bool = True if "win" in sys.platform.lower() else False
+    WIN : bool = "win" in sys.platform.lower()
     SYMBOL : str = chr(9608)
     INPUT : str = "\nPress anykey to continue...\n"
     INFO : str = f"""\n
@@ -93,7 +93,7 @@ class Sniff :
         return src, dst, tln, csm, data
 
     def __proto(self) :
-        if "win" in sys.platform.lower() and self.proto == socket.IPPROTO_TCP :
+        if Constant.WIN and self.proto == socket.IPPROTO_TCP :
             raise OSError("Can't use socket.IPPROTO_TCP")
         return self.proto
 
@@ -287,9 +287,9 @@ class HTTP_Request :
         return None
 
     def __request(self) :
-        sslcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2) if self.https is True else None
+        sslcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2) if self.https == True else None
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as flood :
-            flood = sslcontext.wrap_socket(flood, server_hostname = self.host) if self.https is True else flood
+            flood = sslcontext.wrap_socket(flood, server_hostname = self.host) if self.https == True else flood
             payload = [
                         f"GET {self.end} HTTP/1.1", 
                         f"Host: {self.host}", 
