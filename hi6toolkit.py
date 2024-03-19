@@ -174,8 +174,8 @@ class Sniff :
 class DoS_SYN :
     def __init__(self, host: str, port : int, rate : int) :
         self.host = socket.gethostbyname(host)
-        self.port = int(port) if not isinstance(port, int) else port
-        self.rate = int(rate) if not isinstance(rate, int) else rate
+        self.port = int(port)
+        self.rate = int(rate)
 
     def ip_header(self, ver : int = 4, ihl : int = 5, tos : int = 0, tln : int = 40, 
                 idn : int = 0, flg : int = 0, oft : int = 0, ttl : int = 255, 
@@ -267,7 +267,7 @@ class DoS_SYN :
 class HTTP_Request :
     def __init__(self, host : str, port : int, end : str, decode : bool, https : bool) :
         self.host = host
-        self.port = int(port) if not isinstance(port, int) else port
+        self.port = int(port)
         self.end = end if end else "/"
         self.decode = bool(decode) if not isinstance(decode, bool) else decode
         self.https = bool(https) if not isinstance(https, bool) else https
@@ -455,8 +455,8 @@ class SendEmail :
 class Listen :
     def __init__(self, host : str, port : int, timeout : int, proto : int) :
         self.host = host
-        self.port = int(port) if not isinstance(port, int) else port
-        self.timeout = int(timeout) if not isinstance(timeout, int) else timeout
+        self.port = int(port)
+        self.timeout = int(timeout)
         self.proto = proto
         self.all_data = str()
 
