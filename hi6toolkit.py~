@@ -370,7 +370,7 @@ class HTTP_Request :
                     self.response = raw_data[-1].decode() if self.decode else raw_data[-1]
                     if not Constant.MODULE :
                         print(self.response_header, end = "\n\n")
-                        if self.method == "GET" : print(self.response)
+                        if self.method == "GET" : print(self.response
                     if self.https : flood.close()
                     break
                 else :
