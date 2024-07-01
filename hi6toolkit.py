@@ -18,7 +18,7 @@ class Constant :
     TOOLS : dict = dict()
     INFO : str = f"""\n
         [System] : [{sys.platform.upper()}, {time.ctime()}]
-        [Hostname] : [{socket.getfqdn()}]
+        [Hostname] : [{socket.gethostname()}]
         [Python] : [{sys.implementation.name.title()} {sys.version_info[0]}.{sys.version_info[1]}]
 
         [GitHub] : [github.com/HI6Cypher]
@@ -124,6 +124,8 @@ class Sniff :
     def __proto(self) :
         if Constant.WIN and self.proto == socket.IPPROTO_TCP :
             raise OSError("Can't use socket.IPPROTO_TCP")
+        elif not Constant.WIN and self.proto == socket.IPPROTO_RAW :
+            raise OSError("Can't user socket.IPPROTO_RAW")
         return self.proto
 
     def __analysis_proto(self, iph : tuple) :
@@ -415,6 +417,7 @@ class Listen :
 
     def __listen(self) :
             with socket.socket(socket.AF_INET, self.proto) as listen :
+                listen.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 listen.settimeout(self.timeout)
                 listen.bind((self.host, self.port))
                 if self.proto == socket.SOCK_STREAM : listen.listen()
