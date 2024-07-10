@@ -125,7 +125,7 @@ class Sniff :
         if Constant.WIN and self.proto == socket.IPPROTO_TCP :
             raise OSError("Can't use socket.IPPROTO_TCP")
         elif not Constant.WIN and self.proto == socket.IPPROTO_RAW :
-            raise OSError("Can't user socket.IPPROTO_RAW")
+            raise OSError("Can't use socket.IPPROTO_RAW")
         return self.proto
 
     def __analysis_proto(self, iph : tuple) :
