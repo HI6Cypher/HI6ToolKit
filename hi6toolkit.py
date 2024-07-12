@@ -387,11 +387,10 @@ class HTTP_Request :
 
 
 class Listen :
-    def __init__(self, host : str, port : int, timeout : int, proto : int, buffer : int) :
+    def __init__(self, host : str, port : int, timeout : int, buffer : int) :
         self.host = host
         self.port = int(port)
         self.timeout = int(timeout)
-        self.proto = proto
         self.buffer = int(buffer)
         self.data = bytes()
 
@@ -415,19 +414,67 @@ class Listen :
         else :
             return True
 
+    def readbuffer(self, sock : socket.socket, buffer : int) :
+        payload = bytes()
+        while len(payload) != buffer :
+            payload += sock.recv(buffer - len(payload))
+        else :
+            return payload
+
+    def readline(self, sock : socket.socket) :
+        line = bytes()
+        while not line.endswith(b"\n") :
+            line += sock.recv(1)
+        else :
+            return line
+
+    def get_length(self, header : bytes) :
+        headers = header.split(b"\r\n")
+        for header in headers :
+            if header.startswith(b"Content-Length") :
+                return int(header[16:])
+        else :
+            return 0
+
+    def tmp_file(self) :
+        path = f"./tmp_{Constant.TIME}.tmp"
+        mode = "xb" if os.path.exists(path) else "ab"
+        return open(path, mode)
+
+    def get_part(self, length : int) :
+        nparts = length // self.buffer
+        ntail = length % self.buffer
+        return nparts, ntail
+
     def __listen(self) :
-            with socket.socket(socket.AF_INET, self.proto) as listen :
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listen :
                 listen.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 listen.settimeout(self.timeout)
                 listen.bind((self.host, self.port))
-                if self.proto == socket.SOCK_STREAM : listen.listen()
+                listen.listen()
                 try :
                     while True :
-                        conn, address = listen.accept() if self.proto == socket.SOCK_STREAM else listen.recvfrom(self.buffer)
-                        payload = conn.recv(self.buffer), address if self.proto == socket.SOCK_STREAM else conn, address
-                        if payload :
-                            self.data = payload
-                            Constant.SAVE(self.data[0].replace(b"\r", bytes()))
+                        header = bytes()
+                        conn, addr = listen.accept()
+                        while not header.endswith(b"\r\n\r\n") :
+                            header += self.readline(conn)
+                        else :
+                            status, _, version = header.split(b"\r\n", 1)[0].split(b" ")
+                            length = self.get_length(header) if status not in (b"GET", b"HEAD", b"CONNECT") else 0
+                            self.data = header
+                            print(self.data)
+                        if length and status not in (b"GET", b"HEAD", b"CONNECT") :
+                            conn.settimeout(5)
+                            parts, tail = self.get_part(length)
+                            file = self.tmp_file()
+                            for part in range(parts) :
+                                file.write(self.readbuffer(conn, self.buffer))
+                            else :
+                                if tail != 0 : file.write(self.readbuffer(conn, tail))
+                                conn.send(b"%b 200 OK\r\nConnection: close\r\n" % version)
+                                file.close()
+                                break
+                        else :
                             break
                 except KeyboardInterrupt :
                     exit(1)
@@ -517,18 +564,12 @@ if not Constant.MODULE :
         host = args.host
         port = args.port
         timeout = args.time
-        proto = args.method
         buffer = args.buffer
-        protos = {
-            "TCP" : socket.SOCK_STREAM,
-            "UDP" : socket.SOCK_DGRAM
-        }
-        if proto.upper() not in protos : invalid_args(proto)
         host = host if host else "127.0.0.1"
-        listen = Listen(host, port, timeout, protos[proto.upper()], buffer)
+        listen = Listen(host, port, timeout, buffer)
         gen = listen.listen()
         for i in gen :
-            print(i[0])
+            Constant.SAVE(i.decode())
         return None
 
     def main() :
@@ -538,8 +579,8 @@ if not Constant.MODULE :
         if args.Tool.upper() in Constant.TOOLS :
             try :
                 Constant.TOOLS[args.Tool.upper()]()
-            except Exception :
-                invalid_args("Not found required arguments")
+            except Exception as error:
+                invalid_args(error or "Not found required arguments")
         else :
             invalid_args(args.Tool.upper())
         return True
