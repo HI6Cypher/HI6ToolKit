@@ -114,7 +114,7 @@ class Sniff :
         return src, dst, tln, csm, data
 
     @staticmethod
-    def parse_data(data : bytes) :
+    def indent_data(data : bytes) :
         data = str(data).strip("b'\"")
         text = "\t\t\t"
         for i in range(0, (len(data) // 50) + 1) :
@@ -139,7 +139,7 @@ class Sniff :
 
         if iph[8] == "ICMP" :
             typ, cod, csm, idn, seq, data = self.icmp_header(self.raw_buffer[iph[1]:])
-            text = f"\tICMP Packet :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Identifier : {idn}{t}Sequence : {seq}{t}Raw Data :\n{self.parse_data(data)}"
+            text = f"\tICMP Packet :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Identifier : {idn}{t}Sequence : {seq}{t}Raw Data :\n{self.indent_data(data)}"
             self.ordered += text + "\n"
 
         elif iph[8] == "TCP" :
@@ -148,12 +148,12 @@ class Sniff :
             self.ordered += text + "\t"
             text = f"URG:{flg[0]}  ACK:{flg[1]}  PSH:{flg[2]}{t}\tRST:{flg[3]}  SYN:{flg[4]}  FIN:{flg[5]}"
             self.ordered += text + t
-            text = f"Window : {win}{t}Checksum : {csm}{t}Urgent Pointer : {urg}{t}Raw Data :\n{self.parse_data(data)}"
+            text = f"Window : {win}{t}Checksum : {csm}{t}Urgent Pointer : {urg}{t}Raw Data :\n{self.indent_data(data)}"
             self.ordered += text
 
         elif iph[8] == "UDP" :
             src, dst, tln, csm, data = self.udp_header(self.raw_buffer[iph[1]:])
-            text = f"\tUDP Datagram :{t}Source Port : {src}{t}Destination Port : {dst}{t}Length : {tln}{t}Checksum : {csm}{t}Raw Data :\n{self.parse_data(data)}"
+            text = f"\tUDP Datagram :{t}Source Port : {src}{t}Destination Port : {dst}{t}Length : {tln}{t}Checksum : {csm}{t}Raw Data :\n{self.indent_data(data)}"
             self.ordered += text + "\n"
         return None
 
