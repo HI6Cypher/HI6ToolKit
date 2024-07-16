@@ -29,7 +29,7 @@ class Constant :
     EXCEPTION : None = lambda error : print(f"[!] Error : {error or None}", file = sys.stderr)
 
     def SAVE(data : str) :
-        path = f"data_{Constant.TIME}.txt"
+        path = f"data_{Constant.TIME}txt"
         mode = "a" if os.path.exists(path) else "x"
         print(data, file = open(path, mode))
         return None
@@ -443,8 +443,8 @@ class Listen :
         else :
             return 0
 
-    def tmp_file(self) :
-        path = f"./tmp_{Constant.TIME}.tmp"
+    def tmp_file(self, file_name : str) :
+        path = f"./{file_name}.tmp"
         mode = "xb" if os.path.exists(path) else "ab"
         return open(path, mode)
 
@@ -466,14 +466,15 @@ class Listen :
                         while not header.endswith(b"\r\n\r\n") :
                             header += self.readline(conn)
                         else :
-                            status, _, version = header.split(b"\r\n", 1)[0].split(b" ")
+                            status, path, version = header.split(b"\r\n", 1)[0].split(b" ")
                             length = self.get_length(header) if status not in (b"GET", b"HEAD", b"CONNECT") else 0
                             self.data = header
                             print(self.data)
                         if length and status not in (b"GET", b"HEAD", b"CONNECT") :
                             conn.settimeout(5)
                             parts, tail = self.get_part(length)
-                            file = self.tmp_file()
+                            file_name = path[1:].decode() if path.startswith(b"/") else path.decode()
+                            file = self.tmp_file(file_name)
                             for part in range(parts) :
                                 file.write(self.readbuffer(conn, self.buffer))
                             else :
