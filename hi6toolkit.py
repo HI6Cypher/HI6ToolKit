@@ -29,7 +29,7 @@ class Constant :
     EXCEPTION : None = lambda error : print(f"[!] Error : {error or None}", file = sys.stderr)
 
     def SAVE(data : str) :
-        path = f"data_{Constant.TIME}txt"
+        path = f"data_{Constant.TIME}.txt"
         mode = "a" if os.path.exists(path) else "x"
         print(data, file = open(path, mode))
         return None
@@ -94,7 +94,7 @@ class Sniff :
         psh = (flg & 8) >> 3
         rst = (flg & 4) >> 2
         syn = (flg & 2) >> 1
-        fin = flg & 0x1
+        fin = flg & 1
         flg = (urg, ack, psh, rst, syn, fin)
         win = payload[6]
         csm = hex(payload[7])
@@ -183,7 +183,6 @@ class Sniff :
                     self.ordered = str()
                     self.raw_buffer = sniff.recvfrom(65535)[0]
                     if self.raw_buffer :
-                        print(self.raw_buffer)
                         iph = self.ip_header(self.raw_buffer[0:20])
                         self.__analysis_proto(iph)
                         self.ordered = self.ordered.expandtabs(4)
@@ -217,7 +216,7 @@ class DoS_SYN :
                 prt : int = socket.IPPROTO_TCP, csm : int = 0) :
         ihl_ver = (ver << 4) + ihl
         flg_oft = (flg << 13) + oft
-        datagram = struct.pack("BBHHHBBH4s4s", ihl_ver, tos, tln, idn,
+        datagram = struct.pack("!BBHHHBBH4s4s", ihl_ver, tos, tln, idn,
                         flg_oft, ttl, prt, csm, src, dst)
         return datagram
 
@@ -233,14 +232,14 @@ class DoS_SYN :
         res = 0 << 6
         flg = (urg << 5) + (ack << 4) + (psh << 3) + (rst << 2) + (syn << 1) + fin
         oft_res_flg = oft + res + flg
-        segment = struct.pack("HHLLHHHH", srp, dsp, seq, acn, oft_res_flg, win, csm, urp)
+        segment = struct.pack("!HHLLHHHH", srp, dsp, seq, acn, oft_res_flg, win, csm, urp)
         return segment
 
     @staticmethod
     def pseudo_header(src : str, dst : str,
                 res : int = 0, prt : int = socket.IPPROTO_TCP,
                 pln : int = 0) :
-        segment = struct.pack("4s4sBBH", src, dst, res, prt, pln)
+        segment = struct.pack("!4s4sBBH", src, dst, res, prt, pln)
         return segment
 
     @staticmethod
@@ -351,8 +350,8 @@ class HTTP_Request :
 
     def __request(self) :
         if self.https : sslcontext = ssl.create_default_context()
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as flood :
-            flood = sslcontext.wrap_socket(flood, server_hostname = self.host) if self.https else flood
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as http :
+            http = sslcontext.wrap_socket(http, server_hostname = self.host) if self.https else http
             payload = [
                         f"{self.method} {self.end} HTTP/1.1",
                         f"Host: {self.host}",
@@ -363,24 +362,24 @@ class HTTP_Request :
             payload = "\r\n".join(payload)
             self.request_header = payload
             if not Constant.MODULE : print(payload)
-            flood.settimeout(30)
-            flood.connect((self.host, self.port))
-            flood.send(payload.encode())
+            http.settimeout(30)
+            http.connect((self.host, self.port))
+            http.send(payload.encode())
             raw_data = bytes()
             if not Constant.MODULE :
                 count = 0
                 char = Constant.SPACE
                 switch = lambda x : Constant.BLOCK if x == Constant.SPACE else Constant.SPACE
             while True :
-                response = flood.recv(1024)
+                response = http.recv(1024)
                 if not response :
                     raw_data = raw_data.split(b"\r\n\r\n", 1)
-                    self.response_header = raw_data[0].decode() if isinstance(self.response_header, bytes) else raw_data[0]
+                    self.response_header = raw_data[0]
                     self.response = raw_data[-1].decode() if self.decode else raw_data[-1]
                     if not Constant.MODULE :
                         print(self.response_header, end = "\n\n")
                         if self.method == "GET" : print(self.response)
-                    if self.https : flood.close()
+                    if self.https : http.close()
                     break
                 else :
                     if not Constant.MODULE :
