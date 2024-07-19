@@ -1,14 +1,18 @@
+#!/bin/python3
 import socket
 import struct
-import sys
-import time
+import signal
 import ssl
+import sys
 import os
 import random
+import time
 import argparse
 
 
 class Constant :
+    ERROR : str = lambda arg : print(f"\nInvalid argument : \"{arg}\"\nType : \"python HI6ToolKit.py --help or -h\"", file = sys.stderr)
+    EXCEPTION : None = lambda error : print(f"\n[!] Error : {error or None}", file = sys.stderr)
     MODULE : bool = __name__ != "__main__"
     TIME : int = round(time.time())
     ISOS : bool = any([os in sys.platform for os in ("linux", "bsd", "darwin")])
@@ -23,9 +27,10 @@ class Constant :
         [GitHub] : [github.com/HI6Cypher]
         [Email] : [huaweisclu31@hotmail.com]\n\n"""
 
-    ERROR : str = lambda arg : print(f"Invalid argument : \"{arg}\"\nType : \"python HI6ToolKit.py --help or -h\"", file = sys.stderr)
-
-    EXCEPTION : None = lambda error : print(f"[!] Error : {error or None}", file = sys.stderr)
+    def SIGNAL(signum : int, stk_frm : "frame") :
+        Constant.EXCEPTION(f" **SIGNAL** sig_num : {signal.Signals(signum).name}")
+        exit(1)
+        return None
 
     def SAVE(data : str) :
         path = f"data_{Constant.TIME}.txt"
@@ -168,37 +173,29 @@ class Sniff :
         return parsed_header
 
     def sniff(self) :
-        try :
-            if not Constant.MODULE :
-                print(Constant.INFO)
-                input("\nPress ENTER to continue...\n")
-            while True :
-                yield self.__sniff()
-        except KeyboardInterrupt :
-            exit(1)
+        if not Constant.MODULE :
+            print(Constant.INFO)
+            input("\nPress ENTER to continue...\n")
+        while True :
+            yield self.__sniff()
 
     def __sniff(self) :
         with socket.socket(socket.AF_INET, socket.SOCK_RAW, self.__proto()) as sniff :
             sniff.bind((self.host, 0))
             sniff.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
-            if not Constant.ISOS : sniff.ioctl(socket.SIO_RCVALL, socket.RCVALL_ON)
-            try :
-                while True :
-                    raw_data = sniff.recvfrom(65535)[0]
-                    if raw_data :
-                        parsed_headers = self.parse_headers(raw_data)
-                        parsed_headers = parsed_headers.expandtabs(4)
-                        Constant.SAVE(parsed_headers)
-                        if not Constant.ISOS : sniff.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF)
-                        return parsed_headers
-            except KeyboardInterrupt :
-                if not Constant.ISOS : sniff.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF)
-                exit(1)
+            while True :
+                raw_data = sniff.recvfrom(65535)[0]
+                if raw_data :
+                    parsed_headers = self.parse_headers(raw_data)
+                    parsed_headers = parsed_headers.expandtabs(4)
+                    Constant.SAVE(parsed_headers)
+                    if not Constant.ISOS : sniff.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF)
+                    return parsed_headers
 
 
 class DoS_SYN :
     def __init__(self, host: str, port : int) :
-        self.host = socket.gethostbyname(host)
+        self.host = host
         self.port = int(port)
         self.generator = None
 
@@ -290,15 +287,12 @@ class DoS_SYN :
         return payload
 
     def flood(self) :
-        try :
-            if not Constant.MODULE :
-                print(Constant.INFO)
-                input("\nPress ENTER to continue...\n")
-            while True :
-                self.__flood()
-                yield None
-        except KeyboardInterrupt :
-            exit(1)
+        if not Constant.MODULE :
+            print(Constant.INFO)
+            input("\nPress ENTER to continue...\n")
+        while True :
+            self.__flood()
+            yield None
 
     def __flood(self) :
         payload = self.prepare()
@@ -328,13 +322,10 @@ class HTTP_Request :
         return f"HTTP_Request : \n\t{self.host}\n\t{self.port}"
 
     def request(self) :
-        try :
-            if not Constant.MODULE :
-                print(Constant.INFO)
-                input("\nPress ENTER to continue...\n")
-            self.__request()
-        except KeyboardInterrupt :
-            exit(1)
+        if not Constant.MODULE :
+            print(Constant.INFO)
+            input("\nPress ENTER to continue...\n")
+        self.__request()
 
     def __request(self) :
         if self.https : sslcontext = ssl.create_default_context()
@@ -386,15 +377,12 @@ class Listen :
         return f"Listen : \n\t{self.host}\n\t{self.port}"
 
     def listen(self) :
-        try :
-            if not Constant.MODULE :
-                print(Constant.INFO)
-                input("\nPress ENTER to continue...\n")
-            while True :
-                self.__listen()
-                yield self.data
-        except KeyboardInterrupt :
-            exit(1)
+        if not Constant.MODULE :
+            print(Constant.INFO)
+            input("\nPress ENTER to continue...\n")
+        while True :
+            self.__listen()
+            yield self.data
 
     @staticmethod
     def readbuffer(sock : socket.socket, buffer : int) :
@@ -433,39 +421,35 @@ class Listen :
         return nparts, ntail
 
     def __listen(self) :
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listen :
-                listen.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                listen.settimeout(self.timeout)
-                listen.bind((self.host, self.port))
-                listen.listen()
-                try :
-                    while True :
-                        header = bytes()
-                        conn, addr = listen.accept()
-                        while not header.endswith(b"\r\n\r\n") :
-                            header += self.readline(conn)
-                        else :
-                            status, path, version = header.split(b"\r\n", 1)[0].split(b" ")
-                            length = self.get_length(header) if status not in (b"GET", b"HEAD", b"CONNECT") else 0
-                            self.data = header
-                            if not Constant.MODULE : print(self.data)
-                        if length and status not in (b"GET", b"HEAD", b"CONNECT") :
-                            conn.settimeout(5)
-                            parts, tail = self.get_part(length)
-                            file_name = path[1:].decode() if path.startswith(b"/") else path.decode()
-                            file = self.tmp_file(file_name)
-                            for part in range(parts) :
-                                file.write(self.readbuffer(conn, self.buffer))
-                            else :
-                                if tail != 0 : file.write(self.readbuffer(conn, tail))
-                                conn.send(b"%b 200 OK\r\nConnection: close\r\n" % version)
-                                file.close()
-                                break
-                        else :
-                            break
-                except KeyboardInterrupt :
-                    exit(1)
-            return None
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listen :
+            listen.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            listen.settimeout(self.timeout)
+            listen.bind((self.host, self.port))
+            listen.listen()
+            while True :
+                header = bytes()
+                conn, addr = listen.accept()
+                while not header.endswith(b"\r\n\r\n") :
+                    header += self.readline(conn)
+                else :
+                    status, path, version = header.split(b"\r\n", 1)[0].split(b" ")
+                    length = self.get_length(header) if status not in (b"GET", b"HEAD", b"CONNECT") else 0
+                    self.data = header
+                    if not Constant.MODULE : print(self.data)
+                if length and status not in (b"GET", b"HEAD", b"CONNECT") :
+                    conn.settimeout(5)
+                    parts, tail = self.get_part(length)
+                    file_name = path[1:].decode() if path.startswith(b"/") else path.decode()
+                    file = self.tmp_file(file_name)
+                    for part in range(parts) :
+                        file.write(self.readbuffer(conn, self.buffer))
+                    else :
+                        if tail != 0 : file.write(self.readbuffer(conn, tail))
+                        conn.send(b"%b 200 OK\r\nConnection: close\r\n" % version)
+                        file.close()
+                        break
+                else : break
+        return None
 
 
 if not Constant.MODULE :
@@ -491,9 +475,10 @@ if not Constant.MODULE :
 
     def invalid_args(arg : str) :
         Constant.ERROR(arg)
-        return exit(1)
+        exit(1)
+        return None
 
-    def check(**kwargs) :
+    def check(**kwargs : dict) :
         nones = list()
         for k, v in kwargs.items() :
             if not v : nones.append(k)
@@ -536,7 +521,7 @@ if not Constant.MODULE :
             }
         success, nones = check(**args)
         if not success : invalid_args(" & ".join(nones) + " " + "NOT found")
-        host = args["host"]
+        host = socket.gethostbyname(args["host"])
         port = args["port"]
         rate = args["rate"]
         while rate % 32 != 0 : rate += 1
@@ -599,12 +584,17 @@ if not Constant.MODULE :
     def main() :
         global args
         os.system("clear || cls")
+        signal.signal(signal.SIGINT, Constant.SIGNAL)
+        signal.signal(signal.SIGTERM, Constant.SIGNAL)
+        signal.signal(signal.SIGQUIT, Constant.SIGNAL)
+        signal.signal(signal.SIGILL, Constant.SIGNAL)
+        signal.signal(signal.SIGSEGV, Constant.SIGNAL)
+        signal.signal(signal.SIGBUS, Constant.SIGNAL)
+        signal.signal(signal.SIGPIPE, Constant.SIGNAL)
+        signal.signal(signal.SIGABRT, Constant.SIGNAL)
         args = manage_args()
         if args.Tool.upper() in Constant.TOOLS :
-            try :
-                Constant.TOOLS[args.Tool.upper()]()
-            except Exception as error:
-                invalid_args(error)
+            Constant.TOOLS[args.Tool.upper()]()
         else :
             invalid_args(args.Tool.upper())
         return True
