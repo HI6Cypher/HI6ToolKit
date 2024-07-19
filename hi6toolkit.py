@@ -424,7 +424,7 @@ class Listen :
     @staticmethod
     def tmp_file(file_name : str) :
         path = f"./{file_name}.tmp"
-        mode = "xb" if os.path.exists(path) else "ab"
+        mode = "wb"
         return open(path, mode)
 
     def get_part(self, length : int) :
