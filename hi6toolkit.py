@@ -11,8 +11,8 @@ import argparse
 
 
 class Constant :
-    ERROR : str = lambda arg : print(f"\nInvalid argument : \"{arg}\"\nType : \"python HI6ToolKit.py --help or -h\"", file = sys.stderr)
-    EXCEPTION : None = lambda error : print(f"\n[!] Error : {error or None}", file = sys.stderr)
+    ERROR : str = lambda arg : print(Constant.RED(f"\nInvalid argument : \"{arg}\"\nType : \"python HI6ToolKit.py --help or -h\""), file = sys.stderr)
+    EXCEPTION : None = lambda error : print("\n[" + Constant.RED("!") + "]" + f" Error : {error or None}", file = sys.stderr)
     MODULE : bool = __name__ != "__main__"
     TIME : int = round(time.time())
     ISOS : bool = any([os in sys.platform for os in ("linux", "bsd", "darwin")])
@@ -28,7 +28,7 @@ class Constant :
         [Email] : [huaweisclu31@hotmail.com]\n\n"""
 
     def SIGNAL(signum : int, stk_frm : "frame") :
-        Constant.EXCEPTION(f" **SIGNAL** sig_num : {signal.Signals(signum).name}")
+        Constant.EXCEPTION(Constant.RED("\n **SIGNAL** ") + f"sig_num : {Constant.YELLOW(signal.Signals(signum).name)}")
         exit(1)
         return None
 
@@ -37,6 +37,21 @@ class Constant :
         mode = "a" if os.path.exists(path) else "x"
         print(data, file = open(path, mode))
         return None
+
+    def RED(text : str) :
+        red = "\33[91m"
+        end = "\33[0m"
+        return red + text + end
+
+    def GREEN(text : str) :
+        green = "\33[92m"
+        end = "\33[0m"
+        return green + text + end
+
+    def YELLOW(text : str) :
+        yellow = "\33[93m"
+        end = "\33[0m"
+        return yellow + text + end
 
 
 class Sniff :
@@ -174,7 +189,7 @@ class Sniff :
 
     def sniff(self) :
         if not Constant.MODULE :
-            print(Constant.INFO)
+            print(Constant.YELLOW(Constant.INFO))
             input("\nPress ENTER to continue...\n")
         while True :
             yield self.__sniff()
@@ -288,7 +303,7 @@ class DoS_SYN :
 
     def flood(self) :
         if not Constant.MODULE :
-            print(Constant.INFO)
+            print(Constant.YELLOW(Constant.INFO))
             input("\nPress ENTER to continue...\n")
         while True :
             self.__flood()
@@ -323,7 +338,7 @@ class HTTP_Request :
 
     def request(self) :
         if not Constant.MODULE :
-            print(Constant.INFO)
+            print(Constant.YELLOW(Constant.INFO))
             input("\nPress ENTER to continue...\n")
         self.__request()
 
@@ -378,7 +393,7 @@ class Listen :
 
     def listen(self) :
         if not Constant.MODULE :
-            print(Constant.INFO)
+            print(Constant.YELLOW(Constant.INFO))
             input("\nPress ENTER to continue...\n")
         while True :
             self.__listen()
@@ -486,7 +501,7 @@ if not Constant.MODULE :
 
     @command(tool = "INFO")
     def info_args() :
-        print(Constant.INFO)
+        print(Constant.YELLOW(Constant.INFO))
         return None
 
     @command(tool = "SNIFF")
@@ -529,13 +544,14 @@ if not Constant.MODULE :
         flood = iter(flood)
         for i in range(1, rate + 1) :
             next(flood)
-            if not Constant.MODULE : print(f"[+] {DoS_SYN.load_symbol(i, rate, Constant.SLASH)}  {i} packets sent", end = "\r", flush = True)
+            text = "[" + Constant.GREEN("+") + "]" + f" {DoS_SYN.load_symbol(i, rate, Constant.SLASH)} " + f"{Constant.YELLOW(str(i))}" + " packets sent"
+            if not Constant.MODULE : print(text, end = "\r", flush = True)
         else :
             if not Constant.MODULE :
                 time.sleep(2)
                 end_time = round((time.time() - Constant.TIME), 2)
-                print("\n[+] All packets have sent")
-                print(f"[-] {end_time}s")
+                print("\n[" + Constant.GREEN("+") + "]" + " All packets have sent")
+                print("[" + Constant.GREEN("+") + "]" + f" {end_time}s")
 
         return None
 
