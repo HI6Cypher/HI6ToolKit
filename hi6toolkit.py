@@ -12,7 +12,7 @@ import argparse
 
 class Constant :
     ERROR : str = lambda arg : print(Constant.RED(f"\nInvalid argument : \"{arg}\"\nType : \"python HI6ToolKit.py --help or -h\""), file = sys.stderr)
-    EXCEPTION : None = lambda error : print("\n[" + Constant.RED("!") + "]" + f" Error : {error or None}", file = sys.stderr)
+    EXCEPTION : None = lambda error : print("\n\n[" + Constant.RED("!") + "]" + f" Error : {error or None}", file = sys.stderr)
     MODULE : bool = __name__ != "__main__"
     TIME : int = round(time.time())
     ISOS : bool = any([os in sys.platform for os in ("linux", "bsd", "darwin")])
@@ -28,7 +28,7 @@ class Constant :
         [Email] : [huaweisclu31@hotmail.com]\n\n"""
 
     def SIGNAL(signum : int, stk_frm : "frame") :
-        Constant.EXCEPTION(Constant.RED("\n **SIGNAL** ") + f"sig_num : {Constant.YELLOW(signal.Signals(signum).name)}")
+        Constant.EXCEPTION(Constant.RED(" **SIGNAL** ") + f"sig_num : {Constant.YELLOW(signal.Signals(signum).name)}")
         exit(1)
         return None
 
