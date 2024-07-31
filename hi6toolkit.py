@@ -327,9 +327,9 @@ class HTTP_Request :
         self.method = method if method in ("GET", "HEAD") else "GET"
         self.end = end if end else "/"
         self.https = bool(https)
-        self.request_header = str()
+        self.request_header = bytes()
         self.response = bytes()
-        self.response_header = str()
+        self.response_header = bytes()
 
     def __repr__(self) :
         return f"{self.__class__} {self.__dict__}"
@@ -356,7 +356,7 @@ class HTTP_Request :
                         "Connection: close",
                         "\r\n"]
             payload = "\r\n".join(payload)
-            self.request_header = payload
+            self.request_header = payload.encode()
             if not Constant.MODULE : print(payload)
             http.connect((self.host, self.port))
             http.send(payload.encode())
