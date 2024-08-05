@@ -378,7 +378,7 @@ class HTTP_Request :
         return None
 
 
-class Listen :
+class HTTP_Listen :
     def __init__(self, host : str, port : int, timeout : int, buffer : int) :
         self.host = host
         self.port = port
@@ -390,7 +390,7 @@ class Listen :
         return f"{self.__class__} {self.__dict__}"
 
     def __str__(self) :
-        return f"Listen : \n\t{self.host}\n\t{self.port}"
+        return f"HTTP_Listen : \n\t{self.host}\n\t{self.port}"
 
     def listen(self) :
         if not Constant.MODULE :
@@ -451,7 +451,7 @@ class Listen :
                     status, path, version = header.split(b"\r\n", 1)[0].split(b" ")
                     length = self.get_length(header) if status not in (b"GET", b"HEAD", b"CONNECT") else 0
                     self.data = header
-                    if not Constant.MODULE : print(self.data)
+                    if not Constant.MODULE : print(self.data.decode())
                 if length and status not in (b"GET", b"HEAD", b"CONNECT") :
                     conn.settimeout(5)
                     parts, tail = self.get_part(length)
@@ -461,9 +461,14 @@ class Listen :
                         file.write(self.readbuffer(conn, self.buffer))
                     else :
                         if tail != 0 : file.write(self.readbuffer(conn, tail))
-                        conn.send(b"%b 200 OK\r\nConnection: close\r\n" % version)
+                        conn.send(b"%b 200 OK\r\nConnection: close\r\n\r\n" % version)
+                        conn.close()
                         file.close()
                         break
+                elif status in (b"GET", b"HEAD", b"CONNECT") :
+                    conn.send(b"%b 200 OK\r\nConnection: close\r\n\r\n" % version)
+                    conn.close()
+                    break
                 else : break
         return None
 
@@ -578,7 +583,7 @@ if not Constant.MODULE :
         return None
 
     @command(tool = "LISTEN")
-    def Listen_args() :
+    def HTTP_Listen_args() :
         global args
         args = {
             "host" :  args.host,
@@ -592,7 +597,7 @@ if not Constant.MODULE :
         port = args["port"]
         timeout = args["timeout"]
         buffer = args["buffer"]
-        listen = Listen(host, port, timeout, buffer)
+        listen = HTTP_Listen(host, port, timeout, buffer)
         gen = listen.listen()
         for i in gen :
             Constant.SAVE(i.decode())

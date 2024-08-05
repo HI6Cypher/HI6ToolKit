@@ -3,7 +3,7 @@
 
 ## Classes :
 ``` python
-from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Listen
+from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, HTTP_Listen
 ```
 
 ## Usage :
@@ -14,7 +14,7 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Listen
 
 - To Sniff packets :
     ``` bash
-    python hi6toolkit.py SNIFF -x [host/DEFAULT] -m [TCP/UDP/ICMP/ALL]
+    python hi6toolkit.py SNIFF -x [host] -m [TCP/UDP/ICMP/ALL]
     ```
 
 - Example of a sniffed packet from [CyG33k](https://github.com/HI6Cypher/CyGeek)
@@ -51,7 +51,7 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Listen
     python hi6toolkit.py DOS -m [SYN] -x [host] -p [port] -r [rate]
     ```
 
-- Example of SYN flood (127.0.0.1) :
+- Example of SYN flood to (127.0.0.1) :
     ```
 
          [System] : [fuckOS]
@@ -71,7 +71,7 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Listen
 
 - To sending HTTP request :
     ``` bash
-    python hi6toolkit.py HTTP -x [host] -p [port/default=80] -e [endpoint] -d -s(for https)
+    python hi6toolkit.py HTTP -x [host] -p [port] -e [endpoint] -s(for https)
     ```
 - To start the network listener :
     ``` bash
@@ -83,11 +83,11 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Listen
     ```
 - Note : HI6ToolKit is a script, but it can use as module
     ``` python
-    from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Listen
+    from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, HTTP_Listen
 
     serv = "www.example.com"
 
-    http = HTTP_Request(host = serv, port = 80, end = "/", decode = 1, https = 0)
+    http = HTTP_Request(host = serv, port = 80, end = "/", https = False)
     http.request()
 
     print(http.request_header, http.response_header, "\n\n", http.response)
@@ -114,7 +114,7 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Listen
     Vary: Accept-Encoding
     X-Cache: HIT
     Content-Length: 1256
-    Connection: close 
+    Connection: close
 
      <!doctype html>
     <html>
@@ -130,7 +130,7 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Listen
             margin: 0;
             padding: 0;
             font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
-            
+
         }
         div {
             width: 600px;
@@ -150,7 +150,7 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Listen
                 width: auto;
             }
         }
-        </style>    
+        </style>
     </head>
 
     <body>
@@ -165,7 +165,7 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Listen
     ```
 
 - Exception :
-    To send TCP/IP packet we need raw socket with `socket.IPPROTO_TCP` that 
+    To send TCP/IP packet we need raw socket with `socket.IPPROTO_TCP` that
     we have limitations :\ on raw socket in some Windows versions(7, XP, Vista, ,...)
     to more information visit [Site](https://learn.microsoft.com/en-us/windows/win32/winsock/tcp-ip-raw-sockets-2)
 
@@ -184,4 +184,4 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Listen
 
 GitHub : [github.com/HI6Cypher](https://github.com/HI6Cypher) :)
 
-Email : [huaweisclu31@hotmail.com](mailto:huaweisclu31@hotmail.com) :) 
+Email : [huaweisclu31@hotmail.com](mailto:huaweisclu31@hotmail.com) :)
