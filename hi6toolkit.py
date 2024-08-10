@@ -14,7 +14,7 @@ class Constant :
     ERROR : str = lambda arg : print(Constant.RED(f"\nInvalid argument : \"{arg}\"\nType : \"python HI6ToolKit.py --help or -h\""), file = sys.stderr)
     EXCEPTION : None = lambda error : print("\n\n[" + Constant.RED("!") + "]" + f" Error : {error or None}", file = sys.stderr)
     MODULE : bool = __name__ != "__main__"
-    SUP_COLOR : bool = "color" in os.environ["TERM"]
+    SUP_COLOR : bool = "true" in os.environ["COLORTERM"]
     TIME : int = round(time.time())
     ISOS : bool = any([os in sys.platform for os in ("linux", "bsd", "darwin")])
     SLASH : str = chr(47)
