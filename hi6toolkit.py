@@ -30,7 +30,7 @@ class Constant :
 
     def SIGNAL(signum : int, stk_frm : "frame") :
         Constant.EXCEPTION(Constant.RED(" **SIGNAL** ") + f"sig_num : {Constant.YELLOW(signal.Signals(signum).name)}")
-        exit(1)
+        sys.exit(1)
         return None
 
     def SAVE(data : str) :
@@ -496,7 +496,7 @@ if not Constant.MODULE :
 
     def invalid_args(arg : str) :
         Constant.ERROR(arg)
-        exit(1)
+        sys.exit(1)
         return None
 
     def check(**kwargs : dict) :
