@@ -72,7 +72,10 @@ class Sniff :
         return self
 
     def __next__(self) :
-        return next(self.generator)
+        try : return next(self.generator)
+        except StopIteration :
+            self.generator = None
+            raise StopIteration
 
     @staticmethod
     def ip_header(raw_payload : bytes) :
@@ -226,7 +229,10 @@ class DoS_SYN :
         return self
 
     def __next__(self) :
-        return next(self.generator)
+        try : return next(self.generator)
+        except StopIteration :
+            self.generator = None
+            raise StopIteration
 
     @staticmethod
     def ip_header(src : str, dst : str,
