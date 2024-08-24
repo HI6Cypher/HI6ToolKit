@@ -3,7 +3,7 @@
 
 ## Classes :
 ``` python
-from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, HTTP_Listen
+from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
 ```
 
 ## Usage :
@@ -73,9 +73,9 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, HTTP_Listen
     ``` bash
     python hi6toolkit.py HTTP -x [host] -p [port] -e [endpoint] -s(for https)
     ```
-- To start the network listener :
+- To receiving file(Tunnel) :
     ``` bash
-    python hi6toolkit.py LISTEN -m [TCP/UDP] -x [host] -p [port] -t [timeout] -b [buffer]
+    python hi6toolkit.py TUNNEL -m [TCP/UDP] -x [host] -p [port] -t [timeout] -b [buffer]
     ```
 - To print information :
     ``` bash
@@ -83,7 +83,7 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, HTTP_Listen
     ```
 - Note : HI6ToolKit is a script, but it can use as module
     ``` python
-    from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, HTTP_Listen
+    from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
 
     serv = "www.example.com"
 
