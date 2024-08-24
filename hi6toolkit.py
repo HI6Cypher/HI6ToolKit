@@ -11,8 +11,6 @@ import argparse
 
 
 class Constant :
-    ERROR : str = lambda arg : print(Constant.RED(f"\nInvalid argument : \"{arg}\"\nType : \"python HI6ToolKit.py --help or -h\""), file = sys.stderr)
-    EXCEPTION : None = lambda error : print("\n\n[" + Constant.RED("!") + "]" + f" Error : {error or None}", file = sys.stderr)
     MODULE : bool = __name__ != "__main__"
     SUP_COLOR : bool = any(word in os.getenv("TERM") for word in ("linux", "xterm", "color"))
     TIME : int = round(time.time())
@@ -29,6 +27,7 @@ class Constant :
         [Email] : [huaweisclu31@hotmail.com]\n\n"""
 
     def SIGNAL(signum : int, stk_frm : "frame") :
+        EXCEPTION : None = lambda error : print("\n\n[" + Constant.RED("!") + "]" + f" Error : {error or None}", file = sys.stderr)
         Constant.EXCEPTION(Constant.RED(" **SIGNAL** ") + f"sig_num : {Constant.YELLOW(signal.Signals(signum).name)}")
         sys.exit(1)
         return None
@@ -384,98 +383,181 @@ class HTTP_Request :
         return None
 
 
-class HTTP_Listen :
+class Tunnel :
     def __init__(self, host : str, port : int, timeout : int, buffer : int) :
         self.host = host
         self.port = port
         self.timeout = timeout
         self.buffer = buffer
-        self.data = bytes()
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP)
 
     def __repr__(self) :
         return f"{self.__class__} {self.__dict__}"
 
     def __str__(self) :
-        return f"HTTP_Listen : \n\t{self.host}\n\t{self.port}"
+        return f"Tunnel : \n\t{self.host}\n\t{self.port}"
 
-    def listen(self) :
+    def tunnel(self) :
         if not Constant.MODULE :
             print(Constant.YELLOW(Constant.INFO))
             input("\nPress ENTER to continue...\n")
-        while True :
-            self.__listen()
-            yield self.data
+        self.__tunnel()
+
+    def init_server(self) :
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.bind((self.host, self.port))
+        self.sock.listen(1)
+        return None
+
+    def get_header(self, sock : socket.socket) :
+        header = bytes()
+        while not header.endswith(b"\r\n\r\n") :
+            header += self.readline(sock)
+        else : return header.decode()
 
     @staticmethod
-    def readbuffer(sock : socket.socket, buffer : int) :
-        payload = bytes()
-        while len(payload) != buffer :
-            payload += sock.recv(buffer - len(payload))
+    def open_file(name : str) :
+        path = f"./{name}"
+        mode = "ab" if os.path.exists(path) else "wb"
+        return open(path, mode)
+
+    @staticmethod
+    def tmp_file(file : "open", data : bytes) :
+        file.write(data)
+        return None
+
+    @staticmethod
+    def parse_headers(data : bytes) :
+        headers = {header.split(": ", 1)[0] : header.split(": ", 1)[-1] for header in data.split("\r\n")[1:-1]}
+        headers["status"] = data.split("\r\n", 1)[0].split(" ")[0]
+        headers["name"] = data.split("\r\n", 1)[0].split(" ")[1][1:]
+        headers["version"] = data.split("\r\n", 1)[0].split(" ")[-1]
+        return headers
+
+    @staticmethod
+    def get_name(headers : dict) :
+        keyword = "name"
+        if keyword in headers :
+            return headers[keyword] + f"_{round(time.time())}"  + ".tmp"
         else :
-            return payload
+            return f"new_{round(time.time())}.tmp"
+
+    @staticmethod
+    def get_length(headers : dict) :
+        keyword = "Content-Length"
+        if keyword in headers :
+            return int(headers[keyword])
+        else :
+            raise Exception(f"{keyword} not in HTTP header")
+
+    @staticmethod
+    def get_status(headers : dict) :
+        keyword = "status"
+        if keyword in headers :
+            return headers[keyword]
+        else : raise Exception("couldn't find status")
+
+    @staticmethod
+    def get_version(headers : dict) :
+        keyword = "version"
+        if keyword in headers :
+            return headers[keyword]
+        else : return "HTTP/1.0"
+
+    @staticmethod
+    def get_parted_length(length : int, part : int) :
+        if part > length : return length, 0
+        nlen = length // part
+        nrimd = length % part
+        return nrimd, nlen
+
+    @staticmethod
+    def get_parts(length : int, buffer : int) :
+        if buffer > length : return length, 0
+        npart = length // buffer
+        nrimd = length % buffer
+        return nrimd, npart
 
     @staticmethod
     def readline(sock : socket.socket) :
         line = bytes()
-        while not line.endswith(b"\n") :
+        while not line.endswith(b"\r\n") :
             line += sock.recv(1)
-        else :
-            return line
+        else : return line
 
     @staticmethod
-    def get_length(header : bytes) :
-        headers = header.split(b"\r\n")
-        for header in headers :
-            if header.startswith(b"Content-Length") :
-                return int(header[16:])
-        else :
-            return 0
+    def readbuffer(sock : socket.socket, buffer : int) :
+        data = bytes()
+        while len(data) != buffer :
+            data += sock.recv(buffer - len(data))
+        else : return data
 
     @staticmethod
-    def tmp_file(file_name : str) :
-        path = f"./{file_name}.tmp"
-        mode = "wb"
-        return open(path, mode)
+    def write(sock : socket.socket, data : bytes) :
+        data = data if isinstance(data, bytes) else data.encode()
+        sock.sendall(data)
+        return None
 
-    def get_part(self, length : int) :
-        nparts = length // self.buffer
-        ntail = length % self.buffer
-        return nparts, ntail
+    @staticmethod
+    def prepare_response(version : str) :
+        payload = [
+            f"{version} 200 OK",
+            "User-Agent: HI6ToolKit",
+            "\r\n"
+            ]
+        payload = "\r\n".join(payload).encode()
+        return payload
 
-    def __listen(self) :
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listen :
-            listen.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            listen.settimeout(self.timeout)
-            listen.bind((self.host, self.port))
-            listen.listen()
-            while True :
-                header = bytes()
-                conn, addr = listen.accept()
-                while not header.endswith(b"\r\n\r\n") :
-                    header += self.readline(conn)
-                else :
-                    status, path, version = header.split(b"\r\n", 1)[0].split(b" ")
-                    length = self.get_length(header) if status not in (b"GET", b"HEAD", b"CONNECT") else 0
-                    self.data = header
-                    if not Constant.MODULE : print(self.data.decode())
-                if length and status not in (b"GET", b"HEAD", b"CONNECT") :
-                    conn.settimeout(5)
-                    parts, tail = self.get_part(length)
-                    file_name = path[1:].decode() if path.startswith(b"/") else path.decode()
-                    file = self.tmp_file(file_name)
-                    for part in range(parts) :
-                        file.write(self.readbuffer(conn, self.buffer))
-                    else :
-                        if tail != 0 : file.write(self.readbuffer(conn, tail))
-                        conn.send(b"%b 200 OK\r\nConnection: close\r\n\r\n" % version)
-                        conn.close()
-                        file.close()
-                        break
-                elif status in (b"GET", b"HEAD", b"CONNECT") :
-                    conn.send(b"%b 200 OK\r\nConnection: close\r\n\r\n" % version)
-                    conn.close()
-                    break
-                else : break
+    @staticmethod
+    def progress_bar(x : int) :
+        symbol = "/"
+        return x * symbol
+
+    @staticmethod
+    def percent(x : int, y : int) :
+        return round((x / y) * 100)
+
+    def __tunnel(self) :
+        part = 32
+        print("[" + Constant.GREEN("+") + "]" + " " + "run init_server()", end = "  ", flush = True)
+        self.init_server()
+        print(Constant.GREEN("DONE"))
+        print("[" + Constant.GREEN("+") + "]" + " " + "run socket.accept()")
+        conn, addr = self.sock.accept()
+        print("[" + Constant.GREEN("+") + "]" + " " + f"new connection from {addr[0]}:{addr[-1]}")
+        headers = self.parse_headers(self.get_header(conn))
+        print("[" + Constant.GREEN("+") + "]" + " " + "parsing header", end = "  ", flush = True)
+        status, name, version, length = self.get_status(headers), self.get_name(headers), self.get_version(headers), self.get_length(headers)
+        print(Constant.GREEN("DONE"))
+        fst_len, tmp_len = self.get_parted_length(length, part)
+        file = self.open_file(name)
+        self.tmp_file(file, self.readbuffer(conn, fst_len))
+        length -= fst_len
+        if not tmp_len :
+            output = "[" + Constant.GREEN("*") + "]" + " " + self.progress_bar(part) + " " + f"[{self.percent(fst_len, length + fst_len)}%]"  + f"[{fst_len}/{length + fst_len}]"
+            print(output)
+            print(Constant.GREEN("DONE"))
+            sys.exit()
+        progress_part = part
+        while part != 0 :
+            len_ = tmp_len
+            tail, parts = self.get_parts(len_, self.buffer)
+            self.tmp_file(file, self.readbuffer(conn, tail))
+            while parts != 0 :
+                data = self.readbuffer(conn, self.buffer)
+                self.tmp_file(file, data)
+                parts -= 1
+            else :
+                part -= 1
+                now = progress_part - part
+                output = "[" + Constant.GREEN("*") + "]" + " " + self.progress_bar(now) + " " + f"[{self.percent(now * len_, length)}%]" + f"[{now * len_}/{length}]"
+                print(output, end = "\r", flush = True)
+        else :
+            output = f"\n[" + Constant.GREEN("+") + "]" + " " + f"sending OK to {addr[0]}:{addr[-1]}"
+            print(output, end = "  ", flush = True)
+            payload = self.prepare_response(version)
+            self.write(conn, payload)
+            print(Constant.GREEN("DONE"))
         return None
 
 
@@ -483,7 +565,7 @@ if not Constant.MODULE :
     args = None
     def manage_args() :
         parser = argparse.ArgumentParser(prog = "HI6ToolKit", add_help = True)
-        parser.add_argument("Tool", type = str, help = "To specify tool [SNIFF, DOS, HTTP, LISTEN]")
+        parser.add_argument("Tool", type = str, help = "To specify tool [SNIFF, DOS, HTTP, TUNNEL]")
         parser.add_argument("-m", "--method", type = str, help = "sets protocol type")
         parser.add_argument("-x", "--host", type = str, help = "sets host")
         parser.add_argument("-p", "--port", type = int, help = "sets port")
@@ -501,6 +583,7 @@ if not Constant.MODULE :
         return commit
 
     def invalid_args(arg : str) :
+        ERROR : str = lambda arg : print(Constant.RED(f"\nInvalid argument : \"{arg}\"\nType : \"python HI6ToolKit.py --help or -h\""), file = sys.stderr)
         Constant.ERROR(arg)
         sys.exit(1)
         return None
@@ -556,7 +639,7 @@ if not Constant.MODULE :
         flood = iter(flood)
         for i in range(1, rate + 1) :
             next(flood)
-            text = "[" + Constant.GREEN("+") + "]" + f" {DoS_SYN.load_symbol(i, rate, Constant.SLASH)} " + f"{Constant.YELLOW(str(i))}" + " packets sent"
+            text = "[" + Constant.GREEN("+") + "]" + " " + f"{DoS_SYN.load_symbol(i, rate, Constant.SLASH)} " + f"{Constant.YELLOW(str(i))}" + " packets sent"
             if not Constant.MODULE : print(text, end = "\r", flush = True)
         else :
             if not Constant.MODULE :
@@ -588,8 +671,8 @@ if not Constant.MODULE :
         client.request()
         return None
 
-    @command(tool = "LISTEN")
-    def HTTP_Listen_args() :
+    @command(tool = "TUNNEL")
+    def Tunnel_args() :
         global args
         args = {
             "host" :  args.host,
@@ -603,10 +686,8 @@ if not Constant.MODULE :
         port = args["port"]
         timeout = args["timeout"]
         buffer = args["buffer"]
-        listen = HTTP_Listen(host, port, timeout, buffer)
-        gen = listen.listen()
-        for i in gen :
-            Constant.SAVE(i.decode())
+        tunnel = Tunnel(host, port, timeout, buffer)
+        gen = tunnel.tunnel()
         return None
 
     def main() :
