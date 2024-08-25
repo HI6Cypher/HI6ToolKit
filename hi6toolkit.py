@@ -448,7 +448,7 @@ class Tunnel :
         if keyword in headers :
             return int(headers[keyword])
         else :
-            raise Exception(f"{keyword} not in HTTP header")
+            return 0
 
     @staticmethod
     def get_status(headers : dict) :
@@ -463,13 +463,6 @@ class Tunnel :
         if keyword in headers :
             return headers[keyword]
         else : return "HTTP/1.0"
-
-    @staticmethod
-    def get_parted_length(length : int, part : int) :
-        if part > length : return length, 0
-        nlen = length // part
-        nrimd = length % part
-        return nrimd, nlen
 
     @staticmethod
     def get_parts(length : int, buffer : int) :
@@ -499,26 +492,34 @@ class Tunnel :
         return None
 
     @staticmethod
-    def prepare_response(version : str) :
-        payload = [
+    def prepare_response(version : str, success : bool) :
+        if success :
+            payload = [
             f"{version} 200 OK",
             "User-Agent: HI6ToolKit",
             "\r\n"
             ]
+        else :
+            payload = [
+                f"{version} 400 Bad Request",
+                "User-Agent: HI6ToolKit",
+                "\r\n"
+                ]
         payload = "\r\n".join(payload).encode()
         return payload
 
     @staticmethod
-    def progress_bar(x : int) :
+    def progress_bar(x : int, y : int) :
         symbol = "/"
-        return x * symbol
+        sec = y // 32
+        now = x // sec
+        return now * symbol
 
     @staticmethod
     def percent(x : int, y : int) :
         return round((x / y) * 100)
 
     def __tunnel(self) :
-        part = 32
         print("[" + Constant.GREEN("+") + "]" + " " + "run init_server()", end = "  ", flush = True)
         self.init_server()
         print(Constant.GREEN("DONE"))
@@ -528,37 +529,34 @@ class Tunnel :
         headers = self.parse_headers(self.get_header(conn))
         print("[" + Constant.GREEN("+") + "]" + " " + "parsing header", end = "  ", flush = True)
         status, name, version, length = self.get_status(headers), self.get_name(headers), self.get_version(headers), self.get_length(headers)
-        print(Constant.GREEN("DONE"))
-        fst_len, tmp_len = self.get_parted_length(length, part)
-        file = self.open_file(name)
-        self.tmp_file(file, self.readbuffer(conn, fst_len))
-        length -= fst_len
-        if not tmp_len :
-            output = "[" + Constant.GREEN("*") + "]" + " " + self.progress_bar(part) + " " + f"[{self.percent(fst_len, length + fst_len)}%]"  + f"[{fst_len}/{length + fst_len}]"
-            print(output)
+        if not length :
+            print("[" + Constant.GREEN("+") + "]" + " " + f"couldn't find Content-Length, send Bad Requests to {addr[0]}:{addr[-1]}", end = "  ", flush = True)
+            payload = self.prepare_response(version, False)
+            self.write(conn, payload)
             print(Constant.GREEN("DONE"))
             sys.exit()
-        progress_part = part
-        while part != 0 :
-            len_ = tmp_len
-            tail, parts = self.get_parts(len_, self.buffer)
-            self.tmp_file(file, self.readbuffer(conn, tail))
-            while parts != 0 :
-                data = self.readbuffer(conn, self.buffer)
-                self.tmp_file(file, data)
-                parts -= 1
-            else :
-                part -= 1
-                now = progress_part - part
-                output = "[" + Constant.GREEN("*") + "]" + " " + self.progress_bar(now) + " " + f"[{self.percent(now * len_, length)}%]" + f"[{now * len_}/{length}]"
-                print(output, end = "\r", flush = True)
+        print(Constant.GREEN("DONE"))
+        send_length = 0
+        tail, parts = self.get_parts(length, self.buffer)
+        file = self.open_file(name)
+        OUTPUT : str = lambda x, y : "[" + Constant.GREEN("*") + "]" + " " + self.progress_bar(x, y) + " " + f"[{self.percent(x, y)}%]" + f"[{x}/{y}]"
+        while parts != 0 :
+            data = self.readbuffer(conn, self.buffer)
+            self.tmp_file(file, data)
+            send_length += self.buffer
+            print(OUTPUT(send_length, length), end = "\r", flush = True)
+            parts -= 1
         else :
-            output = f"\n[" + Constant.GREEN("+") + "]" + " " + f"sending OK to {addr[0]}:{addr[-1]}"
-            print(output, end = "  ", flush = True)
-            payload = self.prepare_response(version)
+            data = self.readbuffer(conn, tail)
+            self.tmp_file(file, data)
+            send_length += tail
+            print(OUTPUT(send_length, length), end = "\r", flush = True)
+            print("\n[" + Constant.GREEN("+") + "]" + " " + f"sending OK to {addr[0]}:{addr[-1]}", end = "  ", flush = True)
+            payload = self.prepare_response(version, True)
             self.write(conn, payload)
             print(Constant.GREEN("DONE"))
         return None
+
 
 
 if not Constant.MODULE :
