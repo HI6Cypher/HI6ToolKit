@@ -529,13 +529,13 @@ class Tunnel :
         headers = self.parse_headers(self.get_header(conn))
         print("[" + Constant.GREEN("+") + "]" + " " + "parsing header", end = "  ", flush = True)
         status, name, version, length = self.get_status(headers), self.get_name(headers), self.get_version(headers), self.get_length(headers)
+        print(Constant.GREEN("DONE"))
         if not length :
             print("[" + Constant.GREEN("+") + "]" + " " + f"couldn't find Content-Length, send Bad Requests to {addr[0]}:{addr[-1]}", end = "  ", flush = True)
             payload = self.prepare_response(version, False)
             self.write(conn, payload)
             print(Constant.GREEN("DONE"))
             sys.exit()
-        print(Constant.GREEN("DONE"))
         send_length = 0
         tail, parts = self.get_parts(length, self.buffer)
         file = self.open_file(name)
