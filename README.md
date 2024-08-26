@@ -88,7 +88,7 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
     serv = "www.example.com"
 
     http = HTTP_Request(host = serv, port = 80, end = "/", https = False)
-    http.request()
+    http.request() # Note that this class doesn't implement appropiate data paring algorithm!!!!!!, it is useful for RESTful APIs
 
     print(http.request_header, http.response_header, "\n\n", http.response)
     ```
@@ -165,6 +165,8 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
     ```
 
 - Exception :
+    HTTP_Request : Note that this class doesn't implement appropiate data paring algorithm!!!!!!, it is useful for RESTful APIs
+
     To send TCP/IP packet we need raw socket with `socket.IPPROTO_TCP` that
     we have limitations :\ on raw socket in some Windows versions(7, XP, Vista, ,...)
     to more information visit [Site](https://learn.microsoft.com/en-us/windows/win32/winsock/tcp-ip-raw-sockets-2)
