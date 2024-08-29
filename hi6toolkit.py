@@ -298,6 +298,7 @@ class DoS_SYN :
     @staticmethod
     def progress_bar(x : int, y : int) :
         symbol = Constant.SLASH
+        if y < 32 : return 32 * symbol if x == y else 0 * symbol
         sec = y // 32
         now = x // sec
         return now * symbol
@@ -507,6 +508,7 @@ class Tunnel :
     @staticmethod
     def progress_bar(x : int, y : int) :
         symbol = Constant.SLASH
+        if y < 32 : return 32 * symbol if x == y else 0 * symbol
         sec = y // 32
         now = x // sec
         return now * symbol
