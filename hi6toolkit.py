@@ -599,7 +599,7 @@ if not Constant.MODULE :
         global args
         args = {
             "host" : args.host,
-            "port" : args.port,
+            "port" : str(args.port),
             "proto" : args.method
             }
         success, nones = check(**args)
@@ -611,7 +611,7 @@ if not Constant.MODULE :
         }
         if args["proto"].upper() not in protos : invalid_args(proto)
         host = args["host"]
-        port = args["port"]
+        port = int(args["port"])
         proto = protos[args["proto"].upper()]
         sniff = Sniff(host, port, proto)
         for packet in sniff :
