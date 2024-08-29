@@ -48,8 +48,9 @@ class Constant :
 
 
 class Sniff :
-    def __init__(self, host : str, proto : int) :
+    def __init__(self, host : str, port : int, proto : int) :
         self.host = host
+        self.port = port if proto != socket.IPPROTO_ICMP else 0
         self.proto = proto
         self.generator = None
 
@@ -198,7 +199,7 @@ class Sniff :
 
     def __sniff(self) :
         with socket.socket(socket.AF_INET, socket.SOCK_RAW, self.__proto()) as sniff :
-            sniff.bind((self.host, 0))
+            sniff.bind((self.host, self.port))
             sniff.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
             while True :
                 raw_data = sniff.recvfrom(65535)[0]
@@ -529,7 +530,7 @@ class Tunnel :
         status, name, version, length = self.get_status(headers), self.get_name(headers), self.get_version(headers), self.get_length(headers)
         print(Constant.GREEN("DONE"))
         if not length :
-            print("[" + Constant.GREEN("+") + "]" + " " + f"couldn't find Content-Length, send Bad Requests to {addr[0]}:{addr[-1]}", end = "  ", flush = True)
+            print("[" + Constant.GREEN("+") + "]" + " " + f"couldn't find Content-Length, send Bad Request to {addr[0]}:{addr[-1]}", end = "  ", flush = True)
             payload = self.prepare_response(version, False)
             self.write(conn, payload)
             print(Constant.GREEN("DONE"))
@@ -598,6 +599,7 @@ if not Constant.MODULE :
         global args
         args = {
             "host" : args.host,
+            "port" : args.port,
             "proto" : args.method
             }
         success, nones = check(**args)
@@ -609,8 +611,9 @@ if not Constant.MODULE :
         }
         if args["proto"].upper() not in protos : invalid_args(proto)
         host = args["host"]
+        port = args["port"]
         proto = protos[args["proto"].upper()]
-        sniff = Sniff(host, proto)
+        sniff = Sniff(host, port, proto)
         for packet in sniff :
             print(packet)
         return None

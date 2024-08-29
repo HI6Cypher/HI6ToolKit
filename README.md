@@ -14,7 +14,7 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
 
 - To Sniff packets :
     ``` bash
-    python hi6toolkit.py SNIFF -x [host] -m [TCP/UDP/ICMP/ALL]
+    python hi6toolkit.py SNIFF -x [host] -p [port] -m [TCP/UDP/ICMP]
     ```
 
 - Example of a sniffed packet from [CyG33k](https://github.com/HI6Cypher/CyGeek)
@@ -54,40 +54,48 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
 - Example of SYN flood to (127.0.0.1) :
     ```
 
-         [System] : [fuckOS]
-         [Hostname] : [HI6Cypher]
-         [Python] : [CPython 3.6.0]
 
-         [GitHub] : [github.com/HI6Cypher]
-         [Email] : [huaweisclu31@hotmail.com]
+            [System] : [LINUX, Thu Aug 29 21:31:07 2024]
+            [Hostname] : [hi6cypher]
+            [Python] : [Cpython 3.11]
+
+            [GitHub] : [github.com/HI6Cypher]
+            [Email] : [huaweisclu31@hotmail.com]
 
 
-    Press anykey to continue...
 
-    [+] ////////////////////////////////  100032 packets sent
-    [+] All packets have sent
-    [-] 39.73s
+    Press ENTER to continue...
+
+    [+] //////////////////////////////// [4096/4096]
+    [+] all SYN segments have sent
+    [+] 0.71s
+
+    ┌──[hi6@hi6cypher : ~/Hack/HI6ToolKit]
+    └─$
     ```
 
 - To sending HTTP request :
     ``` bash
     python hi6toolkit.py HTTP -x [host] -p [port] -e [endpoint] -s(for https)
     ```
+
 - To receiving file(Tunnel) :
     ``` bash
-    python hi6toolkit.py TUNNEL -m [TCP/UDP] -x [host] -p [port] -t [timeout] -b [buffer]
+    python hi6toolkit.py TUNNEL -x [host] -p [port] -t [timeout] -b [buffer]
     ```
+
 - To print information :
     ``` bash
     python hi6toolkit.py INFO
     ```
+
 - Note : HI6ToolKit is a script, but it can use as module
     ``` python
-    from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
+    from hi6toolkit import HTTP_Request
 
     serv = "www.example.com"
 
-    http = HTTP_Request(host = serv, port = 80, end = "/", https = False)
+    http = HTTP_Request(host = serv, port = 80, method = "GET", end = "/", https = False)
     http.request() # Note that this class doesn't implement appropriate data parsing algorithm!!!!!!, it is useful for RESTful APIs
 
     print(http.request_header, http.response_header, "\n\n", http.response)
