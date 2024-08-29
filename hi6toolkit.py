@@ -579,7 +579,7 @@ if not Constant.MODULE :
 
     def invalid_args(arg : str) :
         ERROR : str = lambda arg : print(Constant.RED(f"\nInvalid argument : \"{arg}\"\nType : \"python HI6ToolKit.py --help or -h\""), file = sys.stderr)
-        Constant.ERROR(arg)
+        ERROR(arg)
         sys.exit(1)
         return None
 
