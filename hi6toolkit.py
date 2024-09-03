@@ -55,7 +55,8 @@ class Sniff :
         self.generator = None
 
     def __repr__(self) :
-        return f"{self.__class__} {self.__dict__}"
+        items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
+        return f"{self.__class__}\n\t{items}"
 
     def __str__(self) :
         return f"Sniff : \n\t{self.host}\n\t{self.proto}"
@@ -71,11 +72,6 @@ class Sniff :
             self.generator = None
             raise StopIteration
         else : return result
-
-    def __proto(self) :
-        if not Constant.ISOS and self.proto == socket.IPPROTO_TCP :
-            raise OSError("Can't use socket.IPPROTO_TCP")
-        return self.proto
 
     def parse_headers(self, data : bytes) :
         parsed_header = str()
@@ -198,7 +194,7 @@ class Sniff :
         return None
 
     def __sniff(self) :
-        with socket.socket(socket.AF_INET, socket.SOCK_RAW, self.__proto()) as sniff :
+        with socket.socket(socket.AF_INET, socket.SOCK_RAW, self.proto) as sniff :
             sniff.bind((self.host, self.port))
             sniff.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
             while True :
@@ -207,7 +203,6 @@ class Sniff :
                     parsed_headers = self.parse_headers(raw_data)
                     parsed_headers = parsed_headers.expandtabs(4)
                     self.tmp_file(parsed_headers)
-                    if not Constant.ISOS : sniff.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF)
                     return parsed_headers
 
 
@@ -218,7 +213,8 @@ class DoS_SYN :
         self.rate = rate
 
     def __repr__(self) :
-        return f"{self.__class__} {self.__dict__}"
+        items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
+        return f"{self.__class__}\n\t{items}"
 
     def __str__(self) :
         return f"DoS_SYN : \n\t{self.host}\n\t{self.port}"
@@ -335,7 +331,8 @@ class HTTP_Request :
         self.response_header = bytes()
 
     def __repr__(self) :
-        return f"{self.__class__} {self.__dict__}"
+        items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
+        return f"{self.__class__}\n\t{items}"
 
     def __str__(self) :
         return f"HTTP_Request : \n\t{self.host}\n\t{self.port}"
@@ -391,7 +388,8 @@ class Tunnel :
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP)
 
     def __repr__(self) :
-        return f"{self.__class__} {self.__dict__}"
+        items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
+        return f"{self.__class__}\n\t{items}"
 
     def __str__(self) :
         return f"Tunnel : \n\t{self.host}\n\t{self.port}"
@@ -686,6 +684,7 @@ if not Constant.MODULE :
         signal.signal(signal.SIGBUS, Constant.SIGNAL)
         signal.signal(signal.SIGPIPE, Constant.SIGNAL)
         signal.signal(signal.SIGABRT, Constant.SIGNAL)
+        if not Constant.ISOS : sys.exit(1)
         args = manage_args()
         if args.Tool.upper() in Constant.TOOLS :
             Constant.TOOLS[args.Tool.upper()]()
