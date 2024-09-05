@@ -14,7 +14,7 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
 
 - To Sniff packets :
     ``` bash
-    python hi6toolkit.py SNIFF -x [host] -p [port] -m [TCP/UDP/ICMP]
+    python hi6toolkit.py sniff -x [host/default=0.0.0.0] -p [port/default=0] -m [TCP/UDP/ICMP/]
     ```
 
 - Example of a sniffed packet from [CyG33k](https://github.com/HI6Cypher/CyGeek)

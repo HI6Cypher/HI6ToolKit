@@ -320,10 +320,11 @@ class DoS_SYN :
 
 
 class HTTP_Request :
-    def __init__(self, host : str, port : int, method : str, end : str, https : bool) :
+    def __init__(self, host : str, port : int, method : str, header : str, end : str, https : bool) :
         self.host = host
         self.port = int(port)
         self.method = method if method in ("GET", "HEAD") else "GET"
+        self.header = header
         self.end = end if end else "/"
         self.https = bool(https)
         self.request_header = str()
@@ -356,7 +357,7 @@ class HTTP_Request :
                 "Accept: */*",
                 "Connection: close",
                 "\r\n"
-                ]
+                ] if not self.header else self.header
             payload = "\r\n".join(payload)
             self.request_header = payload
             if not Constant.MODULE : print(payload)
@@ -557,26 +558,40 @@ class Tunnel :
 
 if not Constant.MODULE :
     def manage_args() :
+        global Sniff_args, DoS_SYN_args, HTTP_Request_args, Tunnel_args
         parser = argparse.ArgumentParser(prog = "HI6ToolKit", add_help = True)
-        parser.add_argument("Tool", type = str, help = "To specify tool [SNIFF, DOS, HTTP, TUNNEL]")
-        parser.add_argument("-m", "--method", type = str, help = "sets protocol type")
-        parser.add_argument("-x", "--host", type = str, help = "sets host")
-        parser.add_argument("-p", "--port", type = int, help = "sets port")
-        parser.add_argument("-s", "--secure", action = "store_true", help = "sets secure socket(ssl)")
-        parser.add_argument("-e", "--endpoint", type = str, help = "sets endpoint")
-        parser.add_argument("-r", "--rate", type = int, help = "sets rate(number of packets)")
-        parser.add_argument("-t", "--time", type = int, help = "sets timeout")
-        parser.add_argument("-b", "--buffer", type = int, help = "sets bufferSize, should be in (1024, 2048, 4096,...)")
+        subparser = parser.add_subparsers(title = "tools")
+        info_tool = subparser.add_parser("info", help = "print informations about os, system etc.")
+        info_tool.set_defaults(func = info_args)
+        sniff_tool = subparser.add_parser("sniff", help = "execute Sniff class")
+        sniff_tool.add_argument("-x", "--host", type = str, help = "sets host for bind()", default = "0.0.0.0")
+        sniff_tool.add_argument("-p", "--port", type = int, help = "sets port for bind()", default = 0)
+        sniff_tool.add_argument("-m", "--method", type = str, help = "sets protocol type for socket.socket()", default = "TCP")
+        sniff_tool.set_defaults(func = Sniff_args)
+        dos_tool = subparser.add_parser("dos", help = "execute DoS_SYN class")
+        dos_tool.add_argument("-x", "--host", type = str, help = "sets host for flooding")
+        dos_tool.add_argument("-p", "--port", type = int, help = "sets port for flooding")
+        dos_tool.add_argument("-r", "--rate", type = int, help = "sets rate(number of packets)")
+        dos_tool.set_defaults(func = DoS_SYN_args)
+        http_tool = subparser.add_parser("http", help = "execute HTTP_Request class")
+        http_tool.add_argument("-x", "--host", type = str, help = "sets host for http request")
+        http_tool.add_argument("-p", "--port", type = int, help = "sets port for http request", default = 80)
+        http_tool.add_argument("-m", "--method", type = str, help = "sets request type(GET or HEAD)", default = "GET")
+        http_tool.add_argument("-c", "--custom", type = str, help = "sets custome header for HTTP_Request", default = str())
+        http_tool.add_argument("-e", "--endpoint", type = str, help = "sets endpoint", default = "/")
+        http_tool.add_argument("-s", "--secure", action = "store_true", help = "sets secure socket(ssl)", default = False)
+        http_tool.set_defaults(func = HTTP_Request_args)
+        tunnel_tool = subparser.add_parser("tunnel", help = "execute Tunnel class")
+        tunnel_tool.add_argument("-x", "--host", type = str, help = "sets host", default = "0.0.0.0")
+        tunnel_tool.add_argument("-p", "--port", type = int, help = "sets port", default = "80")
+        tunnel_tool.add_argument("-b", "--buffer", type = int, help = "sets bufferSize, should be in (1024, 2048, 4096,...)", default = 2048)
+        tunnel_tool.add_argument("-t", "--time", type = int, help = "sets timeout", default = 60)
+        tunnel_tool.set_defaults(func = Tunnel_args)
         args = parser.parse_args()
         return args
 
-    def command(tool : str) :
-        def commit(func) :
-            Constant.TOOLS[tool] = func
-        return commit
-
     def invalid_args(arg : str) :
-        ERROR : str = lambda arg : print(Constant.RED(f"\nInvalid argument : \"{arg}\"\nType : \"python HI6ToolKit.py --help or -h\""), file = sys.stderr)
+        ERROR : str = lambda arg : print(Constant.RED(f"\nInvalid argument : \"{arg}\"\nType : \"python hi6toolkit.py [--help | -h]\""), file = sys.stderr)
         ERROR(arg)
         sys.exit(1)
         return None
@@ -587,12 +602,10 @@ if not Constant.MODULE :
             if not v : nones.append(k)
         return (True, nones) if not nones else (False, nones)
 
-    @command(tool = "INFO")
     def info_args() :
         print(Constant.YELLOW(Constant.INFO))
         return None
 
-    @command(tool = "SNIFF")
     def Sniff_args() :
         global args
         args = {
@@ -616,7 +629,6 @@ if not Constant.MODULE :
             print(packet)
         return None
 
-    @command(tool = "DOS")
     def DoS_SYN_args() :
         global args
         args = {
@@ -633,13 +645,13 @@ if not Constant.MODULE :
         flood.flood()
         return None
 
-    @command(tool = "HTTP")
     def HTTP_Request_args() :
         global args
         args = {
             "host" : args.host,
             "port" : args.port,
             "method" : args.method,
+            "header" : args.custom,
             "endpoint" : args.endpoint,
             "secure" : args.secure
             }
@@ -648,13 +660,13 @@ if not Constant.MODULE :
         host = args["host"]
         port = args["port"] if args["port"] else 443 if args["secure"] else 80
         method = args["method"].upper()
+        header = args["header"]
         path = args["endpoint"]
         secure = args["secure"]
-        client = HTTP_Request(host, port, method, path, secure)
+        client = HTTP_Request(host, port, method, header, path, secure)
         client.request()
         return None
 
-    @command(tool = "TUNNEL")
     def Tunnel_args() :
         global args
         args = {
@@ -686,10 +698,10 @@ if not Constant.MODULE :
         signal.signal(signal.SIGABRT, Constant.SIGNAL)
         if not Constant.ISOS : sys.exit(1)
         args = manage_args()
-        if args.Tool.upper() in Constant.TOOLS :
-            Constant.TOOLS[args.Tool.upper()]()
+        if "func" in vars(args) :
+            args.func()
         else :
-            invalid_args(args.Tool.upper())
+            invalid_args("argument NOT found")
         return True
 
     main()
