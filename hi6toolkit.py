@@ -326,9 +326,9 @@ class HTTP_Request :
         self.method = method if method in ("GET", "HEAD") else "GET"
         self.end = end if end else "/"
         self.https = bool(https)
-        self.request_header = bytes()
+        self.request_header = str()
         self.response = bytes()
-        self.response_header = bytes()
+        self.response_header = str()
 
     def __repr__(self) :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -358,7 +358,7 @@ class HTTP_Request :
                 "\r\n"
                 ]
             payload = "\r\n".join(payload)
-            self.request_header = payload.encode()
+            self.request_header = payload
             if not Constant.MODULE : print(payload)
             http.connect((self.host, self.port))
             http.send(payload.encode())
@@ -367,7 +367,7 @@ class HTTP_Request :
                 response = http.recv(1024)
                 if not response :
                     raw_data = raw_data.split(b"\r\n\r\n", 1)
-                    self.response_header = raw_data[0]
+                    self.response_header = raw_data[0].decode()
                     self.response = raw_data[-1]
                     if not Constant.MODULE :
                         print(self.response_header, end = "\n\n")
