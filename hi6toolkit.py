@@ -358,7 +358,7 @@ class HTTP_Request :
                 "Connection: close",
                 "\r\n"
                 ] if not self.header else self.header
-            payload = "\r\n".join(payload)
+            payload = "\r\n".join(payload) if not self.header else payload
             self.request_header = payload
             if not Constant.MODULE : print(payload)
             http.connect((self.host, self.port))
@@ -660,7 +660,7 @@ if not Constant.MODULE :
         host = args["host"]
         port = args["port"] if args["port"] else 443 if args["secure"] else 80
         method = args["method"].upper()
-        header = args["header"]
+        header = args["header"].replace("_", "\r\n")
         path = args["endpoint"]
         secure = args["secure"]
         client = HTTP_Request(host, port, method, header, path, secure)
