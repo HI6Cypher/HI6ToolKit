@@ -658,7 +658,7 @@ if not Constant.MODULE :
         success, nones = check(host = args["host"], port = args["port"], method = args["method"])
         if not success : invalid_args(" & ".join(nones) + " " + "NOT found")
         host = args["host"]
-        port = args["port"] if args["port"] else 443 if args["secure"] else 80
+        port = args["port"]
         method = args["method"].upper()
         header = args["header"].replace("_", "\r\n")
         path = args["endpoint"]
