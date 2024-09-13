@@ -76,7 +76,7 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
 
 - To sending HTTP request :
     ``` bash
-    python hi6toolkit.py HTTP -x [host] -p [port] -e [endpoint] -s(for https)
+    python hi6toolkit.py HTTP -x [host] -p [port/default=80] -e [endpoint] -s(for https/be sure u change port(changing default value))
     ```
 
 - To receiving file(Tunnel) :
@@ -95,8 +95,9 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
 
     serv = "www.example.com"
 
-    http = HTTP_Request(host = serv, port = 80, method = "GET", end = "/", https = False)
+    http = HTTP_Request(host = serv, port = 80, method = "GET", header = None, end = "/", https = False)
     http.request() # Note that this class doesn't implement appropriate data parsing algorithm!!!!!!, it is useful for RESTful APIs
+    # Note that you can deploy your custom http-header in header argument
 
     print(http.request_header, http.response_header, "\n\n", http.response)
     ```
@@ -180,7 +181,8 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
     we have limitations :\ on raw socket in some Windows versions(7, XP, Vista, ,...)
     to more information visit [Site](https://learn.microsoft.com/en-us/windows/win32/winsock/tcp-ip-raw-sockets-2)
 
-    so DoS_SYN and just-tcp packetsniffer are limited to use non-windows :\
+    so because of many incompatibility i limited hi6toolkit.py to use non-windows OS
+    hi6toolkit has been tested on Linux & Unix(unix-based like darwin)
 
     <span style="color:red">Another case is also noticeable here, and that is `hi6toolkit.Sniff` can't work properly! unless u put python in firewall-allowlist :)</span>.
 - Error :
