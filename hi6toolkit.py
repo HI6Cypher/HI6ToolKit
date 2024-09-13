@@ -183,7 +183,7 @@ class Sniff :
         data = str(data).strip("b'\"")
         text = "\t\t\t"
         for i in range((len(data) // 64) + 1) :
-            text += data[i * 64 : (i * 64) + 64] + "\n\t\t\t"
+            text += data[i * 64 : ((i + 1) * 64)] + "\n\t\t\t"
         return text
 
     @staticmethod
