@@ -48,18 +48,18 @@ class Constant :
 
 
 class Sniff :
-    def __init__(self, host : str, port : int, proto : int) :
-        self.host = host
-        self.port = port if proto != socket.IPPROTO_ICMP else 0
-        self.proto = proto
+    def __init__(self, iface : str) :
+        self.iface = iface
         self.generator = None
+        self.check_interface()
+        self.check_eth_p_all()
 
     def __repr__(self) :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
         return f"{self.__class__}\n\t{items}"
 
     def __str__(self) :
-        return f"Sniff : \n\t{self.host}\n\t{self.proto}"
+        return f"Sniff : \n\t{self.iface}"
 
     def __iter__(self) :
         self.generator = self.sniff()
@@ -73,33 +73,95 @@ class Sniff :
             raise StopIteration
         else : return result
 
-    def parse_headers(self, data : bytes) :
+    def parse_eth_header(self, data : bytes) :
         parsed_header = str()
         t = "\n\t\t"
-        ver, ihl, tos, tln, idn, flg, oft, ttl, prt, csm, src, dst = self.ip_header(data[:20])
-        parsed_header += f"\n[*][Connection]{Constant.TIME:_^33}\n\n"
-        text = f"\tIPv4 Packet :{t}Version : {ver}  Header Length : {ihl}  Time of Service : {tos}"
-        text += f"{t}Total Length : {tln}  Identification : {idn}  Flags : {flg}"
-        text += f"{t}Fragment Offset : {oft}  TTL : {ttl}  Protocol : {prt}"
-        text += f"{t}Checksum : {csm}  Source : {src}  Destination : {dst}"
-        parsed_header += text + "\n\n"
-        if prt == "ICMP" :
-            typ, cod, csm, idn, seq, data = self.icmp_header(data[ihl:])
-            text = f"\tICMP Packet :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Identifier : {idn}{t}Sequence : {seq}{t}Raw Data :\n{self.indent_data(data)}"
-            parsed_header += text + "\n"
-        elif prt == "TCP" :
-            src, dst, seq, acn, oft, flg, win, csm, urg, data = self.tcp_header(data[ihl:])
-            text = f"\tTCP Segment :{t}Source Port : {src}{t}Destination Port : {dst}{t}Sequence : {seq}{t}Acknowledgment : {acn}{t}Data Offset : {oft}{t}Flags :{t}"
-            parsed_header += text + "\t"
-            text = f"URG:{flg['urg']}  ACK:{flg['ack']}  PSH:{flg['psh']}{t}\tRST:{flg['rst']}  SYN:{flg['syn']}  FIN:{flg['fin']}"
-            parsed_header += text + t
-            text = f"Window : {win}{t}Checksum : {csm}{t}Urgent Pointer : {urg}{t}Raw Data :\n{self.indent_data(data)}"
-            parsed_header += text
-        elif prt == "UDP" :
-            src, dst, tln, csm, data = self.udp_header(data[ihl:])
-            text = f"\tUDP Datagram :{t}Source Port : {src}{t}Destination Port : {dst}{t}Length : {tln}{t}Checksum : {csm}{t}Raw Data :\n{self.indent_data(data)}"
-            parsed_header += text + "\n"
+        dst, src, prt = self.eth_header(data)
+        parsed_header += f"Ethernet frame :{t}Source MAC : {src}{t}Destination MAC : {dst}{t}Type : {prt}"
+        return parsed_header, prt
+
+    def parse_ip_header(self, data : bytes) :
+        parsed_header = str()
+        t = "\n\t\t"
+        ver, ihl, tos, tln, idn, flg, oft, ttl, prt, csm, src, dst = self.ip_header(data)
+        parsed_header += f"IPv4 Datagram :{t}Version : {ver}  Header Length : {ihl}  Time of Service : {tos}"
+        parsed_header += f"{t}Total Length : {tln}  Identification : {idn}  Flags : {flg}"
+        parsed_header += f"{t}Fragment Offset : {oft}  TTL : {ttl}  Protocol : {prt}"
+        parsed_header += f"{t}Checksum : {csm}  Source : {src}  Destination : {dst}"
+        return parsed_header, ihl, prt
+
+    def parse_tcp_header(self, data : bytes) :
+        parsed_header = str()
+        t = "\n\t\t"
+        src, dst, seq, acn, oft, flg, win, csm, urg, data = self.tcp_header(data)
+        parsed_header += f"TCP Segment :{t}Source Port : {src}{t}Destination Port : {dst}{t}Sequence : {seq}{t}Acknowledgment : {acn}{t}Data Offset : {oft}{t}Flags :{t}\t"
+        parsed_header += f"URG:{flg['urg']}  ACK:{flg['ack']}  PSH:{flg['psh']}{t}\tRST:{flg['rst']}  SYN:{flg['syn']}  FIN:{flg['fin']}{t}"
+        parsed_header += f"Window : {win}{t}Checksum : {csm}{t}Urgent Pointer : {urg}{t}Raw Data :\n{self.indent_data(data)}"
         return parsed_header
+
+    def parse_udp_header(self, data : bytes) :
+        parsed_header = str()
+        t = "\n\t\t"
+        src, dst, tln, csm, data = self.udp_header(data)
+        parsed_header += f"UDP Segment :{t}Source Port : {src}{t}Destination Port : {dst}{t}Length : {tln}{t}Checksum : {csm}{t}Raw Data :\n{self.indent_data(data)}"
+        return parsed_header
+
+    def parse_icmp_header(self, data : bytes) :
+        parsed_header = str()
+        t = "\n\t\t"
+        typ, cod, csm, idn, seq, data = self.icmp_header(data[ihl:])
+        parsed_header += f"ICMP Datagram :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Identifier : {idn}{t}Sequence : {seq}{t}Raw Data :\n{self.indent_data(data)}"
+        return parsed_header
+
+    def parse_headers(self, raw_data : bytes) :
+        parsed_headers = str()
+        spec_header = f"[+][DATALINK]________________{Constant.TIME}________________"
+        eth_data = raw_data[:14]
+        parsed_eth_header, prt = self.parse_eth_header(eth_data)
+        if prt == "IPv4" :
+            ip_data = raw_data[14:]
+            parsed_ip_header, ihl, prt = self.parse_ip_header(ip_data)
+            match prt :
+                case "TCP" :
+                    tcp_data = raw_data[14 + ihl:]
+                    transport_layer_header = self.parse_tcp_header(tcp_data)
+                case "UDP" :
+                    udp_data = raw_data[14 + ihl:]
+                    transport_layer_header = self.parse_udp_header(udp_data)
+                case "ICMP" :
+                    icmp_data = raw_data[14 + ihl:]
+                    transport_layer_header = self.parse_icmp_header(icmp_header)
+                case _ :
+                    transport_layer_header = f"{prt} : unimplemented transport layer protocol"
+            parsed_headers += spec_header
+            parsed_headers += "\n\n"
+            parsed_headers += parsed_eth_header
+            parsed_headers += "\n\n"
+            parsed_headers += parsed_ip_header
+            parsed_headers += "\n\n"
+            parsed_headers += transport_layer_header
+            parsed_headers += "\n\n"
+            return parsed_headers
+        else :
+            parsed_headers += spec_header
+            parsed_headers += "\n\n"
+            parsed_headers += parsed_eth_header
+            parsed_headers += "\n\n"
+            parsed_headers += f"{prt} : unimplemented network layer protocol"
+            parsed_headers += "\n\n"
+            return parsed_headers
+
+    def check_interface(self) :
+        ifaces = [iface[-1] for iface in socket.if_nameindex()]
+        if self.iface not in ifaces :
+            raise OSError(f"{self.iface} not in {ifaces}")
+        self.iface = self.iface.encode()
+        return None
+
+    def check_eth_p_all(self) :
+        if "ETH_P_ALL" not in socket.__all__ :
+            socket.ETH_P_ALL = 3
+        return None
 
     def sniff(self) :
         if not Constant.MODULE :
@@ -109,8 +171,21 @@ class Sniff :
             yield self.__sniff()
 
     @staticmethod
+    def eth_header(raw_payload : bytes) :
+        payload = struct.unpack("!6s6sH", raw_payload)
+        standardize_mac_addr : str = lambda x : ":".join([f"{sec:02x}".upper() for sec in x])
+        dst = standardize_mac_addr(payload[0])
+        src = standardize_mac_addr(payload[1])
+        protos = {
+            0x0800 : "IPv4",
+            0x86dd : "IPv6",
+            }
+        prt = protos[payload[2]] if payload[2] in protos else payload[2]
+        return dst, src, prt
+
+    @staticmethod
     def ip_header(raw_payload : bytes) :
-        payload = struct.unpack("!BBHHHBBH4s4s", raw_payload)
+        payload = struct.unpack("!BBHHHBBH4s4s", raw_payload[:20])
         ver = payload[0] >> 4
         ihl = (payload[0] & 0xf) * 4
         tos = payload[1]
@@ -119,25 +194,16 @@ class Sniff :
         flg = payload[4] >> 13
         oft = payload[4] & 0x1fff
         ttl = payload[5]
-        protos = {socket.IPPROTO_ICMP : "ICMP",
-                socket.IPPROTO_TCP : "TCP",
-                socket.IPPROTO_UDP : "UDP"}
-        prt = protos[payload[6]] if payload[6] in protos.keys() else payload[6]
+        protos = {
+            0x0001 : "ICMP",
+            0x0006 : "TCP",
+            0x0011 : "UDP"
+            }
+        prt = protos[payload[6]] if payload[6] in protos else payload[6]
         csm = hex(payload[7])
         src = socket.inet_ntop(socket.AF_INET, payload[8])
         dst = socket.inet_ntop(socket.AF_INET, payload[9])
         return ver, ihl, tos, tln, idn, flg, oft, ttl, prt, csm, src, dst
-
-    @staticmethod
-    def icmp_header(raw_payload : bytes) :
-        payload = struct.unpack("!BBHHH", raw_payload[:8])
-        typ = payload[0]
-        cod = payload[1]
-        csm = hex(payload[2])
-        idn = payload[3]
-        seq = payload[4]
-        data = raw_payload[8:]
-        return typ, cod, csm, idn, seq, data
 
     @staticmethod
     def tcp_header(raw_payload : bytes) :
@@ -179,6 +245,17 @@ class Sniff :
         return src, dst, tln, csm, data
 
     @staticmethod
+    def icmp_header(raw_payload : bytes) :
+        payload = struct.unpack("!BBHHH", raw_payload[:8])
+        typ = payload[0]
+        cod = payload[1]
+        csm = hex(payload[2])
+        idn = payload[3]
+        seq = payload[4]
+        data = raw_payload[8:]
+        return typ, cod, csm, idn, seq, data
+
+    @staticmethod
     def indent_data(data : bytes) :
         data = str(data).strip("b'\"")
         text = "\t\t\t"
@@ -194,12 +271,12 @@ class Sniff :
         return None
 
     def __sniff(self) :
-        with socket.socket(socket.AF_INET, socket.SOCK_RAW, self.proto) as sniff :
-            sniff.bind((self.host, self.port))
-            sniff.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+        with socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(socket.ETH_P_ALL)) as sniff :
+            sniff.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, self.iface)
             while True :
                 raw_data = sniff.recvfrom(65535)[0]
                 if raw_data :
+                    raw_data = raw_data
                     parsed_headers = self.parse_headers(raw_data)
                     parsed_headers = parsed_headers.expandtabs(4)
                     self.tmp_file(parsed_headers)
@@ -565,9 +642,7 @@ if not Constant.MODULE :
         info_tool = subparser.add_parser("info", help = "print informations about os, system etc.")
         info_tool.set_defaults(func = info_args)
         sniff_tool = subparser.add_parser("sniff", help = "execute Sniff class")
-        sniff_tool.add_argument("-x", "--host", type = str, help = "sets host for bind()", default = "0.0.0.0")
-        sniff_tool.add_argument("-p", "--port", type = int, help = "sets port for bind()", default = 0)
-        sniff_tool.add_argument("-m", "--method", type = str, help = "sets protocol type for socket.socket()", default = "TCP")
+        sniff_tool.add_argument("-i", "--iface", type = str, help = "sets interface for socket.SO_BINDTODEVICE")
         sniff_tool.set_defaults(func = Sniff_args)
         dos_tool = subparser.add_parser("dos", help = "execute DoS_SYN class")
         dos_tool.add_argument("-x", "--host", type = str, help = "sets host for flooding")
@@ -610,22 +685,12 @@ if not Constant.MODULE :
     def Sniff_args() :
         global args
         args = {
-            "host" : args.host,
-            "port" : str(args.port),
-            "proto" : args.method
+            "iface" : args.iface
             }
         success, nones = check(**args)
         if not success : invalid_args(" & ".join(nones) + " " + "NOT found")
-        protos = {
-            "TCP" : socket.IPPROTO_TCP,
-            "UDP" : socket.IPPROTO_UDP,
-            "ICMP" : socket.IPPROTO_ICMP
-        }
-        if args["proto"].upper() not in protos : invalid_args(proto)
-        host = args["host"]
-        port = int(args["port"])
-        proto = protos[args["proto"].upper()]
-        sniff = Sniff(host, port, proto)
+        iface = args["iface"]
+        sniff = Sniff(iface)
         for packet in sniff :
             print(packet)
         return None
