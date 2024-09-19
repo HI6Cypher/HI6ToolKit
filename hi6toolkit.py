@@ -77,8 +77,18 @@ class Sniff :
         parsed_header = str()
         t = "\n\t\t"
         dst, src, typ = self.eth_header(data)
-        parsed_header += f"Ethernet frame :{t}Source MAC : {src}{t}Destination MAC : {dst}{t}Type : {typ}"
+        parsed_header += f"Ethernet Frame :{t}Source MAC : {src}{t}Destination MAC : {dst}{t}Ethernet Type : {typ}"
         return parsed_header, typ
+
+    def parse_arp_header(self, data : bytes) :
+        parsed_header = str()
+        t = "\n\t\t"
+        hdr, pro, hln, pln, opc, sha, spa, tha, tpa = self.arp_header(data)
+        parsed_header += f"Arp Datagram :{t}Hardware Type : {hdr}{t}Protocol Type : {pro}{t}Hardware Length : {hln}"
+        parsed_header += f"{t}Protocol Length : {pln}{t}Opcode : {opc}{t}Sender Hardware Address : {sha}"
+        parsed_header += f"{t}Sender Protocol Address : {spa}{t}Target Hardware Address : {tha}"
+        parsed_header += f"{t}Target Protocol Address : {tpa}"
+        return parsed_header
 
     def parse_ip_header(self, data : bytes) :
         parsed_header = str()
@@ -118,38 +128,50 @@ class Sniff :
         spec_header = f"[+][DATALINK]________________{Constant.TIME}________________"
         eth_data = raw_data[:14]
         parsed_eth_header, typ = self.parse_eth_header(eth_data)
-        if typ == "IPv4" :
-            ip_data = raw_data[14:]
-            parsed_ip_header, ihl, prt = self.parse_ip_header(ip_data)
-            match prt :
-                case "TCP" :
-                    tcp_data = raw_data[14 + ihl:]
-                    transport_layer_header = self.parse_tcp_header(tcp_data)
-                case "UDP" :
-                    udp_data = raw_data[14 + ihl:]
-                    transport_layer_header = self.parse_udp_header(udp_data)
-                case "ICMP" :
-                    icmp_data = raw_data[14 + ihl:]
-                    transport_layer_header = self.parse_icmp_header(icmp_header)
-                case _ :
-                    transport_layer_header = f"{prt} : unimplemented transport layer protocol"
-            parsed_headers += spec_header
-            parsed_headers += "\n\n"
-            parsed_headers += parsed_eth_header
-            parsed_headers += "\n\n"
-            parsed_headers += parsed_ip_header
-            parsed_headers += "\n\n"
-            parsed_headers += transport_layer_header
-            parsed_headers += "\n\n"
-            return parsed_headers
-        else :
-            parsed_headers += spec_header
-            parsed_headers += "\n\n"
-            parsed_headers += parsed_eth_header
-            parsed_headers += "\n\n"
-            parsed_headers += f"{typ} : unimplemented network layer protocol"
-            parsed_headers += "\n\n"
-            return parsed_headers
+        match typ :
+            case "IPv4" :
+                ip_data = raw_data[14:]
+                parsed_ip_header, ihl, prt = self.parse_ip_header(ip_data)
+                match prt :
+                    case "TCP" :
+                        tcp_data = raw_data[14 + ihl:]
+                        transport_layer_header = self.parse_tcp_header(tcp_data)
+                    case "UDP" :
+                        udp_data = raw_data[14 + ihl:]
+                        transport_layer_header = self.parse_udp_header(udp_data)
+                    case "ICMP" :
+                        icmp_data = raw_data[14 + ihl:]
+                        transport_layer_header = self.parse_icmp_header(icmp_header)
+                    case _ :
+                        transport_layer_header = f"{prt} : unimplemented transport layer protocol"
+                parsed_headers += spec_header
+                parsed_headers += "\n\n"
+                parsed_headers += parsed_eth_header
+                parsed_headers += "\n\n"
+                parsed_headers += parsed_ip_header
+                parsed_headers += "\n\n"
+                parsed_headers += transport_layer_header
+                parsed_headers += "\n\n"
+                return parsed_headers
+            case "ARP" :
+                arp_data = raw_data[14:]
+                parsed_arp_header = self.parse_arp_header(arp_data)
+                parsed_headers += spec_header
+                parsed_headers += "\n\n"
+                parsed_headers += parsed_eth_header
+                parsed_headers += "\n\n"
+                parsed_headers += parsed_arp_header
+                parsed_headers += "\n\n"
+                return parsed_headers
+                
+            case _ :
+                parsed_headers += spec_header
+                parsed_headers += "\n\n"
+                parsed_headers += parsed_eth_header
+                parsed_headers += "\n\n"
+                parsed_headers += f"{typ} : unimplemented network layer protocol"
+                parsed_headers += "\n\n"
+                return parsed_headers
 
     def check_interface(self) :
         ifaces = [iface[-1] for iface in socket.if_nameindex()]
@@ -173,14 +195,15 @@ class Sniff :
     @staticmethod
     def eth_header(raw_payload : bytes) :
         payload = struct.unpack("!6s6sH", raw_payload)
-        standardize_mac_addr : str = lambda x : ":".join([f"{sec:02x}".upper() for sec in x])
+        standardize_mac_addr : str = lambda x : ":".join([f"{sec:02x}" for sec in x])
         dst = standardize_mac_addr(payload[0])
         src = standardize_mac_addr(payload[1])
         protos = {
             0x0800 : "IPv4",
             0x86dd : "IPv6",
+            0x0806 : "ARP"
             }
-        typ = protos[payload[2]] if payload[2] in protos else payload[2]
+        typ = protos.get(payload[2], payload[2])
         return dst, src, typ
 
     @staticmethod
@@ -199,11 +222,34 @@ class Sniff :
             0x0006 : "TCP",
             0x0011 : "UDP"
             }
-        prt = protos[payload[6]] if payload[6] in protos else payload[6]
+        prt = protos.get(payload[6], payload[6])
         csm = hex(payload[7])
         src = socket.inet_ntop(socket.AF_INET, payload[8])
         dst = socket.inet_ntop(socket.AF_INET, payload[9])
         return ver, ihl, tos, tln, idn, flg, oft, ttl, prt, csm, src, dst
+
+    @staticmethod
+    def arp_header(raw_payload : bytes) :
+        payload = struct.unpack("!HHBBH6s4s6s4s", raw_payload[:28])
+        standardize_mac_addr : str = lambda x : ":".join([f"{sec:02x}" for sec in x])
+        hdr = "Ethernet(1)" if payload[0] == 1 else payload[0]
+        protos = {
+            0x0800 : "IPv4",
+            0x86dd : "IPv6"
+            }
+        pro = protos.get(payload[1], payload[1])
+        hln = payload[2]
+        pln = payload[3]
+        opcodes = {
+            0x0001 : "ARP REQ",
+            0x0002 : "ARP REP"
+            }
+        opc = opcodes.get(payload[4], payload[4])
+        sha = standardize_mac_addr(payload[5])
+        spa = socket.inet_ntop(socket.AF_INET, payload[6])
+        tha = standardize_mac_addr(payload[7])
+        tpa = socket.inet_ntop(socket.AF_INET, payload[8])
+        return hdr, pro, hln, pln, opc, sha, spa, tha, tpa
 
     @staticmethod
     def tcp_header(raw_payload : bytes) :
