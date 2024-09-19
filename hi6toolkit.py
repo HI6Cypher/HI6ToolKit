@@ -119,7 +119,7 @@ class Sniff :
     def parse_icmp_header(self, data : bytes) :
         parsed_header = str()
         t = "\n\t\t"
-        typ, cod, csm, idn, seq, data = self.icmp_header(data[ihl:])
+        typ, cod, csm, idn, seq, data = self.icmp_header(data)
         parsed_header += f"ICMP Datagram :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Identifier : {idn}{t}Sequence : {seq}{t}Raw Data :\n{self.indent_data(data)}"
         return parsed_header
 
@@ -325,7 +325,7 @@ class Sniff :
                     parsed_headers = self.parse_headers(raw_data)
                     parsed_headers = parsed_headers.expandtabs(4)
                     self.tmp_file(parsed_headers)
-                    return parsed_headers
+                    return parsed_headers, raw_data
 
 
 class DoS_SYN :
@@ -736,7 +736,7 @@ if not Constant.MODULE :
         if not success : invalid_args(" & ".join(nones) + " " + "NOT found")
         iface = args["iface"]
         sniff = Sniff(iface)
-        for packet in sniff :
+        for packet, _ in sniff :
             print(packet)
         return None
 

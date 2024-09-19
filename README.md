@@ -17,7 +17,7 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
     python hi6toolkit.py sniff -i [interface(like wlo1, eth0 etc.)]
     ```
 
-- Example of a sniffed packet from [CyG33k](https://github.com/HI6Cypher/CyGeek)
+- Example of a Ethernet frame with arp type
     ``` text
         [+][DATALINK]________________1726738881________________
 
@@ -33,11 +33,58 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
                 Protocol Length : 4
                 Opcode : ARP REQ
                 Sender Hardware Address : 55:c7:42:f7:aa:d3
-                Sender Protocol Address : 192.168.43.1
+                Sender Protocol Address : 192.168.53.1
                 Target Hardware Address : 00:00:00:00:00:00
                 Target Protocol Address : 192.168.53.240
 
 
+    ```
+
+- Example of a Ethernet frame with IPv4 type and tcp protocol
+    ``` text
+        [+][DATALINK]________________1726751606________________
+
+        Ethernet Frame :
+                Source MAC : cc:47:40:fc:7b:05
+                Destination MAC : 74:a5:28:cd:d5:d3
+                Ethernet Type : IPv4
+
+        IPv4 Datagram :
+                Version : 4  Header Length : 20  Time of Service : 0
+                Total Length : 389  Identification : 59656  Flags : 2
+                Fragment Offset : 0  TTL : 64  Protocol : TCP
+                Checksum : 0x6f49  Source : 192.168.53.240  Destination : 54.171.166.213
+
+        TCP Segment :
+                Source Port : 35448
+                Destination Port : 80
+                Sequence : 1270847567
+                Acknowledgment : 1039940062
+                Data Offset : 32
+                Flags :
+                    URG:0  ACK:1  PSH:1
+                    RST:0  SYN:0  FIN:0
+                Window : 502
+                Checksum : 0x8e62
+                Urgent Pointer : 0
+                Raw Data :
+                    GET / HTTP/1.1\r\nHost: skip.com\r\nUser-Agent: Mozilla/5.0
+                     (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0\r\nA
+                    ccept: text/html,application/xhtml+xml,application/xml;q=0.9,ima
+                    ge/avif,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\
+                    r\nAccept-Encoding: gzip, deflate\r\nConnection: keep-alive\r\nU
+                    pgrade-Insecure-Requests: 1\r\n\r\n
+    ```
+
+- To use `Sniff` class :
+    ``` python
+    from hi6toolkit import Sniff
+
+    raw_packets = list()
+    sniff = Sniff("wlo1") # use ifconfig or socket.if_nameindex() to list your interfaces (or whatever method u want)
+    for parsed_packet, raw_packet in sniff :
+        raw_packets.append(raw_packet)
+        print(packet)
     ```
 
 - To launch a DoS attack(SYN FLOOD) :
@@ -73,12 +120,12 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
     python hi6toolkit.py HTTP -x [host] -p [port/default=80] -e [endpoint] -s(for https/be sure u change port(changing default value))
     ```
 
-- To receiving file(Tunnel) :
+- To receiving file(Tunnel) : u can use `curl` or whatever u want to upload file
     ``` bash
     python hi6toolkit.py TUNNEL -x [host] -p [port] -t [timeout] -b [buffer]
     ```
 
-- To print information :
+- To print some information :
     ``` bash
     python hi6toolkit.py INFO
     ```
@@ -178,16 +225,7 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
     so because of many incompatibility i limited hi6toolkit.py to use non-windows OS
     hi6toolkit has been tested on Linux & Unix(unix-based like darwin)
 
-    <span style="color:red">Another case is also noticeable here, and that is `hi6toolkit.Sniff` can't work properly! unless u put python in firewall-allowlist :)</span>.
-- Error :
-    ``` bash
-    ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self signed certificat
-    ```
-    this error occurs for `ssl` in `HTTP_Request` when user use `-s` or `--secure` and it can related to two things, "OS" or "Python Implementation"
-
-    for "OS" stuff, is better to search around `cert.pem` etc.
-    but about "Python Implementation", user should use latest python implementations(>=3.6) because paradigm of `ssl` module varies in each python
-    implementation
+    <span style="color:red">for Sniff, DoS_SYN and Tunnel u have to have root access:)</span>.
 
 GitHub : [github.com/HI6Cypher](https://github.com/HI6Cypher) :)
 
