@@ -76,9 +76,9 @@ class Sniff :
     def parse_eth_header(self, data : bytes) :
         parsed_header = str()
         t = "\n\t\t"
-        dst, src, prt = self.eth_header(data)
-        parsed_header += f"Ethernet frame :{t}Source MAC : {src}{t}Destination MAC : {dst}{t}Type : {prt}"
-        return parsed_header, prt
+        dst, src, typ = self.eth_header(data)
+        parsed_header += f"Ethernet frame :{t}Source MAC : {src}{t}Destination MAC : {dst}{t}Type : {typ}"
+        return parsed_header, typ
 
     def parse_ip_header(self, data : bytes) :
         parsed_header = str()
@@ -117,8 +117,8 @@ class Sniff :
         parsed_headers = str()
         spec_header = f"[+][DATALINK]________________{Constant.TIME}________________"
         eth_data = raw_data[:14]
-        parsed_eth_header, prt = self.parse_eth_header(eth_data)
-        if prt == "IPv4" :
+        parsed_eth_header, typ = self.parse_eth_header(eth_data)
+        if typ == "IPv4" :
             ip_data = raw_data[14:]
             parsed_ip_header, ihl, prt = self.parse_ip_header(ip_data)
             match prt :
@@ -147,7 +147,7 @@ class Sniff :
             parsed_headers += "\n\n"
             parsed_headers += parsed_eth_header
             parsed_headers += "\n\n"
-            parsed_headers += f"{prt} : unimplemented network layer protocol"
+            parsed_headers += f"{typ} : unimplemented network layer protocol"
             parsed_headers += "\n\n"
             return parsed_headers
 
@@ -180,8 +180,8 @@ class Sniff :
             0x0800 : "IPv4",
             0x86dd : "IPv6",
             }
-        prt = protos[payload[2]] if payload[2] in protos else payload[2]
-        return dst, src, prt
+        typ = protos[payload[2]] if payload[2] in protos else payload[2]
+        return dst, src, typ
 
     @staticmethod
     def ip_header(raw_payload : bytes) :
