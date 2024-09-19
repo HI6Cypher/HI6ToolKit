@@ -48,8 +48,10 @@ class Constant :
 
 
 class Sniff :
-    def __init__(self, iface : str) :
+    def __init__(self, iface : str, parse : bool, tmp : bool) :
         self.iface = iface
+        self.parse = parse
+        self.tmp = tmp
         self.generator = None
         self.check_interface()
         self.check_eth_p_all()
@@ -322,10 +324,11 @@ class Sniff :
                 raw_data = sniff.recvfrom(65535)[0]
                 if raw_data :
                     raw_data = raw_data
-                    parsed_headers = self.parse_headers(raw_data)
-                    parsed_headers = parsed_headers.expandtabs(4)
-                    self.tmp_file(parsed_headers)
-                    return parsed_headers, raw_data
+                    if self.parse :
+                        parsed_headers = self.parse_headers(raw_data)
+                        parsed_headers = parsed_headers.expandtabs(4)
+                    if self.tmp and self.parse: self.tmp_file(parsed_headers)
+                    return (parsed_headers, raw_data) if self.parse else raw_data
 
 
 class DoS_SYN :
@@ -688,6 +691,7 @@ if not Constant.MODULE :
         info_tool.set_defaults(func = info_args)
         sniff_tool = subparser.add_parser("sniff", help = "execute Sniff class")
         sniff_tool.add_argument("-i", "--iface", type = str, help = "sets interface for socket.SO_BINDTODEVICE")
+        sniff_tool.add_argument("-t", "--tmp", action = "store_true", help = "sets self.tmp = True (enable tmp output in file)", default = False)
         sniff_tool.set_defaults(func = Sniff_args)
         dos_tool = subparser.add_parser("dos", help = "execute DoS_SYN class")
         dos_tool.add_argument("-x", "--host", type = str, help = "sets host for flooding")
@@ -730,12 +734,14 @@ if not Constant.MODULE :
     def Sniff_args() :
         global args
         args = {
-            "iface" : args.iface
+            "iface" : args.iface,
+            "tmp" : args.tmp
             }
-        success, nones = check(**args)
+        success, nones = check(iface = args["iface"])
         if not success : invalid_args(" & ".join(nones) + " " + "NOT found")
         iface = args["iface"]
-        sniff = Sniff(iface)
+        tmp = args["tmp"]
+        sniff = Sniff(iface, True, tmp)
         for packet, _ in sniff :
             print(packet)
         return None
