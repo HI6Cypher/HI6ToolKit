@@ -14,35 +14,29 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
 
 - To Sniff packets :
     ``` bash
-    python hi6toolkit.py sniff -x [host/default=0.0.0.0] -p [port/default=0] -m [TCP/UDP/ICMP/]
+    python hi6toolkit.py sniff -i [interface(like wlo1, eth0 etc.)]
     ```
 
 - Example of a sniffed packet from [CyG33k](https://github.com/HI6Cypher/CyGeek)
     ``` text
-    [*][66] Connection________[20230903190719]________
+        [+][DATALINK]________________1726738881________________
 
-	IPv4 Packet :
-		Version : 4  Header Length : 20  Time of Service : 0
-		Total Length : 171  Identification : 3500  Flags : 2
-		Fragment Offset : 0  TTL : 128  Protocol : TCP
-		Checksum : 0x0  Source : 127.0.0.1  Destination : 127.0.0.1
-	TCP Segment :
-		Source Port : 1202
-		Destination Port : 60321
-		Sequence : 2046406544
-		Ackknowledgement : 2596328933
-		Data Offset : 20
-		Flags :
-			URG:0  ACK:1  PSH:1
-			RST:0  SYN:0  FIN:0
-		Window : 2048
-		Checksum : 0x24c9
-		Urgent Pointer : 0
-		Raw Data :
-			\x04\xb2\xeb\xa1y\xf9\xaf\x90\x9a\xc0\xd5\xe5P\x18
-            \x08\x00$\xc9\x00\x00{"time": "09/03/2023--19:07:1
-            9", "sender": "127.0.0.1", "hostname": "HI6Cypher"
-            , "host": "127.0.0.1", "message": "H3ll0 W0r1d"}
+        Ethernet Frame :
+                Source MAC : 55:c7:42:f7:aa:d3
+                Destination MAC : ee:5d:47:fe:ab:11
+                Ethernet Type : ARP
+
+        Arp Datagram :
+                Hardware Type : Ethernet(1)
+                Protocol Type : IPv4
+                Hardware Length : 6
+                Protocol Length : 4
+                Opcode : ARP REQ
+                Sender Hardware Address : 55:c7:42:f7:aa:d3
+                Sender Protocol Address : 192.168.43.1
+                Target Hardware Address : 00:00:00:00:00:00
+                Target Protocol Address : 192.168.53.240
+
 
     ```
 

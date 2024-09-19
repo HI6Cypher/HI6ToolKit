@@ -141,7 +141,7 @@ class Sniff :
                         transport_layer_header = self.parse_udp_header(udp_data)
                     case "ICMP" :
                         icmp_data = raw_data[14 + ihl:]
-                        transport_layer_header = self.parse_icmp_header(icmp_header)
+                        transport_layer_header = self.parse_icmp_header(icmp_data)
                     case _ :
                         transport_layer_header = f"{prt} : unimplemented transport layer protocol"
                 parsed_headers += spec_header
@@ -163,7 +163,6 @@ class Sniff :
                 parsed_headers += parsed_arp_header
                 parsed_headers += "\n\n"
                 return parsed_headers
-                
             case _ :
                 parsed_headers += spec_header
                 parsed_headers += "\n\n"
