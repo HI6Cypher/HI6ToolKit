@@ -9,7 +9,7 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
 ## Usage :
 - raw code :
 
-    [https://raw.githubusercontent.com/HI6Cypher/HI6ToolKit/master/hi6toolkit.py](https://raw.githubusercontent.com/HI6Cypher/HI6ToolKit/master/hi6toolkit.py)
+    [https://raw.githubusercontent.com/HI6Cypher/HI6ToolKit/main/hi6toolkit.py](https://raw.githubusercontent.com/HI6Cypher/HI6ToolKit/main/hi6toolkit.py)
 
 
 - To Sniff packets :
@@ -89,7 +89,7 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
 
 - To launch a DoS attack(SYN FLOOD) :
     ``` bash
-    python hi6toolkit.py DOS -m [SYN] -x [host] -p [port] -r [rate]
+    python hi6toolkit.py dos -x [host] -p [port] -r [rate]
     ```
 
 - Example of SYN flood to (127.0.0.1) :
@@ -111,23 +111,21 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
     [+] all SYN segments have sent
     [+] 0.71s
 
-    ┌──[hi6@hi6cypher : ~/Hack/HI6ToolKit]
-    └─$
     ```
 
 - To sending HTTP request :
     ``` bash
-    python hi6toolkit.py HTTP -x [host] -p [port/default=80] -e [endpoint] -s(for https/be sure u change port(changing default value))
+    python hi6toolkit.py http -x [host] -p [port/default=80] -e [endpoint/default="/"] -s(for https/be sure u change port(changing default value))
     ```
 
 - To receiving file(Tunnel) : u can use `curl` or whatever u want to upload file
     ``` bash
-    python hi6toolkit.py TUNNEL -x [host] -p [port] -t [timeout] -b [buffer]
+    python hi6toolkit.py tunnel -x [host/default=0.0.0.0] -p [port/default=80] -t [timeout/default=60] -b [buffer/default=2048]
     ```
 
 - To print some information :
     ``` bash
-    python hi6toolkit.py INFO
+    python hi6toolkit.py info
     ```
 
 - Note : HI6ToolKit is a script, but it can use as module
