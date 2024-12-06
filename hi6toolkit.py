@@ -14,7 +14,7 @@ class Constant :
     MODULE : bool = __name__ != "__main__"
     TIME : int = round(time.time())
     ISOS : bool = any([os in sys.platform for os in ("linux", "bsd", "darwin")])
-    SUP_COLOR : bool = any(word in os.getenv("TERM") for word in ("linux", "xterm", "color")) if ISOS else False
+    SUP_COLOR : bool = True if os.getenv("COLORTERM") in ("truecolor", "24bit", "color24") and os.getenv("NOCOLOR") in (None, 0, "false", "no") else False
     SLASH : str = chr(47)
     TOOLS : dict = dict()
     INFO : str = f"""\n
@@ -22,12 +22,17 @@ class Constant :
         [Hostname] : [{socket.gethostname()}]
         [Python] : [{sys.implementation.name.title()} {sys.version_info[0]}.{sys.version_info[1]}]
 
-        [GitHub] : [github.com/HI6Cypher]
-        [Email] : [huaweisclu31@hotmail.com]\n\n"""
+        [GitHub] : [github.com/HI6Cypher]\n\n"""
 
     def SIGNAL(signum : int, stk_frm : "frame") -> None :
+        func_name = stk_frm.f_code.co_name
+        func_line = str(stk_frm.f_code.co_firstlineno)
+        stack_size = str(stk_frm.f_code.co_stacksize)
         EXCEPTION : None = lambda error : print("\n\n[" + Constant.RED("!") + "]" + f" Error : {error or None}", file = sys.stderr)
-        EXCEPTION(Constant.RED(" **SIGNAL** ") + f"sig_num : {Constant.YELLOW(signal.Signals(signum).name)}")
+        msg = Constant.RED(" **SIGNAL** ")
+        msg += "\n\n" + f"sig_num : {Constant.YELLOW(signal.Signals(signum).name)}"
+        msg += "\n" + f"process_stat : func {Constant.YELLOW(func_name)} in line {Constant.YELLOW(func_line)} with stacksize {Constant.YELLOW(stack_size)}\n"
+        EXCEPTION(msg)
         sys.exit(1)
         return None
 
@@ -807,12 +812,6 @@ if not Constant.MODULE :
         os.system("clear")
         signal.signal(signal.SIGINT, Constant.SIGNAL)
         signal.signal(signal.SIGTERM, Constant.SIGNAL)
-        signal.signal(signal.SIGQUIT, Constant.SIGNAL)
-        signal.signal(signal.SIGILL, Constant.SIGNAL)
-        signal.signal(signal.SIGSEGV, Constant.SIGNAL)
-        signal.signal(signal.SIGBUS, Constant.SIGNAL)
-        signal.signal(signal.SIGPIPE, Constant.SIGNAL)
-        signal.signal(signal.SIGABRT, Constant.SIGNAL)
         if not Constant.ISOS : sys.exit(1)
         args = manage_args()
         if "func" in vars(args) :
