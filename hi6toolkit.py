@@ -5,6 +5,7 @@ import signal
 import ssl
 import sys
 import os
+import uuid
 import random
 import time
 import argparse
@@ -53,13 +54,22 @@ class Constant :
 
 
 class Sniff :
-    def __init__(self, iface : str, parse : bool, tmp : bool) -> "Sniff class" :
+    def __init__(self, iface : str, parse : bool, tmp : bool, saddr : str, daddr : str) -> "Sniff class" :
         self.iface = iface
         self.parse = parse
         self.tmp = tmp
+        self.saddr = saddr
+        self.daddr = daddr
         self.generator = None
         self.check_interface()
         self.check_eth_p_all()
+        self.mac_addr = uuid.getnode().to_bytes(6)
+        self.FILTER = None
+        self.F_INPUT = None
+        self.f_OUTPUT = None
+        self.F_S_IP = None
+        self.F_D_IP = None
+        self.TUNNEL = list()
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -185,15 +195,59 @@ class Sniff :
         self.iface = self.iface.encode()
         return None
 
+    def is_input(self, frame : bytes) -> bool :
+        standardize_mac_addr : str = lambda x : ":".join([f"{sec:02x}" for sec in x])
+        dst = struct.unpack("!6s", frame[0:6])[0]
+        return standardize_mac_addr(self.mac_addr) == standardize_mac_addr(dst)
+
+    def is_output(self, frame : bytes) -> bool :
+        standardize_mac_addr : str = lambda x : ":".join([f"{sec:02x}" for sec in x])
+        src = struct.unpack("!6s", frame[6:12])[0]
+        return standardize_mac_addr(self.mac_addr) == standardize_mac_addr(src)
+
+    def is_ip(self, frame : bytes) -> bool :
+        typ = struct.unpack("!H", frame[12:14])[0]
+        return typ == 0x0800
+
+    def is_saddr_ip(self, frame : bytes) -> bool :
+        src = struct.unpack("!4s", frame[14:][12:16])[0]
+        src = socket.inet_ntop(socket.AF_INET, src)
+        return src == self.saddr
+
+    def is_daddr_ip(self, frame : bytes) -> bool :
+        dst = struct.unpack("!4s", frame[14:][16:20])[0]
+        dst = socket.inet_ntop(socket.AF_INET, dst)
+        return dst == self.daddr
+
     def check_eth_p_all(self) -> None :
         if "ETH_P_ALL" not in socket.__all__ :
             socket.ETH_P_ALL = 3
         return None
 
+    def filter(self) -> None :
+        tunnel = list()
+        if self.FILTER :
+            if self.F_INPUT == self.F_OUTPUT == True : raise Exception("F_INPUT == F_OUTPUT")
+            if self.F_INPUT : tunnel.append(self.is_input)
+            if self.F_OUTPUT : tunnel.append(self.is_output)
+            if self.F_S_IP :
+                tunnel.append(self.is_ip)
+                tunnel.append(self.is_saddr_ip)
+            if self.F_D_IP  :
+                tunnel.append(self.is_ip)
+                tunnel.append(self.is_daddr_ip)
+        self.TUNNEL = tunnel
+
+    def filter_header(self, frame : bytes) -> bool :
+        status = [func(frame) for func in self.TUNNEL]
+        accept = True if all(status) else False
+        return accept
+
     def sniff(self) -> tuple[str, bytes] :
         if not Constant.MODULE :
             print(Constant.YELLOW(Constant.INFO))
             input("\nPress ENTER to continue...\n")
+            self.filter()
         while True :
             yield self.__sniff()
 
@@ -326,14 +380,14 @@ class Sniff :
             sniff.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, self.iface)
             while True :
                 raw_data = sniff.recvfrom(65535)[0]
-                if raw_data :
-                    raw_data = raw_data
+                if raw_data and self.filter_header(raw_data) :
                     parsed_headers = str()
                     if self.parse :
                         parsed_headers = self.parse_headers(raw_data)
                         parsed_headers = parsed_headers.expandtabs(4)
                     if self.tmp and self.parse: self.tmp_file(parsed_headers)
                     return parsed_headers, raw_data
+                else : continue
 
 
 class DoS_SYN :
@@ -695,7 +749,11 @@ if not Constant.MODULE :
         info_tool = subparser.add_parser("info", help = "print informations about os, system etc.")
         info_tool.set_defaults(func = info_args)
         sniff_tool = subparser.add_parser("sniff", help = "execute Sniff class")
-        sniff_tool.add_argument("-i", "--iface", type = str, help = "sets interface for socket.SO_BINDTODEVICE")
+        sniff_tool.add_argument("-if", "--iface", type = str, help = "sets interface for socket.SO_BINDTODEVICE")
+        sniff_tool.add_argument("-i", "--input",  action = "store_true", help = "allows just incoming traffic to be processed", default = False)
+        sniff_tool.add_argument("-o", "--output", action = "store_true", help = "allows just  outcoming traffic to be processed", default = False)
+        sniff_tool.add_argument("-s", "--saddr", type = str, help = "allows just datagrams with specific saddr to be processed", default = False)
+        sniff_tool.add_argument("-d", "--daddr", type = str, help = "allows just datagrams with specific daddr to be processed", default = False)
         sniff_tool.add_argument("-t", "--tmp", action = "store_true", help = "sets self.tmp = True (enable tmp output in file)", default = False)
         sniff_tool.set_defaults(func = Sniff_args)
         dos_tool = subparser.add_parser("dos", help = "execute DoS_SYN class")
@@ -740,13 +798,30 @@ if not Constant.MODULE :
         global args
         args = {
             "iface" : args.iface,
+            "f_input" : args.input,
+            "f_output" : args.output,
+            "f_s_ip" : args.saddr,
+            "f_d_ip" : args.daddr,
             "tmp" : args.tmp
             }
         success, nones = check(iface = args["iface"])
         if not success : invalid_args(" & ".join(nones) + " " + "NOT found")
         iface = args["iface"]
+        f_input = args["f_input"]
+        f_output = args["f_output"]
+        f_s_ip = args["f_s_ip"]
+        f_d_ip = args["f_d_ip"]
         tmp = args["tmp"]
-        sniff = Sniff(iface, True, tmp)
+        sniff = Sniff(iface, True, tmp, None, None)
+        if any([f_input, f_output, bool(f_s_ip), bool(f_d_ip)]) :
+            if f_input == f_output == True : raise Exception("Sniff can't filter input & output at the same time")
+            sniff.FILTER = True
+            sniff.F_INPUT = f_input
+            sniff.F_OUTPUT = f_output
+            sniff.F_S_IP = bool(f_s_ip)
+            sniff.saddr = f_s_ip
+            sniff.F_D_IP = bool(f_d_ip)
+            sniff.daddr = f_d_ip
         for packet, _ in sniff :
             print(packet)
         return None
