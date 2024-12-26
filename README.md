@@ -81,7 +81,7 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
     from hi6toolkit import Sniff
 
     raw_packets = list()
-    sniff = Sniff(iface = "wlo1", parse = True, tmp = True) # use ifconfig or socket.if_nameindex() to list your interfaces (or whatever method u want)
+    sniff = Sniff(iface = "wlo1", parse = True, tmp = True, saddr = None, daddr = None) # use ifconfig or socket.if_nameindex() to list your interfaces (or whatever method u want)
     for parsed_packet, raw_packet in sniff :
         raw_packets.append(raw_packet)
         print(packet)
@@ -118,7 +118,7 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
     python hi6toolkit.py http -x [host] -p [port/default=80] -e [endpoint/default="/"] -s(for https/be sure u change port(changing default value))
     ```
 
-- To receiving file(Tunnel) : u can use `curl` or whatever u want to upload file
+- To receiving file(Tunnel) : u can use `curl` or whatever u want to upload file(note that the request http header must indicate **Content-Length** value)
     ``` bash
     python hi6toolkit.py tunnel -x [host/default=0.0.0.0] -p [port/default=80] -t [timeout/default=60] -b [buffer/default=2048]
     ```
