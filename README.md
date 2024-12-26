@@ -14,7 +14,7 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
 
 - To Sniff packets :
     ``` bash
-    python hi6toolkit.py sniff -i [interface(like wlo1, eth0 etc.)] -t [to tmp in file]
+    python hi6toolkit.py sniff -if [interface(like wlo1, eth0 etc.)] -t [to tmp in file]
     ```
 
 - Example of a Ethernet frame with arp type
