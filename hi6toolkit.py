@@ -5,7 +5,6 @@ import signal
 import ssl
 import sys
 import os
-import uuid
 import random
 import time
 import argparse
@@ -52,6 +51,9 @@ class Constant :
         end = "\33[0m"
         return yellow + text + end if Constant.SUP_COLOR else text
 
+    def STANDARDIZE_MAC(mac : bytes) -> str :
+        return ":".join([f"{sec:02x}" for sec in mac])
+
 
 class Sniff :
     def __init__(self, iface : str, parse : bool, tmp : bool, saddr : str, daddr : str) -> "Sniff class" :
@@ -63,13 +65,8 @@ class Sniff :
         self.generator = None
         self.check_interface()
         self.check_eth_p_all()
-        self.mac_addr = uuid.getnode().to_bytes(6)
-        self.FILTER = None
-        self.F_INPUT = None
-        self.f_OUTPUT = None
-        self.F_S_IP = None
-        self.F_D_IP = None
-        self.TUNNEL = list()
+        self.filter_saddr = saddr
+        self.filter_daddr = daddr
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -195,59 +192,40 @@ class Sniff :
         self.iface = self.iface.encode()
         return None
 
-    def is_input(self, frame : bytes) -> bool :
-        standardize_mac_addr : str = lambda x : ":".join([f"{sec:02x}" for sec in x])
-        dst = struct.unpack("!6s", frame[0:6])[0]
-        return standardize_mac_addr(self.mac_addr) == standardize_mac_addr(dst)
+    def check_ip(self, frame : bytes) -> bool :
+        typ = bytes.hex(frame[12:14])
+        return typ == "0800"
 
-    def is_output(self, frame : bytes) -> bool :
-        standardize_mac_addr : str = lambda x : ":".join([f"{sec:02x}" for sec in x])
-        src = struct.unpack("!6s", frame[6:12])[0]
-        return standardize_mac_addr(self.mac_addr) == standardize_mac_addr(src)
+    def check_saddr_ip(self, frame : bytes) -> bool :
+        src = ".".join((str(i) for i in tuple(frame[12:16])))
+        return src == self.filter_saddr
 
-    def is_ip(self, frame : bytes) -> bool :
-        typ = struct.unpack("!H", frame[12:14])[0]
-        return typ == 0x0800
-
-    def is_saddr_ip(self, frame : bytes) -> bool :
-        src = struct.unpack("!4s", frame[14:][12:16])[0]
-        src = socket.inet_ntop(socket.AF_INET, src)
-        return src == self.saddr
-
-    def is_daddr_ip(self, frame : bytes) -> bool :
-        dst = struct.unpack("!4s", frame[14:][16:20])[0]
-        dst = socket.inet_ntop(socket.AF_INET, dst)
-        return dst == self.daddr
+    def check_daddr_ip(self, frame : bytes) -> bool :
+        dst = ".".join((str(i) for i in tuple(frame[16:20])))
+        return dst == self.filter_daddr
 
     def check_eth_p_all(self) -> None :
         if "ETH_P_ALL" not in socket.__all__ :
             socket.ETH_P_ALL = 3
         return None
 
-    def filter(self) -> None :
-        tunnel = list()
-        if self.FILTER :
-            if self.F_INPUT == self.F_OUTPUT == True : raise Exception("F_INPUT == F_OUTPUT")
-            if self.F_INPUT : tunnel.append(self.is_input)
-            if self.F_OUTPUT : tunnel.append(self.is_output)
-            if self.F_S_IP :
-                tunnel.append(self.is_ip)
-                tunnel.append(self.is_saddr_ip)
-            if self.F_D_IP  :
-                tunnel.append(self.is_ip)
-                tunnel.append(self.is_daddr_ip)
-        self.TUNNEL = tunnel
-
-    def filter_header(self, frame : bytes) -> bool :
-        status = [func(frame) for func in self.TUNNEL]
-        accept = True if all(status) else False
-        return accept
+    def filter(self, frame : bytes) -> bool :
+        nonce = 0
+        if not (self.filter_saddr or self.filter_daddr) :
+            return False
+        if self.check_ip(frame) :
+            frame = frame[14:]
+        else : return True
+        if self.filter_saddr :
+            nonce += 1 if self.check_saddr_ip(frame) else -1
+        if self.filter_daddr :
+            nonce += 1 if self.check_daddr_ip(frame) else -1
+        return True if nonce <= 0 else False
 
     def sniff(self) -> tuple[str, bytes] :
         if not Constant.MODULE :
             print(Constant.YELLOW(Constant.INFO))
             input("\nPress ENTER to continue...\n")
-            self.filter()
         while True :
             yield self.__sniff()
 
@@ -380,7 +358,7 @@ class Sniff :
             sniff.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, self.iface)
             while True :
                 raw_data = sniff.recvfrom(65535)[0]
-                if raw_data and self.filter_header(raw_data) :
+                if raw_data and not self.filter(raw_data) :
                     parsed_headers = str()
                     if self.parse :
                         parsed_headers = self.parse_headers(raw_data)
@@ -748,12 +726,10 @@ if not Constant.MODULE :
         info_tool = subparser.add_parser("info", help = "print informations about os, system etc.")
         info_tool.set_defaults(func = info_args)
         sniff_tool = subparser.add_parser("sniff", help = "execute Sniff class")
-        sniff_tool.add_argument("-if", "--iface", type = str, help = "sets interface for socket.SO_BINDTODEVICE")
-        sniff_tool.add_argument("-i", "--input",  action = "store_true", help = "allows just incoming traffic to be processed", default = False)
-        sniff_tool.add_argument("-o", "--output", action = "store_true", help = "allows just  outcoming traffic to be processed", default = False)
-        sniff_tool.add_argument("-s", "--saddr", type = str, help = "allows just datagrams with specific saddr to be processed", default = False)
-        sniff_tool.add_argument("-d", "--daddr", type = str, help = "allows just datagrams with specific daddr to be processed", default = False)
-        sniff_tool.add_argument("-t", "--tmp", action = "store_true", help = "sets self.tmp = True (enable tmp output in file)", default = False)
+        sniff_tool.add_argument("-if", "--iface", type = str, help = "sniffs on specific interface")
+        sniff_tool.add_argument("-s", "--saddr", type = str, help = "process IPv4 header with specified saddr", default = None)
+        sniff_tool.add_argument("-d", "--daddr", type = str, help = "process IPv4 header with specified daddr", default = None)
+        sniff_tool.add_argument("-t", "--tmp", action = "store_true", help = "tmps sniffed packets in file", default = False)
         sniff_tool.set_defaults(func = Sniff_args)
         dos_tool = subparser.add_parser("dos", help = "execute DoS_SYN class")
         dos_tool.add_argument("-x", "--host", type = str, help = "sets host for flooding")
@@ -787,7 +763,7 @@ if not Constant.MODULE :
         nones = list()
         for k, v in kwargs.items() :
             if not v : nones.append(k)
-        return (True, nones) if not nones else (False, nones)
+        return (True, None) if not nones else (False, nones)
 
     def info_args() -> None :
         print(Constant.YELLOW(Constant.INFO))
@@ -797,30 +773,17 @@ if not Constant.MODULE :
         global args
         args = {
             "iface" : args.iface,
-            "f_input" : args.input,
-            "f_output" : args.output,
-            "f_s_ip" : args.saddr,
-            "f_d_ip" : args.daddr,
+            "filter_saddr" : args.saddr,
+            "filter_daddr" : args.daddr,
             "tmp" : args.tmp
             }
         success, nones = check(iface = args["iface"])
         if not success : invalid_args(" & ".join(nones) + " " + "NOT found")
         iface = args["iface"]
-        f_input = args["f_input"]
-        f_output = args["f_output"]
-        f_s_ip = args["f_s_ip"]
-        f_d_ip = args["f_d_ip"]
+        filter_saddr = args["filter_saddr"]
+        filter_daddr = args["filter_daddr"]
         tmp = args["tmp"]
-        sniff = Sniff(iface, True, tmp, None, None)
-        if any([f_input, f_output, bool(f_s_ip), bool(f_d_ip)]) :
-            if f_input == f_output == True : raise Exception("Sniff can't filter input & output at the same time")
-            sniff.FILTER = True
-            sniff.F_INPUT = f_input
-            sniff.F_OUTPUT = f_output
-            sniff.F_S_IP = bool(f_s_ip)
-            sniff.saddr = f_s_ip
-            sniff.F_D_IP = bool(f_d_ip)
-            sniff.daddr = f_d_ip
+        sniff = Sniff(iface, True, tmp, filter_saddr, filter_daddr)
         for packet, _ in sniff :
             print(packet)
         return None
