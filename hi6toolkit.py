@@ -19,7 +19,7 @@ class Constant :
     TOOLS : dict = dict()
     INFO : str = f"""\n
         [System] : [{sys.platform.upper()}, {time.ctime()}]
-        [Hostname] : [{socket.gethostname()}]
+        [Hostname] : [{socket.gethostname()}, PID {os.getpid()}]
         [Python] : [{sys.implementation.name.title()} {sys.version_info[0]}.{sys.version_info[1]}]
 
         [GitHub] : [github.com/HI6Cypher]\n\n"""
