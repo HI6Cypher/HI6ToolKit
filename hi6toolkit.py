@@ -597,7 +597,7 @@ class Tunnel :
     @staticmethod
     def get_name(headers : dict) -> str :
         keyword = "name"
-        if keyword in headers :
+        if keyword in headers and headers[keyword] :
             return headers[keyword] + f"_{Constant.TIME}"  + ".tmp"
         else : return f"new_{Constant.TIME}.tmp"
 
