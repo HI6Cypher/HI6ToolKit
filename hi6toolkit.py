@@ -421,7 +421,7 @@ class Scan :
         except socket.timeout :
             return False, None
 
-    async def scan(self, port : int) -> bool :
+    async def scan(self, port : int) -> tuple[bool, bool] :
         return await self.__scan(port)
 
     @staticmethod
@@ -451,7 +451,7 @@ class Scan :
     def checksum(data : bytes) -> int :
         return DoS_SYN.checksum(data)
 
-    async def __scan(self, port : int) -> bool :
+    async def __scan(self, port : int) -> tuple[bool, bool] :
         if not Constant.MODULE : print("[+]" + " " + f"scanning port {port}", end = " ", flush = True)
         status, response = await self.send(port)
         if status :
@@ -460,14 +460,13 @@ class Scan :
             if is_open :
                 if not Constant.MODULE : print("[" + Constant.GREEN("OPEN") + "]")
                 self.opens.append(port)
-                return True
+                return True, True
             else :
                 if not Constant.MODULE : print("[" + Constant.RED("CLOSE") + "]")
-                return False
+                return False, True
         else :
             if not Constant.MODULE : print("[" + Constant.YELLOW("UNSPECIFIED") + "]")
-            raise Exception("timeout(6)")
-            return False
+            return False, False
 
 
 
