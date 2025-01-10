@@ -56,7 +56,7 @@ class Constant :
 
 
 class Sniff :
-    def __init__(self, iface : str, parse : bool, tmp : bool, saddr : str, daddr : str) -> "Sniff class" :
+    def __init__(self, iface : str, parse : bool, tmp : bool, saddr : str, daddr : str) -> "Sniff_class" :
         self.iface = iface
         self.parse = parse
         self.tmp = tmp
@@ -75,7 +75,7 @@ class Sniff :
     def __str__(self) -> str :
         return f"Sniff : \n\t{self.iface}"
 
-    def __iter__(self) -> "Sniff iteration" :
+    def __iter__(self) -> "Sniff_iteration" :
         self.generator = self.sniff()
         return self
 
@@ -380,7 +380,7 @@ class Scan :
     def __str__(self) -> str :
         return f"Scan : \n\t{self.host}\n\t{self.port}\n\t{self.timeout}"
 
-    def ipv4_header(self) -> tuple[bytes] :
+    def ipv4_header(self) -> bytes :
         src = socket.inet_pton(socket.AF_INET, self.source)
         dst = socket.inet_pton(socket.AF_INET, self.host)
         randidn = random.randint(1024, 65535)
@@ -389,7 +389,7 @@ class Scan :
         header = self.ip_header(src = src, dst = dst, idn = randidn, csm = checksum_ip_header)
         return header
 
-    def tcpip_header(self, port : int) -> bytes :
+    def tcpip_header(self, port : int) -> tuple[bytes, int] :
         src = socket.inet_pton(socket.AF_INET, self.source)
         dst = socket.inet_pton(socket.AF_INET, self.host)
         srp = random.randint(1024, 65535)
@@ -401,13 +401,13 @@ class Scan :
         header = self.tcp_header(srp = srp, dsp = dsp, seq = randseq, syn = 1, csm = checksum_tcp_header)
         return header, randseq
 
-    async def package(self, port : int) -> bytes :
+    async def package(self, port : int) -> tuple[bytes, int] :
         ip_header = self.ipv4_static_header
         tcp_header = self.tcpip_header(port)
         payload = ip_header + tcp_header[0]
         return payload, tcp_header[1]
 
-    async def send(self, port : int) -> tuple[bool, bytes] :
+    async def send(self, port : int) -> tuple[bool, bytes | None] :
         try :
             payload = await self.package(port)
             with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP) as scan :
@@ -471,7 +471,7 @@ class Scan :
 
 
 class DoS_SYN :
-    def __init__(self, host: str, port : int, rate : int) -> "DoS_SYN class" :
+    def __init__(self, host: str, port : int, rate : int) -> "DoS_SYN_class" :
         self.host = host
         self.port = int(port)
         self.rate = rate
@@ -583,7 +583,7 @@ class DoS_SYN :
 
 
 class HTTP_Request :
-    def __init__(self, host : str, port : int, method : str, header : str, end : str, https : bool) -> "HTTP_Request class" :
+    def __init__(self, host : str, port : int, method : str, header : str, end : str, https : bool) -> "HTTP_Request_class" :
         self.host = host
         self.port = int(port)
         self.method = method if method in ("GET", "HEAD") else "GET"
@@ -641,7 +641,7 @@ class HTTP_Request :
 
 
 class Tunnel :
-    def __init__(self, host : str, port : int, timeout : int, buffer : int) -> "Tunnel class" :
+    def __init__(self, host : str, port : int, timeout : int, buffer : int) -> "Tunnel_class" :
         self.host = host
         self.port = port
         self.timeout = timeout
@@ -710,7 +710,9 @@ class Tunnel :
         keyword = "status"
         if keyword in headers :
             return headers[keyword]
-        else : raise Exception("couldn't find status")
+        else :
+            raise Exception("couldn't find status")
+            return None
 
     @staticmethod
     def get_version(headers : dict) -> str :
@@ -772,7 +774,7 @@ class Tunnel :
         return now * symbol
 
     @staticmethod
-    def percent(x : int, y : int) -> str :
+    def percent(x : int, y : int) -> int :
         return round((x / y) * 100)
 
     def __tunnel(self) -> None :
@@ -860,7 +862,7 @@ if not Constant.MODULE :
         sys.exit(1)
         return None
 
-    def check(**kwargs : dict) -> tuple[bool, list] :
+    def check(**kwargs : dict) -> tuple[bool, None | list] :
         nones = list()
         for k, v in kwargs.items() :
             if not v : nones.append(k)
@@ -921,6 +923,7 @@ if not Constant.MODULE :
                 print("\nopen ports :\n\t" + "\n\t".join([str(i) for i in scan.opens])) if len(scan.opens) != 0 else print("no open ports!")
                 return None
         asyncio.run(prepare())
+        return None
 
     def DoS_SYN_args() -> None :
         global args
