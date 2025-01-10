@@ -920,8 +920,7 @@ if not Constant.MODULE :
                 await asyncio.gather(*tasks)
                 print("\nopen ports :\n\t" + "\n\t".join([str(i) for i in scan.opens])) if len(scan.opens) != 0 else print("no open ports!")
                 return None
-        try : asyncio.run(prepare())
-        except Exception as error : print("\nERROR\n")
+        asyncio.run(prepare())
 
     def DoS_SYN_args() -> None :
         global args
@@ -987,7 +986,9 @@ if not Constant.MODULE :
         os.system("clear")
         signal.signal(signal.SIGINT, Constant.SIGNAL)
         signal.signal(signal.SIGTERM, Constant.SIGNAL)
-        if not Constant.ISOS : sys.exit(1)
+        if not Constant.ISOS :
+            print("unsupported OS")
+            sys.exit(1)
         args = manage_args()
         if "func" in vars(args) :
             args.func()
