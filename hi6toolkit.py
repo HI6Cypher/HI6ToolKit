@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import socket
+import asyncio
 import struct
 import signal
 import ssl
@@ -222,9 +223,6 @@ class Sniff :
         return True if nonce <= 0 else False
 
     def sniff(self) -> tuple[str, bytes] :
-        if not Constant.MODULE :
-            print(Constant.YELLOW(Constant.INFO))
-            input("\nPress ENTER to continue...\n")
         while True :
             yield self.__sniff()
 
@@ -366,6 +364,112 @@ class Sniff :
                     return parsed_headers, raw_data
                 else : continue
 
+class Scan :
+    def __init__(self, host : str, timeout : int, event_loop : "async_event_loop") -> "Scan_class" :
+        self.host = host
+        self.timeout = timeout
+        self.loop = event_loop
+        self.source = "192.168.129.207"
+        self.ipv4_static_header = self.ipv4_header()
+        self.opens = list()
+
+    def __repr__(self) -> str :
+        items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
+        return f"{self.__class__}\n\t{items}"
+
+    def __str__(self) -> str :
+        return f"Scan : \n\t{self.host}\n\t{self.port}\n\t{self.timeout}"
+
+    def ipv4_header(self) -> tuple[bytes] :
+        src = socket.inet_pton(socket.AF_INET, self.source)
+        dst = socket.inet_pton(socket.AF_INET, self.host)
+        randidn = random.randint(1024, 65535)
+        header = self.ip_header(src = src, dst = dst, idn = randidn)
+        checksum_ip_header = self.checksum(header)
+        header = self.ip_header(src = src, dst = dst, idn = randidn, csm = checksum_ip_header)
+        return header
+
+    def tcpip_header(self, port : int) -> bytes :
+        src = socket.inet_pton(socket.AF_INET, self.source)
+        dst = socket.inet_pton(socket.AF_INET, self.host)
+        srp = random.randint(1024, 65535)
+        dsp = port
+        randseq = random.randint(0, 65535)
+        header = self.tcp_header(srp = srp, dsp = dsp, seq = randseq, syn = 1)
+        pseudo_header = self.pseudo_header(src = src, dst = dst, pln = len(header))
+        checksum_tcp_header = self.checksum(header + pseudo_header)
+        header = self.tcp_header(srp = srp, dsp = dsp, seq = randseq, syn = 1, csm = checksum_tcp_header)
+        return header, randseq
+
+    async def package(self, port : int) -> bytes :
+        ip_header = self.ipv4_static_header
+        tcp_header = self.tcpip_header(port)
+        payload = ip_header + tcp_header[0]
+        return payload, tcp_header[1]
+
+    async def send(self, port : int) -> tuple[bool, bytes] :
+        try :
+            payload = await self.package(port)
+            with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP) as scan :
+                scan.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+                scan.settimeout(self.timeout)
+                await self.loop.sock_sendto(scan, payload[0], (self.host, port))
+                while True :
+                    rsp = await self.loop.sock_recv(scan, 1024)
+                    if self.check_acknum(payload[1], rsp[20:]) :
+                        return True, rsp
+        except socket.timeout :
+            return False, None
+
+    async def scan(self, port : int) -> bool :
+        return await self.__scan(port)
+
+    @staticmethod
+    def is_open_port(tcp_header : bytes) -> bool :
+         flags = tcp_header[13:14]
+         ack_syn = bytes(flags).hex() == "12"
+         return True if ack_syn else False
+
+    @staticmethod
+    def check_acknum(acn : int, tcp_header : bytes) -> bool :
+        acknum_byte = tcp_header[8:12]
+        return True if int(bytes(acknum_byte).hex(), base = 16) - 1 == acn else False
+
+    @staticmethod
+    def ip_header(src : str, dst : str, idn : int = 0, csm : int = 0) -> bytes :
+        return DoS_SYN.ip_header(src = src, dst = dst, idn = idn, csm = csm)
+
+    @staticmethod
+    def tcp_header(srp : int = 0, dsp : int = 0, seq : int = 0, syn = 0, csm : int = 0) -> bytes :
+        return DoS_SYN.tcp_header(srp = srp, dsp = dsp, seq = seq, syn = 1, csm = csm)
+
+    @staticmethod
+    def pseudo_header(src : str, dst : str, pln : int = 0) -> bytes :
+        return DoS_SYN.pseudo_header(src = src, dst = dst, pln = pln)
+
+    @staticmethod
+    def checksum(data : bytes) -> int :
+        return DoS_SYN.checksum(data)
+
+    async def __scan(self, port : int) -> bool :
+        if not Constant.MODULE : print("[+]" + " " + f"scanning port {port}", end = " ", flush = True)
+        status, response = await self.send(port)
+        if status :
+            tcp_header = response[20:]
+            is_open = self.is_open_port(tcp_header)
+            if is_open :
+                if not Constant.MODULE : print("[" + Constant.GREEN("OPEN") + "]")
+                self.opens.append(port)
+                return True
+            else :
+                if not Constant.MODULE : print("[" + Constant.RED("CLOSE") + "]")
+                return False
+        else :
+            if not Constant.MODULE : print("[" + Constant.YELLOW("UNSPECIFIED") + "]")
+            raise Exception("timeout(6)")
+            return False
+
+
 
 class DoS_SYN :
     def __init__(self, host: str, port : int, rate : int) -> "DoS_SYN class" :
@@ -383,11 +487,12 @@ class DoS_SYN :
     def package(self) -> bytes :
         randip = self.random_ip()
         randnum = lambda x : random.randint(x, 65535)
-        src = socket.inet_pton(socket.AF_INET, randip)
+        src = socket.inet_pton(socket.AF_INET, "192.168.129.207")
         dst = socket.inet_pton(socket.AF_INET, self.host)
-        ip_header = self.ip_header(src = src, dst = dst, idn = randnum(0))
+        randidn = randnum(0)
+        ip_header = self.ip_header(src = src, dst = dst, idn = randidn)
         checksum = self.checksum(ip_header)
-        ip_header = self.ip_header(src = src, dst = dst, idn = randnum(0), csm = checksum)
+        ip_header = self.ip_header(src = src, dst = dst, idn = randidn, csm = checksum)
         randseq = randnum(0)
         randsrp = randnum(1024)
         tcp_header = self.tcp_header(srp = randsrp, dsp = self.port, seq = randseq, syn = 1)
@@ -399,9 +504,6 @@ class DoS_SYN :
         return payload
 
     def flood(self) -> None :
-        if not Constant.MODULE :
-            print(Constant.YELLOW(Constant.INFO))
-            input("\nPress ENTER to continue...\n")
         self.__flood()
         return None
 
@@ -470,7 +572,7 @@ class DoS_SYN :
                 flood.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
                 flood.connect((self.host, self.port))
                 flood.sendto(payload, (self.host, self.port))
-                flood.shutdown(socket.SHUT_RDWR)
+        #       flood.shutdown(socket.SHUT_RDWR)
             count += 1
             text = "[" + Constant.GREEN("+") + "]" + " " + f"{self.progress_bar(count, self.rate)}" + " " + f"[{count}/{self.rate}]"
             print(text, end = "\r", flush = True)
@@ -501,9 +603,6 @@ class HTTP_Request :
         return f"HTTP_Request : \n\t{self.host}\n\t{self.port}"
 
     def request(self) -> None :
-        if not Constant.MODULE :
-            print(Constant.YELLOW(Constant.INFO))
-            input("\nPress ENTER to continue...\n")
         self.__request()
         return None
 
@@ -558,9 +657,6 @@ class Tunnel :
         return f"Tunnel : \n\t{self.host}\n\t{self.port}"
 
     def tunnel(self) -> None :
-        if not Constant.MODULE :
-            print(Constant.YELLOW(Constant.INFO))
-            input("\nPress ENTER to continue...\n")
         self.__tunnel()
         return None
 
@@ -732,6 +828,11 @@ if not Constant.MODULE :
         sniff_tool.add_argument("-d", "--daddr", type = str, help = "process IPv4 header with specified daddr", default = None)
         sniff_tool.add_argument("-t", "--tmp", action = "store_true", help = "tmps sniffed packets in file", default = False)
         sniff_tool.set_defaults(func = Sniff_args)
+        scan_tool = subparser.add_parser("scan", help = "execute SYN port scanner")
+        scan_tool.add_argument("-x", "--host", type = str, help = "sets host for scanning")
+        scan_tool.add_argument("-p", "--port_range", type = str, help = "sets range of ports for scanning", default = "0-65535")
+        scan_tool.add_argument("-t", "--timeout", type = int, help = "sets timeout for unanswered syn segments", default = 5)
+        scan_tool.set_defaults(func = Scan_args)
         dos_tool = subparser.add_parser("dos", help = "execute DoS_SYN class")
         dos_tool.add_argument("-x", "--host", type = str, help = "sets host for flooding")
         dos_tool.add_argument("-p", "--port", type = int, help = "sets port for flooding")
@@ -749,7 +850,7 @@ if not Constant.MODULE :
         tunnel_tool.add_argument("-x", "--host", type = str, help = "sets host", default = "0.0.0.0")
         tunnel_tool.add_argument("-p", "--port", type = int, help = "sets port", default = "80")
         tunnel_tool.add_argument("-b", "--buffer", type = int, help = "sets bufferSize, should be in (1024, 2048, 4096,...)", default = 2048)
-        tunnel_tool.add_argument("-t", "--time", type = int, help = "sets timeout", default = 60)
+        tunnel_tool.add_argument("-t", "--timeout", type = int, help = "sets timeout", default = 60)
         tunnel_tool.set_defaults(func = Tunnel_args)
         args = parser.parse_args()
         return args
@@ -770,6 +871,12 @@ if not Constant.MODULE :
         print(Constant.YELLOW(Constant.INFO))
         return None
 
+    def ensure() -> None :
+        if not Constant.MODULE :
+            print(Constant.YELLOW(Constant.INFO))
+            input("\nPress ENTER to continue...\n")
+        return None
+
     def Sniff_args() -> None :
         global args
         args = {
@@ -784,10 +891,38 @@ if not Constant.MODULE :
         filter_saddr = args["filter_saddr"]
         filter_daddr = args["filter_daddr"]
         tmp = args["tmp"]
+        ensure()
         sniff = Sniff(iface, True, tmp, filter_saddr, filter_daddr)
         for packet, _ in sniff :
             print(packet)
         return None
+
+    def Scan_args() -> None :
+        global args
+        args = {
+            "host" : args.host,
+            "port_range" : args.port_range,
+            "timeout" : args.timeout
+            }
+        success, nones = check(host = args["host"])
+        if not success : invalid_args(" & ".join(nones) + " " + "NOT found")
+        split_port_range : tuple = lambda x : tuple([int(i) for i in x.split("-")])
+        host = args["host"]
+        port_range = split_port_range(args["port_range"])
+        timeout = args["timeout"]
+        ensure()
+        async def prepare() -> None :
+            loop = asyncio.get_event_loop()
+            scan = Scan(host, timeout, loop)
+            tasks = list()
+            for port in range(port_range[0], port_range[1] + 1) :
+                tasks.append(loop.create_task(scan.scan(port)))
+            else :
+                await asyncio.gather(*tasks)
+                print("\nopen ports :\n\t" + "\n\t".join([str(i) for i in scan.opens])) if len(scan.opens) != 0 else print("no open ports!")
+                return None
+        try : asyncio.run(prepare())
+        except Exception as error : print("\nERROR\n")
 
     def DoS_SYN_args() -> None :
         global args
@@ -801,6 +936,7 @@ if not Constant.MODULE :
         host = socket.gethostbyname(args["host"])
         port = args["port"]
         rate = args["rate"]
+        ensure()
         flood = DoS_SYN(host, port, rate)
         flood.flood()
         return None
@@ -823,6 +959,7 @@ if not Constant.MODULE :
         header = args["header"].replace("_", "\r\n")
         path = args["endpoint"]
         secure = args["secure"]
+        ensure()
         client = HTTP_Request(host, port, method, header, path, secure)
         client.request()
         return None
@@ -832,7 +969,7 @@ if not Constant.MODULE :
         args = {
             "host" :  args.host,
             "port" : args.port,
-            "timeout" :  args.time,
+            "timeout" :  args.timeout,
             "buffer" : args.buffer
             }
         success, nones = check(**args)
@@ -841,6 +978,7 @@ if not Constant.MODULE :
         port = args["port"]
         timeout = args["timeout"]
         buffer = args["buffer"]
+        ensure()
         tunnel = Tunnel(host, port, timeout, buffer)
         gen = tunnel.tunnel()
         return None
