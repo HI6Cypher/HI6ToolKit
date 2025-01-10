@@ -908,7 +908,7 @@ if not Constant.MODULE :
         success, nones = check(host = args["host"])
         if not success : invalid_args(" & ".join(nones) + " " + "NOT found")
         split_port_range : tuple = lambda x : tuple([int(i) for i in x.split("-")])
-        host = args["host"]
+        host = socket.gethostbyname(args["host"])
         port_range = split_port_range(args["port_range"])
         timeout = args["timeout"]
         ensure()
