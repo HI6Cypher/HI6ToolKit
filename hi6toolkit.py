@@ -365,11 +365,11 @@ class Sniff :
                 else : continue
 
 class Scan :
-    def __init__(self, host : str, timeout : int, event_loop : "async_event_loop") -> "Scan_class" :
+    def __init__(self, source : str, host : str, timeout : int, event_loop : "async_event_loop") -> "Scan_class" :
+        self.source = source
         self.host = host
         self.timeout = timeout
         self.loop = event_loop
-        self.source = "192.168.129.207"
         self.ipv4_static_header = self.ipv4_header()
         self.opens = list()
 
@@ -830,7 +830,8 @@ if not Constant.MODULE :
         sniff_tool.add_argument("-t", "--tmp", action = "store_true", help = "tmps sniffed packets in file", default = False)
         sniff_tool.set_defaults(func = Sniff_args)
         scan_tool = subparser.add_parser("scan", help = "execute SYN port scanner")
-        scan_tool.add_argument("-x", "--host", type = str, help = "sets host for scanning")
+        scan_tool.add_argument("-s", "--source", type = str, help = "sets source addr for scanning")
+        scan_tool.add_argument("-x", "--host", type = str, help = "sets host addr for scanning")
         scan_tool.add_argument("-p", "--port_range", type = str, help = "sets range of ports for scanning", default = "0-65535")
         scan_tool.add_argument("-t", "--timeout", type = int, help = "sets timeout for unanswered syn segments", default = 5)
         scan_tool.set_defaults(func = Scan_args)
@@ -901,20 +902,22 @@ if not Constant.MODULE :
     def Scan_args() -> None :
         global args
         args = {
+            "source" : args.source,
             "host" : args.host,
             "port_range" : args.port_range,
             "timeout" : args.timeout
             }
-        success, nones = check(host = args["host"])
+        success, nones = check(source = args["source"], host = args["host"])
         if not success : invalid_args(" & ".join(nones) + " " + "NOT found")
         split_port_range : tuple = lambda x : tuple([int(i) for i in x.split("-")])
+        source = socket.gethostbyname(args["source"])
         host = socket.gethostbyname(args["host"])
         port_range = split_port_range(args["port_range"])
         timeout = args["timeout"]
         ensure()
         async def prepare() -> None :
             loop = asyncio.get_event_loop()
-            scan = Scan(host, timeout, loop)
+            scan = Scan(source, host, timeout, loop)
             tasks = list()
             for port in range(port_range[0], port_range[1] + 1) :
                 tasks.append(loop.create_task(scan.scan(port)))
