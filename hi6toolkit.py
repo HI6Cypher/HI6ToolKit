@@ -426,6 +426,7 @@ class Scan :
                 scan.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
                 scan.settimeout(self.timeout)
                 scan.setblocking(False)
+                scan.connect_ex((self.host, port))
                 await self.loop.sock_sendto(scan, payload[0], (self.host, port))
                 while True :
                     rsp = await self.loop.sock_recv(scan, 1024)
@@ -465,17 +466,14 @@ class Scan :
         return DoS_SYN.checksum(data)
 
     async def __scan(self, port : int) -> tuple[bool, bool] :
-       #if not Constant.MODULE : print("[+]" + " " + f"scanning port {port}", end = " ", flush = True)
         status, response = await self.send(port)
         if status :
             tcp_header = response[20:]
             is_open = self.is_open_port(tcp_header)
             if is_open :
-                if not Constant.MODULE : print("[" + Constant.GREEN("OPEN") + "]")
                 self.opens.append(port)
                 return True, True
             else :
-                if not Constant.MODULE : print("[" + Constant.RED("CLOSE") + "]")
                 return False, True
         else :
             if not Constant.MODULE : print("[" + Constant.YELLOW("UNSPECIFIED") + "]")
@@ -927,15 +925,30 @@ if not Constant.MODULE :
         port_range = split_port_range(args["port_range"])
         timeout = args["timeout"]
         ensure()
+        async def wait_to_empty(n : int, buffer : set | list) -> None :
+            while len(buffer) >= n :
+                print("[" + Constant.RED("WAIT") + "]", end = " ")
+                print("buffer is full, awaiting to empty buffer")
+                await asyncio.sleep(1)
+            return None
         async def prepare() -> None :
+            print("[" + Constant.GREEN("START") + "]", end = " ")
+            print("set async event loop")
             loop = asyncio.get_event_loop()
             scan = Scan(source, host, timeout, loop)
-            tasks = list()
+            buffer = set()
             for port in range(port_range[0], port_range[1] + 1) :
-                tasks.append(loop.create_task(scan.scan(port)))
+                await wait_to_empty(100, buffer)
+                if (port % 100 == 0) and (port != 0) : await asyncio.gather(*buffer)
+                task = loop.create_task(scan.scan(port))
+                buffer.add(task)
+                task.add_done_callback(buffer.discard)
             else :
-                await asyncio.gather(*tasks)
-                print("\nopen ports :\n\t" + "\n\t".join([str(i) for i in scan.opens])) if len(scan.opens) != 0 else print("no open ports!")
+                await asyncio.gather(*buffer)
+                if len(scan.opens) != 0 :
+                    print(f"\nopen ports({len(scan.opens)}) :\n\t", end = str())
+                    print(" ".join([str(i) for i in sorted(scan.opens)]))
+                else : print("no open ports!")
                 return None
         asyncio.run(prepare())
         return None
