@@ -79,31 +79,31 @@ class Sniff :
         self.generator = self.sniff()
         return self
 
-    def __next__(self) -> tuple[str, bytes] :
+    def __next__(self) -> tuple[str | None, memoryview] :
         try :
             return next(self.generator)
         except StopIteration :
             self.generator = None
             raise StopIteration
 
-    def parse_eth_header(self, data : bytes) -> tuple[str, str] :
+    def parse_eth_header(self, data : memoryview | bytes) -> tuple[str, str | int] :
         parsed_header = str()
         t = "\n\t\t"
         dst, src, typ = self.eth_header(data)
         parsed_header += f"Ethernet Frame :{t}Source MAC : {src}{t}Destination MAC : {dst}{t}Ethernet Type : {typ}"
         return parsed_header, typ
 
-    def parse_arp_header(self, data : bytes) -> str :
+    def parse_arp_header(self, data : memoryview | bytes) -> str :
         parsed_header = str()
         t = "\n\t\t"
-        hdr, pro, hln, pln, opc, sha, spa, tha, tpa = self.arp_header(data)
-        parsed_header += f"Arp Datagram :{t}Hardware Type : {hdr}{t}Protocol Type : {pro}{t}Hardware Length : {hln}"
+        hdr, prt, hln, pln, opc, sha, spa, tha, tpa = self.arp_header(data)
+        parsed_header += f"Arp Datagram :{t}Hardware Type : {hdr}{t}Protocol Type : {prt}{t}Hardware Length : {hln}"
         parsed_header += f"{t}Protocol Length : {pln}{t}Opcode : {opc}{t}Sender Hardware Address : {sha}"
         parsed_header += f"{t}Sender Protocol Address : {spa}{t}Target Hardware Address : {tha}"
         parsed_header += f"{t}Target Protocol Address : {tpa}"
         return parsed_header
 
-    def parse_ip_header(self, data : bytes) -> tuple[str, int, str] :
+    def parse_ip_header(self, data : memoryview | bytes) -> tuple[str, int, str | int] :
         parsed_header = str()
         t = "\n\t\t"
         ver, ihl, tos, tln, idn, flg, oft, ttl, prt, csm, src, dst = self.ip_header(data)
@@ -113,7 +113,7 @@ class Sniff :
         parsed_header += f"{t}Checksum : {csm}  Source : {src}  Destination : {dst}"
         return parsed_header, ihl, prt
 
-    def parse_tcp_header(self, data : bytes) -> str :
+    def parse_tcp_header(self, data : memoryview | bytes) -> str :
         parsed_header = str()
         t = "\n\t\t"
         src, dst, seq, acn, oft, flg, win, csm, urg, data = self.tcp_header(data)
@@ -122,21 +122,21 @@ class Sniff :
         parsed_header += f"Window : {win}{t}Checksum : {csm}{t}Urgent Pointer : {urg}{t}Raw Data :\n{self.indent_data(data)}"
         return parsed_header
 
-    def parse_udp_header(self, data : bytes) -> str :
+    def parse_udp_header(self, data : memoryview | bytes) -> str :
         parsed_header = str()
         t = "\n\t\t"
         src, dst, tln, csm, data = self.udp_header(data)
         parsed_header += f"UDP Segment :{t}Source Port : {src}{t}Destination Port : {dst}{t}Length : {tln}{t}Checksum : {csm}{t}Raw Data :\n{self.indent_data(data)}"
         return parsed_header
 
-    def parse_icmp_header(self, data : bytes) -> str :
+    def parse_icmp_header(self, data : memoryview | bytes) -> str :
         parsed_header = str()
         t = "\n\t\t"
         typ, cod, csm, idn, seq, data = self.icmp_header(data)
         parsed_header += f"ICMP Datagram :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Identifier : {idn}{t}Sequence : {seq}{t}Raw Data :\n{self.indent_data(data)}"
         return parsed_header
 
-    def parse_headers(self, raw_data : bytes) -> str :
+    def parse_headers(self, raw_data : memoryview | bytes) -> str :
         parsed_headers = str()
         spec_header = f"[+][DATALINK]________________{Constant.TIME}________________"
         eth_data = raw_data[:14]
@@ -192,15 +192,15 @@ class Sniff :
         self.iface = self.iface.encode()
         return None
 
-    def check_ip(self, frame : bytes) -> bool :
+    def check_ip(self, frame : memoryview | bytes) -> bool :
         typ = bytes.hex(frame[12:14])
         return typ == "0800"
 
-    def check_saddr_ip(self, frame : bytes) -> bool :
+    def check_saddr_ip(self, frame : memoryview | bytes) -> bool :
         src = ".".join((str(i) for i in tuple(frame[12:16])))
         return src == self.filter_saddr
 
-    def check_daddr_ip(self, frame : bytes) -> bool :
+    def check_daddr_ip(self, frame : memoryview | bytes) -> bool :
         dst = ".".join((str(i) for i in tuple(frame[16:20])))
         return dst == self.filter_daddr
 
@@ -209,7 +209,7 @@ class Sniff :
             socket.ETH_P_ALL = 3
         return None
 
-    def filter(self, frame : bytes) -> bool :
+    def filter(self, frame : memoryview | bytes) -> bool :
         nonce = 0
         if not (self.filter_saddr or self.filter_daddr) :
             return False
@@ -222,7 +222,7 @@ class Sniff :
             nonce += 1 if self.check_daddr_ip(frame) else -1
         return True if nonce <= 0 else False
 
-    def sniff(self) -> tuple[str, bytes] :
+    def sniff(self) -> tuple[str | None, memoryview] :
         while True :
             yield self.__sniff()
 
@@ -241,7 +241,7 @@ class Sniff :
         return dst, src, typ
 
     @staticmethod
-    def ip_header(raw_payload : bytes) -> tuple[int, int, int, int, int, int, int, int, str | int, int, str, str] :
+    def ip_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, int, int, int, int, str | int, int, str, str] :
         payload = struct.unpack("!BBHHHBBH4s4s", raw_payload[:20])
         ver = payload[0] >> 4
         ihl = (payload[0] & 0xf) * 4
@@ -263,7 +263,7 @@ class Sniff :
         return ver, ihl, tos, tln, idn, flg, oft, ttl, prt, csm, src, dst
 
     @staticmethod
-    def arp_header(raw_payload : bytes) -> tuple[str | int, str | int, int, int, str | int, str, str, str, str] :
+    def arp_header(raw_payload : memoryview | bytes) -> tuple[str | int, str | int, int, int, str | int, str, str, str, str] :
         payload = struct.unpack("!HHBBH6s4s6s4s", raw_payload[:28])
         standardize_mac_addr : str = lambda x : ":".join([f"{sec:02x}" for sec in x])
         hdr = "Ethernet(1)" if payload[0] == 1 else payload[0]
@@ -271,7 +271,7 @@ class Sniff :
             0x0800 : "IPv4",
             0x86dd : "IPv6"
             }
-        pro = protos.get(payload[1], payload[1])
+        prt = protos.get(payload[1], payload[1])
         hln = payload[2]
         pln = payload[3]
         opcodes = {
@@ -283,10 +283,10 @@ class Sniff :
         spa = socket.inet_ntop(socket.AF_INET, payload[6])
         tha = standardize_mac_addr(payload[7])
         tpa = socket.inet_ntop(socket.AF_INET, payload[8])
-        return hdr, pro, hln, pln, opc, sha, spa, tha, tpa
+        return hdr, prt, hln, pln, opc, sha, spa, tha, tpa
 
     @staticmethod
-    def tcp_header(raw_payload : bytes) -> tuple[int, int, int, int, int, dict, int, int, int, bytes] :
+    def tcp_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, int, dict, int, int, int, memoryview | bytes] :
         payload = struct.unpack("!HHLLBBHHH", raw_payload[:20])
         src = payload[0]
         dst = payload[1]
@@ -315,7 +315,7 @@ class Sniff :
         return src, dst, seq, acn, oft, flg, win, csm, urg, data
 
     @staticmethod
-    def udp_header(raw_payload : bytes) -> tuple[int, int, int, int, bytes] :
+    def udp_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, memoryview | bytes] :
         payload = struct.unpack("!HHHH", raw_payload[:8])
         src = payload[0]
         dst = payload[1]
@@ -325,7 +325,7 @@ class Sniff :
         return src, dst, tln, csm, data
 
     @staticmethod
-    def icmp_header(raw_payload : bytes) -> tuple[int, int, int, int, int, bytes] :
+    def icmp_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, int, memoryview | bytes] :
         payload = struct.unpack("!BBHHH", raw_payload[:8])
         typ = payload[0]
         cod = payload[1]
@@ -336,12 +336,22 @@ class Sniff :
         return typ, cod, csm, idn, seq, data
 
     @staticmethod
-    def indent_data(data : bytes) -> str :
-        data = str(data).strip("b'\"")
-        text = "\t\t\t"
+    def indent_data(data : memoryview | bytes) -> str :
+        data = data.tolist()
+        for i in range(len(data)) :
+            if data[i] not in range(32, 127) : data[i] = 46
+        data.insert(0, 9)
+        data.insert(0, 9)
         for i in range((len(data) // 64) + 1) :
-            text += data[i * 64 : ((i + 1) * 64)] + "\n\t\t\t"
-        return text
+            index = (i + 1) * 64
+            data.insert(index, 9)
+            data.insert(index, 9)
+            data.insert(index, 10)
+        else :
+            data.insert(0, 10)
+            data.insert(0, 9)
+            data.insert(0, 9)
+        return bytes(data).decode()
 
     @staticmethod
     def tmp_file(data : str) -> None :
@@ -350,19 +360,21 @@ class Sniff :
         print(data, file = open(path, mode))
         return None
 
-    def __sniff(self) -> tuple[str, bytes] :
+    def __sniff(self) -> tuple[str | None, memoryview] :
         with socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(socket.ETH_P_ALL)) as sniff :
             sniff.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, self.iface)
             while True :
                 raw_data = sniff.recvfrom(65535)[0]
-                if raw_data and not self.filter(raw_data) :
+                raw_data_view = memoryview(raw_data)
+                if raw_data and not self.filter(raw_data_view) :
                     parsed_headers = str()
                     if self.parse :
-                        parsed_headers = self.parse_headers(raw_data)
+                        parsed_headers = self.parse_headers(raw_data_view)
                         parsed_headers = parsed_headers.expandtabs(4)
                     if self.tmp and self.parse: self.tmp_file(parsed_headers)
-                    return parsed_headers, raw_data
+                    return parsed_headers, raw_data_view
                 else : continue
+
 
 class Scan :
     def __init__(self, source : str, host : str, timeout : int, event_loop : "async_event_loop") -> "Scan_class" :
@@ -413,6 +425,7 @@ class Scan :
             with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP) as scan :
                 scan.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
                 scan.settimeout(self.timeout)
+                scan.setblocking(False)
                 await self.loop.sock_sendto(scan, payload[0], (self.host, port))
                 while True :
                     rsp = await self.loop.sock_recv(scan, 1024)
@@ -452,7 +465,7 @@ class Scan :
         return DoS_SYN.checksum(data)
 
     async def __scan(self, port : int) -> tuple[bool, bool] :
-        if not Constant.MODULE : print("[+]" + " " + f"scanning port {port}", end = " ", flush = True)
+       #if not Constant.MODULE : print("[+]" + " " + f"scanning port {port}", end = " ", flush = True)
         status, response = await self.send(port)
         if status :
             tcp_header = response[20:]
@@ -467,7 +480,6 @@ class Scan :
         else :
             if not Constant.MODULE : print("[" + Constant.YELLOW("UNSPECIFIED") + "]")
             return False, False
-
 
 
 class DoS_SYN :
