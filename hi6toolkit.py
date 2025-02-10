@@ -17,6 +17,7 @@ class Constant :
     ISOS : bool = any([os in sys.platform for os in ("linux", "bsd", "darwin")])
     SUP_COLOR : bool = True if os.getenv("COLORTERM") in ("truecolor", "24bit", "color24") and os.getenv("NOCOLOR") in (None, 0, "false", "no") else False
     SLASH : str = chr(47)
+    ESCAPE : str = chr(27)
     TOOLS : dict = dict()
     INFO : str = f"""\n
         [System] : [{sys.platform.upper()}, {time.ctime()}]
@@ -37,18 +38,18 @@ class Constant :
         return None
 
     def RED(text : str) -> str :
-        red = "\33[91m"
-        end = "\33[0m"
+        red = Constant.ESCAPE + "[31m"
+        end = Constant.ESCAPE + "[0m"
         return red + text + end if Constant.SUP_COLOR else text
 
     def GREEN(text : str) -> str :
-        green = "\33[92m"
-        end = "\33[0m"
+        green = Constant.ESCAPE + "[32m"
+        end = Constant.ESCAPE + "[0m"
         return green + text + end if Constant.SUP_COLOR else text
 
     def YELLOW(text : str) -> str :
-        yellow = "\33[93m"
-        end = "\33[0m"
+        yellow = Constant.ESCAPE + "[33m"
+        end = Constant.ESCAPE + "[0m"
         return yellow + text + end if Constant.SUP_COLOR else text
 
     def STANDARDIZE_MAC(mac : bytes) -> str :
@@ -193,7 +194,7 @@ class Sniff :
         return None
 
     def check_ip(self, frame : memoryview | bytes) -> bool :
-        typ = bytes.hex(frame[12:14])
+        typ = bytes(frame[12:14]).hex()
         return typ == "0800"
 
     def check_saddr_ip(self, frame : memoryview | bytes) -> bool :
@@ -1014,7 +1015,7 @@ if not Constant.MODULE :
 
     def main() -> bool :
         global args
-        os.system("clear")
+        print(Constant.ESCAPE + "c")
         signal.signal(signal.SIGINT, Constant.SIGNAL)
         signal.signal(signal.SIGTERM, Constant.SIGNAL)
         if not Constant.ISOS :
