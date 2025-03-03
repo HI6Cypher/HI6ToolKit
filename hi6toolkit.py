@@ -429,7 +429,6 @@ class Scan :
                     scan.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
                     scan.settimeout(self.timeout)
                     scan.setblocking(False)
-                    scan.connect_ex((self.host, port))
                     await self.loop.sock_sendto(scan, payload[0], (self.host, port))
                     while True :
                         rsp = await self.loop.sock_recv(scan, 1024)
