@@ -385,6 +385,7 @@ class Scan :
         self.loop = event_loop
         self.ipv4_static_header = self.ipv4_header()
         self.opens = list()
+        self.unspecified = list()
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -423,16 +424,19 @@ class Scan :
     async def send(self, port : int) -> tuple[bool, bytes | None] :
         try :
             payload = await self.package(port)
-            with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP) as scan :
-                scan.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
-                scan.settimeout(self.timeout)
-                scan.setblocking(False)
-                scan.connect_ex((self.host, port))
-                await self.loop.sock_sendto(scan, payload[0], (self.host, port))
-                while True :
-                    rsp = await self.loop.sock_recv(scan, 1024)
-                    if self.check_acknum(payload[1], rsp[20:]) :
-                        return True, rsp
+            async with asyncio.timeout(self.timeout) :
+                with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP) as scan :
+                    scan.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+                    scan.settimeout(self.timeout)
+                    scan.setblocking(False)
+                    scan.connect_ex((self.host, port))
+                    await self.loop.sock_sendto(scan, payload[0], (self.host, port))
+                    while True :
+                        rsp = await self.loop.sock_recv(scan, 1024)
+                        if self.check_acknum(payload[1], rsp[20:]) :
+                            return True, rsp
+        except asyncio.TimeoutError :
+            return False, None
         except socket.timeout :
             return False, None
 
@@ -477,7 +481,7 @@ class Scan :
             else :
                 return False, True
         else :
-            if not Constant.MODULE : print("[" + Constant.YELLOW("UNSPECIFIED") + "]")
+            self.unspecified.append(port)
             return False, False
 
 
@@ -939,16 +943,22 @@ if not Constant.MODULE :
             scan = Scan(source, host, timeout, loop)
             buffer = set()
             for port in range(port_range[0], port_range[1] + 1) :
-                await wait_to_empty(100, buffer)
-                if (port % 100 == 0) and (port != 0) : await asyncio.gather(*buffer)
+                if len(buffer) >= 100 :
+                    await wait_to_empty(100, buffer)
+                if (port % 100 == 0) and (port != 0) :
+                    await asyncio.gather(*buffer)
                 task = loop.create_task(scan.scan(port))
                 buffer.add(task)
                 task.add_done_callback(buffer.discard)
             else :
-                await asyncio.gather(*buffer)
-                if len(scan.opens) != 0 :
+                if buffer :
+                    await asyncio.gather(*buffer)
+                if len(scan.opens) :
                     print(f"\nopen ports({len(scan.opens)}) :\n\t", end = str())
                     print(" ".join([str(i) for i in sorted(scan.opens)]))
+                if len(scan.unspecified) :
+                    print(f"\nunspecified ports({len(scan.unspecified)}) :\n\t", end = str())
+                    print(" ".join([str(i) for i in sorted(scan.unspecified)]))
                 else : print("no open ports!")
                 return None
         asyncio.run(prepare())
