@@ -13,6 +13,7 @@ import argparse
 
 class Constant :
     MODULE : bool = __name__ != "__main__"
+    ISROOT : bool = os.geteuid() == 0
     TIME : int = round(time.time())
     ISOS : bool = any([os in sys.platform for os in ("linux", "bsd", "darwin")])
     SUP_COLOR : bool = True if os.getenv("COLORTERM") in ("truecolor", "24bit", "color24") and os.getenv("NOCOLOR") in (None, 0, "false", "no") else False
@@ -25,6 +26,10 @@ class Constant :
         [Python] : [{sys.implementation.name.title()} {sys.version_info[0]}.{sys.version_info[1]}]
         [GitHub] : [github.com/HI6Cypher]\n\n"""
 
+    def EXIT(code : int) -> None :
+        sys.exit(code)
+        return None
+
     def SIGNAL(signum : int, stk_frm : "frame") -> None :
         func_name = stk_frm.f_code.co_name
         func_line = str(stk_frm.f_code.co_firstlineno)
@@ -34,7 +39,7 @@ class Constant :
         msg += "\n\n" + f"sig_num : {Constant.YELLOW(signal.Signals(signum).name)}"
         msg += "\n" + f"process_stat : func {Constant.YELLOW(func_name)} in line {Constant.YELLOW(func_line)} with stacksize {Constant.YELLOW(stack_size)}\n"
         EXCEPTION(msg)
-        sys.exit(1)
+        Constant.EXIT(1)
         return None
 
     def RED(text : str) -> str :
@@ -807,7 +812,7 @@ class Tunnel :
             payload = self.prepare_response(version, False)
             self.write(conn, payload)
             print(Constant.GREEN("DONE"))
-            sys.exit()
+            Constant.EXIT(1)
         send_length = 0
         tail, parts = self.get_parts(length, self.buffer)
         file = self.open_file(name)
@@ -872,9 +877,19 @@ if not Constant.MODULE :
         return args
 
     def invalid_args(arg : str) -> None :
-        ERROR : str = lambda arg : print(Constant.RED(f"\nInvalid argument : \"{arg}\"\nType : \"python hi6toolkit.py [--help | -h]\""), file = sys.stderr)
-        ERROR(arg)
-        sys.exit(1)
+        msg = "[" + Constant.RED("ERROR") + "]" + " "
+        msg += Constant.RED(f"Invalid argument : \"{arg}\"") + "\n"
+        msg += "[" + Constant.RED("ERROR") + "]" + " "
+        msg += Constant.RED("Type : \"python hi6toolkit.py [--help | -h]\"")
+        print(msg, file = sys.stderr)
+        Constant.EXIT(1)
+        return None
+
+    def root_access_error() -> None :
+        msg = "[" + Constant.RED("ERROR") + "]" + " "
+        msg += Constant.RED("ROOT ACCESS ERROR") + "\n"
+        print(msg)
+        Constant.EXIT(1)
         return None
 
     def check(**kwargs : dict) -> tuple[bool, None | list] :
@@ -907,6 +922,7 @@ if not Constant.MODULE :
         filter_saddr = args["filter_saddr"]
         filter_daddr = args["filter_daddr"]
         tmp = args["tmp"]
+        if not Constant.ISROOT : root_access_error()
         ensure()
         sniff = Sniff(iface, True, tmp, filter_saddr, filter_daddr)
         for packet, _ in sniff :
@@ -928,6 +944,7 @@ if not Constant.MODULE :
         host = socket.gethostbyname(args["host"])
         port_range = split_port_range(args["port_range"])
         timeout = args["timeout"]
+        if not Constant.ISROOT : root_access_error()
         ensure()
         async def wait_to_empty(n : int, buffer : set | list) -> None :
             while len(buffer) >= n :
@@ -975,6 +992,7 @@ if not Constant.MODULE :
         host = socket.gethostbyname(args["host"])
         port = args["port"]
         rate = args["rate"]
+        if not Constant.ISROOT : root_access_error()
         ensure()
         flood = DoS_SYN(host, port, rate)
         flood.flood()
@@ -1017,6 +1035,7 @@ if not Constant.MODULE :
         port = args["port"]
         timeout = args["timeout"]
         buffer = args["buffer"]
+        if not Constant.ISROOT and port <= 1024 : root_access_error()
         ensure()
         tunnel = Tunnel(host, port, timeout, buffer)
         gen = tunnel.tunnel()
@@ -1029,7 +1048,7 @@ if not Constant.MODULE :
         signal.signal(signal.SIGTERM, Constant.SIGNAL)
         if not Constant.ISOS :
             print("unsupported OS")
-            sys.exit(1)
+            Constant.EXIT(1)
         args = manage_args()
         if "func" in vars(args) :
             args.func()
