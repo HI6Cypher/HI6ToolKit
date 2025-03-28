@@ -411,13 +411,13 @@ class Scan :
     def tcpip_header(self, port : int) -> tuple[bytes, int] :
         src = socket.inet_pton(socket.AF_INET, self.source)
         dst = socket.inet_pton(socket.AF_INET, self.host)
-        srp = random.randint(1024, 65535)
-        dsp = port
+        src_p = random.randint(1024, 65535)
+        dst_p = port
         randseq = random.randint(0, 65535)
-        header = self.tcp_header(srp = srp, dsp = dsp, seq = randseq, syn = 1)
+        header = self.tcp_header(src = src_p, dst = dst_p, seq = randseq, syn = 1)
         pseudo_header = self.pseudo_header(src = src, dst = dst, pln = len(header))
         checksum_tcp_header = self.checksum(header + pseudo_header)
-        header = self.tcp_header(srp = srp, dsp = dsp, seq = randseq, syn = 1, csm = checksum_tcp_header)
+        header = self.tcp_header(src = src_p, dst = dst_p, seq = randseq, syn = 1, csm = checksum_tcp_header)
         return header, randseq
 
     async def package(self, port : int) -> tuple[bytes, int] :
@@ -463,7 +463,7 @@ class Scan :
         return DoS_SYN.ip_header(src = src, dst = dst, idn = idn, csm = csm)
 
     @staticmethod
-    def tcp_header(srp : int = 0, dsp : int = 0, seq : int = 0, syn = 0, csm : int = 0) -> bytes :
+    def tcp_header(src : int = 0, dst : int = 0, seq : int = 0, syn = 0, csm : int = 0) -> bytes :
         return DoS_SYN.tcp_header(srp = srp, dsp = dsp, seq = seq, syn = 1, csm = csm)
 
     @staticmethod
@@ -504,15 +504,15 @@ class DoS_SYN :
 
     def package(self) -> bytes :
         randip = self.random_ip()
-        randnum = lambda x : random.randint(x, 65535)
+        randnum = lambda x, y : random.randint(x, y)
         src = socket.inet_pton(socket.AF_INET, "192.168.129.207")
         dst = socket.inet_pton(socket.AF_INET, self.host)
-        randidn = randnum(0)
+        randidn = randnum(0, 65535)
         ip_header = self.ip_header(src = src, dst = dst, idn = randidn)
         checksum = self.checksum(ip_header)
         ip_header = self.ip_header(src = src, dst = dst, idn = randidn, csm = checksum)
-        randseq = randnum(0)
-        randsrp = randnum(1024)
+        randseq = randnum(0, 65535)
+        randsrp = randnum(1024, 65535)
         tcp_header = self.tcp_header(srp = randsrp, dsp = self.port, seq = randseq, syn = 1)
         pseudo_header = self.pseudo_header(src = src, dst = dst, pln = len(tcp_header))
         data = tcp_header + pseudo_header
