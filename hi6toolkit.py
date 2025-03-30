@@ -71,8 +71,6 @@ class Sniff :
         self.generator = None
         self.check_interface()
         self.check_eth_p_all()
-        self.filter_saddr = saddr
-        self.filter_daddr = daddr
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -204,29 +202,34 @@ class Sniff :
 
     def check_saddr_ip(self, frame : memoryview | bytes) -> bool :
         src = ".".join((str(i) for i in tuple(frame[12:16])))
-        return src == self.filter_saddr
+        return src == self.saddr
 
     def check_daddr_ip(self, frame : memoryview | bytes) -> bool :
         dst = ".".join((str(i) for i in tuple(frame[16:20])))
-        return dst == self.filter_daddr
+        return dst == self.daddr
 
     def check_eth_p_all(self) -> None :
         if "ETH_P_ALL" not in socket.__all__ :
             socket.ETH_P_ALL = 3
         return None
 
-    def filter(self, frame : memoryview | bytes) -> bool :
-        nonce = 0
-        if not (self.filter_saddr or self.filter_daddr) :
-            return False
-        if self.check_ip(frame) :
+    def filter(func : "func") -> tuple[str | None, memoryview | bytes] : #TODO
+        def filter(self) -> tuple[str | None, memoryview] :
+            frame = func(self)
+            nonce = 0
+            if not (self.saddr or self.daddr) :
+                return (self.parse_headers(frame).expandtabs(4) if self.parse else str(), frame)
+            if not self.check_ip(frame) :
+                return (str(), bytes())
             frame = frame[14:]
-        else : return True
-        if self.filter_saddr :
-            nonce += 1 if self.check_saddr_ip(frame) else -1
-        if self.filter_daddr :
-            nonce += 1 if self.check_daddr_ip(frame) else -1
-        return True if nonce <= 0 else False
+            if self.saddr :
+                nonce += 1 if self.check_saddr_ip(frame) else -1
+            if self.daddr :
+                nonce += 1 if self.check_daddr_ip(frame) else -1
+            if nonce > 0 :
+                return (self.parse_headers(frame).expandtabs(4) if self.parse else str(), frame)
+            else : return (str(), bytes())
+        return filter
 
     def sniff(self) -> tuple[str | None, memoryview] :
         while True :
@@ -366,21 +369,14 @@ class Sniff :
         print(data, file = open(path, mode))
         return None
 
+    @filter
     def __sniff(self) -> tuple[str | None, memoryview] :
         with socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(socket.ETH_P_ALL)) as sniff :
             sniff.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, self.iface)
             while True :
                 raw_data = sniff.recvfrom(65535)[0]
-                raw_data_view = memoryview(raw_data)
-                if raw_data and not self.filter(raw_data_view) :
-                    parsed_headers = str()
-                    if self.parse :
-                        parsed_headers = self.parse_headers(raw_data_view)
-                        parsed_headers = parsed_headers.expandtabs(4)
-                    if self.tmp and self.parse: self.tmp_file(parsed_headers)
-                    return parsed_headers, raw_data_view
-                else : continue
-
+                raw_data_memview = memoryview(raw_data)
+                if raw_data : return raw_data_memview
 
 class Scan :
     def __init__(self, source : str, host : str, timeout : int, event_loop : "async_event_loop") -> "Scan_class" :
