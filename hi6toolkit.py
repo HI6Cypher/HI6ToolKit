@@ -201,11 +201,11 @@ class Sniff :
         return typ == "0800"
 
     def check_saddr_ip(self, frame : memoryview | bytes) -> bool :
-        src = ".".join((str(i) for i in tuple(frame[12:16])))
+        src = ".".join((str(i) for i in tuple(frame[14:][12:16])))
         return src == self.saddr
 
     def check_daddr_ip(self, frame : memoryview | bytes) -> bool :
-        dst = ".".join((str(i) for i in tuple(frame[16:20])))
+        dst = ".".join((str(i) for i in tuple(frame[14:][16:20])))
         return dst == self.daddr
 
     def check_eth_p_all(self) -> None :
@@ -221,7 +221,6 @@ class Sniff :
                 return (self.parse_headers(frame).expandtabs(4) if self.parse else str(), frame)
             if not self.check_ip(frame) :
                 return (str(), bytes())
-            frame = frame[14:]
             if self.saddr :
                 nonce += 1 if self.check_saddr_ip(frame) else -1
             if self.daddr :
