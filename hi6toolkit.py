@@ -28,7 +28,7 @@ class Constant :
 
     def EXIT(code : int) -> None :
         sys.exit(code)
-        return None
+        return
 
     def SIGNAL(signum : int, stk_frm : "frame") -> None :
         func_name = stk_frm.f_code.co_name
@@ -40,7 +40,7 @@ class Constant :
         msg += "\n" + f"process_stat : func {Constant.YELLOW(func_name)} in line {Constant.YELLOW(func_line)} with stacksize {Constant.YELLOW(stack_size)}\n"
         EXCEPTION(msg)
         Constant.EXIT(1)
-        return None
+        return
 
     def RED(text : str) -> str :
         red = Constant.ESCAPE + "[31m"
@@ -194,7 +194,7 @@ class Sniff :
         if self.iface not in ifaces :
             raise OSError(f"{self.iface} not in {ifaces}")
         self.iface = self.iface.encode()
-        return None
+        return
 
     def check_ip(self, frame : memoryview | bytes) -> bool :
         typ = bytes(frame[12:14]).hex()
@@ -211,7 +211,7 @@ class Sniff :
     def check_eth_p_all(self) -> None :
         if "ETH_P_ALL" not in socket.__all__ :
             socket.ETH_P_ALL = 3
-        return None
+        return
 
     def filter(func : "func") -> tuple[str | None, memoryview | bytes] : #TODO
         def filter(self) -> tuple[str | None, memoryview] :
@@ -367,7 +367,7 @@ class Sniff :
         path = f"data_{Constant.TIME}.txt"
         mode = "a" if os.path.exists(path) else "x"
         print(data, file = open(path, mode))
-        return None
+        return
 
     @filter
     def __sniff(self) -> tuple[str | None, memoryview] :
@@ -519,7 +519,7 @@ class DoS_SYN :
 
     def flood(self) -> None :
         self.__flood()
-        return None
+        return
 
     @staticmethod
     def ip_header(src : str, dst : str,
@@ -594,7 +594,7 @@ class DoS_SYN :
             end_time = round((time.time() - Constant.TIME), 2)
             print("\n[" + Constant.GREEN("+") + "]" + " " + "all SYN segments have sent")
             print("[" + Constant.GREEN("+") + "]" + " " + f"{end_time}s")
-        return None
+        return
 
 
 class HTTP_Request :
@@ -618,7 +618,7 @@ class HTTP_Request :
 
     def request(self) -> None :
         self.__request()
-        return None
+        return
 
     def __request(self) -> None :
         if self.https : sslcontext = ssl.create_default_context()
@@ -652,7 +652,7 @@ class HTTP_Request :
                     break
                 else :
                     raw_data += response
-        return None
+        return
 
 
 class Tunnel :
@@ -672,14 +672,14 @@ class Tunnel :
 
     def tunnel(self) -> None :
         self.__tunnel()
-        return None
+        return
 
     def init_server(self) -> None :
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.settimeout(self.timeout)
         self.sock.bind((self.host, self.port))
         self.sock.listen(1)
-        return None
+        return
 
     def get_header(self, sock : socket.socket) -> str :
         header = bytes()
@@ -696,7 +696,7 @@ class Tunnel :
     @staticmethod
     def tmp_file(file : "open", data : bytes) -> None :
         file.write(data)
-        return None
+        return
 
     @staticmethod
     def parse_headers(data : bytes) -> dict :
@@ -727,7 +727,7 @@ class Tunnel :
             return headers[keyword]
         else :
             raise Exception("couldn't find status")
-            return None
+            return
 
     @staticmethod
     def get_version(headers : dict) -> str :
@@ -761,7 +761,7 @@ class Tunnel :
     def write(sock : socket.socket, data : bytes) -> None :
         data = data if isinstance(data, bytes) else data.encode()
         sock.sendall(data)
-        return None
+        return
 
     @staticmethod
     def prepare_response(version : str, success : bool) -> str :
@@ -828,7 +828,7 @@ class Tunnel :
             payload = self.prepare_response(version, True)
             self.write(conn, payload)
             print(Constant.GREEN("DONE"))
-        return None
+        return
 
 
 if not Constant.MODULE :
@@ -879,14 +879,14 @@ if not Constant.MODULE :
         msg += Constant.RED("Type : \"python hi6toolkit.py [--help | -h]\"")
         print(msg, file = sys.stderr)
         Constant.EXIT(1)
-        return None
+        return
 
     def root_access_error() -> None :
         msg = "[" + Constant.RED("ERROR") + "]" + " "
         msg += Constant.RED("ROOT ACCESS ERROR") + "\n"
         print(msg)
         Constant.EXIT(1)
-        return None
+        return
 
     def check(**kwargs : dict) -> tuple[bool, None | list] :
         nones = list()
@@ -896,13 +896,13 @@ if not Constant.MODULE :
 
     def info_args() -> None :
         print(Constant.YELLOW(Constant.INFO))
-        return None
+        return
 
     def ensure() -> None :
         if not Constant.MODULE :
             print(Constant.YELLOW(Constant.INFO))
             input("\nPress ENTER to continue...\n")
-        return None
+        return
 
     def Sniff_args() -> None :
         global args
@@ -923,7 +923,7 @@ if not Constant.MODULE :
         sniff = Sniff(iface, True, tmp, filter_saddr, filter_daddr)
         for packet, _ in sniff :
             print(packet)
-        return None
+        return
 
     def Scan_args() -> None :
         global args
@@ -947,7 +947,7 @@ if not Constant.MODULE :
                 print("[" + Constant.RED("WAIT") + "]", end = " ")
                 print("buffer is full, awaiting to empty buffer")
                 await asyncio.sleep(1)
-            return None
+            return
         async def prepare() -> None :
             print("[" + Constant.GREEN("START") + "]", end = " ")
             print("set async event loop")
@@ -972,9 +972,9 @@ if not Constant.MODULE :
                     print(f"\nunspecified ports({len(scan.unspecified)}) :\n\t", end = str())
                     print(" ".join([str(i) for i in sorted(scan.unspecified)]))
                 else : print("no open ports!")
-                return None
+                return
         asyncio.run(prepare())
-        return None
+        return
 
     def DoS_SYN_args() -> None :
         global args
@@ -992,7 +992,7 @@ if not Constant.MODULE :
         ensure()
         flood = DoS_SYN(host, port, rate)
         flood.flood()
-        return None
+        return
 
     def HTTP_Request_args() -> None :
         global args
@@ -1015,7 +1015,7 @@ if not Constant.MODULE :
         ensure()
         client = HTTP_Request(host, port, method, header, path, secure)
         client.request()
-        return None
+        return
 
     def Tunnel_args() -> None :
         global args
@@ -1035,7 +1035,7 @@ if not Constant.MODULE :
         ensure()
         tunnel = Tunnel(host, port, timeout, buffer)
         gen = tunnel.tunnel()
-        return None
+        return
 
     def main() -> bool :
         global args
