@@ -83,7 +83,7 @@ class Sniff :
         self.generator = self.sniff()
         return self
 
-    def __next__(self) -> tuple[str | None, memoryview] :
+    def __next__(self) -> tuple[str | None, memoryview | None] :
         try :
             return next(self.generator)
         except StopIteration :
@@ -213,14 +213,14 @@ class Sniff :
             socket.ETH_P_ALL = 3
         return
 
-    def filter(func : "func") -> tuple[str | None, memoryview | bytes] : #TODO
+    def filter(func : "func") -> tuple[str | None, memoryview | None] :
         def filter(self) -> tuple[str | None, memoryview] :
             frame = func(self)
             nonce = 0
             if not (self.saddr or self.daddr) :
                 return (self.parse_headers(frame).expandtabs(4) if self.parse else str(), frame)
             if not self.check_ip(frame) :
-                return (str(), bytes())
+                return (None, None)
             if self.saddr :
                 nonce += 1 if self.check_saddr_ip(frame) else -1
             if self.daddr :
@@ -344,7 +344,7 @@ class Sniff :
         return typ, cod, csm, idn, seq, data
 
     @staticmethod
-    def indent_data(data : memoryview | bytes) -> str :
+    def indent_data(data : memoryview | bytes) -> str : #TODO : think this algorithm is too slow because of insert()
         data = data.tolist()
         for i in range(len(data)) :
             if data[i] not in range(32, 127) : data[i] = 46
