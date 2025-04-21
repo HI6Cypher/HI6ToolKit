@@ -120,8 +120,8 @@ class Sniff :
     def parse_tcp_header(self, data : memoryview | bytes) -> str :
         parsed_header = str()
         t = "\n\t\t"
-        src, dst, seq, acn, oft, flg, win, csm, urg, data = self.tcp_header(data)
-        parsed_header += f"TCP Segment :{t}Source Port : {src}{t}Destination Port : {dst}{t}Sequence : {seq}{t}Acknowledgment : {acn}{t}Data Offset : {oft}{t}Flags :{t}\t"
+        src_p, dst_p, seq, acn, oft, flg, win, csm, urg, data = self.tcp_header(data)
+        parsed_header += f"TCP Segment :{t}Source Port : {src_p}{t}Destination Port : {dst_p}{t}Sequence : {seq}{t}Acknowledgment : {acn}{t}Data Offset : {oft}{t}Flags :{t}\t"
         parsed_header += f"URG:{flg['urg']}  ACK:{flg['ack']}  PSH:{flg['psh']}{t}\tRST:{flg['rst']}  SYN:{flg['syn']}  FIN:{flg['fin']}{t}"
         parsed_header += f"Window : {win}{t}Checksum : {csm}{t}Urgent Pointer : {urg}{t}Raw Data :\n{self.indent_data(data)}"
         return parsed_header
@@ -129,8 +129,8 @@ class Sniff :
     def parse_udp_header(self, data : memoryview | bytes) -> str :
         parsed_header = str()
         t = "\n\t\t"
-        src, dst, tln, csm, data = self.udp_header(data)
-        parsed_header += f"UDP Segment :{t}Source Port : {src}{t}Destination Port : {dst}{t}Length : {tln}{t}Checksum : {csm}{t}Raw Data :\n{self.indent_data(data)}"
+        src_p, dst_p, tln, csm, data = self.udp_header(data)
+        parsed_header += f"UDP Segment :{t}Source Port : {src_p}{t}Destination Port : {dst_p}{t}Length : {tln}{t}Checksum : {csm}{t}Raw Data :\n{self.indent_data(data)}"
         return parsed_header
 
     def parse_icmp_header(self, data : memoryview | bytes) -> str :
@@ -296,8 +296,8 @@ class Sniff :
     @staticmethod
     def tcp_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, int, dict, int, int, int, memoryview | bytes] :
         payload = struct.unpack("!HHLLBBHHH", raw_payload[:20])
-        src = payload[0]
-        dst = payload[1]
+        src_p = payload[0]
+        dst_p = payload[1]
         seq = payload[2]
         acn = payload[3]
         oft = (payload[4] >> 4) * 4
@@ -320,17 +320,17 @@ class Sniff :
         csm = hex(payload[7])
         urg = payload[8]
         data = raw_payload[oft:]
-        return src, dst, seq, acn, oft, flg, win, csm, urg, data
+        return src_p, dst_p, seq, acn, oft, flg, win, csm, urg, data
 
     @staticmethod
     def udp_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, memoryview | bytes] :
         payload = struct.unpack("!HHHH", raw_payload[:8])
-        src = payload[0]
-        dst = payload[1]
+        src_p = payload[0]
+        dst_p = payload[1]
         tln = payload[2]
         csm = hex(payload[3])
         data = raw_payload[8:]
-        return src, dst, tln, csm, data
+        return src_p, dst_p, tln, csm, data
 
     @staticmethod
     def icmp_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, int, memoryview | bytes] :
@@ -409,10 +409,10 @@ class Scan :
         src_p = random.randint(1024, 65535)
         dst_p = port
         randseq = random.randint(0, 65535)
-        header = self.tcp_header(src = src_p, dst = dst_p, seq = randseq, syn = 1)
+        header = self.tcp_header(src_p = src_p, dst_p = dst_p, seq = randseq, syn = 1)
         pseudo_header = self.pseudo_header(src = src, dst = dst, pln = len(header))
         checksum_tcp_header = self.checksum(header + pseudo_header)
-        header = self.tcp_header(src = src_p, dst = dst_p, seq = randseq, syn = 1, csm = checksum_tcp_header)
+        header = self.tcp_header(src_p = src_p, dst_p = dst_p, seq = randseq, syn = 1, csm = checksum_tcp_header)
         return header, randseq
 
     async def package(self, port : int) -> tuple[bytes, int] :
@@ -458,8 +458,8 @@ class Scan :
         return DoS_SYN.ip_header(src = src, dst = dst, idn = idn, csm = csm)
 
     @staticmethod
-    def tcp_header(src : int = 0, dst : int = 0, seq : int = 0, syn = 0, csm : int = 0) -> bytes :
-        return DoS_SYN.tcp_header(srp = srp, dsp = dsp, seq = seq, syn = 1, csm = csm)
+    def tcp_header(src_p : int = 0, dst_p : int = 0, seq : int = 0, syn = 0, csm : int = 0) -> bytes :
+        return DoS_SYN.tcp_header(src_p = src_p, dst_p = dst_p, seq = seq, syn = 1, csm = csm)
 
     @staticmethod
     def pseudo_header(src : str, dst : str, pln : int = 0) -> bytes :
@@ -508,11 +508,11 @@ class DoS_SYN :
         ip_header = self.ip_header(src = src, dst = dst, idn = randidn, csm = checksum)
         randseq = randnum(0, 65535)
         randsrp = randnum(1024, 65535)
-        tcp_header = self.tcp_header(srp = randsrp, dsp = self.port, seq = randseq, syn = 1)
+        tcp_header = self.tcp_header(src_p = randsrp, dst_p = self.port, seq = randseq, syn = 1)
         pseudo_header = self.pseudo_header(src = src, dst = dst, pln = len(tcp_header))
         data = tcp_header + pseudo_header
         tcp_checksum = self.checksum(data)
-        tcp_header = self.tcp_header(srp = randsrp, dsp = self.port, seq = randseq, syn = 1, csm = tcp_checksum)
+        tcp_header = self.tcp_header(src_p = randsrp, dst_p = self.port, seq = randseq, syn = 1, csm = tcp_checksum)
         payload = ip_header + tcp_header
         return payload
 
@@ -533,7 +533,7 @@ class DoS_SYN :
         return datagram
 
     @staticmethod
-    def tcp_header(srp : int = 0, dsp : int = 0,
+    def tcp_header(src_p : int = 0, dst_p : int = 0,
         seq : int = 0, acn : int = 0,
         oft : int = 5, urg : int = 0,
         ack : int = 0, psh : int = 0,
@@ -544,7 +544,7 @@ class DoS_SYN :
         res = 0 << 6
         flg = (urg << 5) + (ack << 4) + (psh << 3) + (rst << 2) + (syn << 1) + fin
         oft_res_flg = oft + res + flg
-        segment = struct.pack("!HHLLHHHH", srp, dsp, seq, acn, oft_res_flg, win, csm, urp)
+        segment = struct.pack("!HHLLHHHH", src_p, dst_p, seq, acn, oft_res_flg, win, csm, urp)
         return segment
 
     @staticmethod
@@ -944,7 +944,7 @@ if not Constant.MODULE :
         async def wait_to_empty(n : int, buffer : set | list) -> None :
             while len(buffer) >= n :
                 print("[" + Constant.RED("WAIT") + "]", end = " ")
-                print("buffer is full, awaiting to empty buffer")
+                print(f"buffer is full, {n} requests been sent, awaiting to empty buffer")
                 await asyncio.sleep(1)
             return
         async def prepare() -> None :
