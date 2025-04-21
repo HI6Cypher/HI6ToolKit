@@ -11,6 +11,10 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
 
     [https://raw.githubusercontent.com/HI6Cypher/HI6ToolKit/main/hi6toolkit.py](https://raw.githubusercontent.com/HI6Cypher/HI6ToolKit/main/hi6toolkit.py)
 
+- To Scan ports :
+    ```bash
+    ./hi6toolkit.py scan -s [source(local) ip like 192.168.*.*] -x [host] -p [port range like 0-443]
+    ```
 
 - To Sniff packets :
     ``` bash
