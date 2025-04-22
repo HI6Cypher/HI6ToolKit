@@ -12,7 +12,7 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
     [https://raw.githubusercontent.com/HI6Cypher/HI6ToolKit/main/hi6toolkit.py](https://raw.githubusercontent.com/HI6Cypher/HI6ToolKit/main/hi6toolkit.py)
 
 - To Scan ports :
-    ```bash
+    ``` bash
     ./hi6toolkit.py scan -s [source(local) ip like 192.168.*.*] -x [host] -p [port range like 0-443]
     ```
 
@@ -80,24 +80,20 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
                     pgrade-Insecure-Requests: 1\r\n\r\n
     ```
 
-- To use `Sniff` class :
-    ``` python
-    from hi6toolkit import Sniff
-
-    raw_packets = list()
-    sniff = Sniff(iface = "wlo1", parse = True, tmp = True, saddr = None, daddr = None) # use ifconfig or socket.if_nameindex() to list your interfaces (or whatever method u want)
-    for parsed_packet, raw_packet in sniff :
-        raw_packets.append(raw_packet)
-        print(packet)
-    ```
-
 - To launch a DoS attack(SYN FLOOD) :
     ``` bash
     python hi6toolkit.py dos -x [host] -p [port] -r [rate]
     ```
 
 - Example of SYN flood to (127.0.0.1) :
+
+    command
+    ``` bash
+    hi6@hi6cypher : ~/Net/HI6ToolKit $ ./hi6toolkit.py dos -x localhost -p 1337 -r 4096
     ```
+
+    output
+    ``` bash
 
 
             [System] : [LINUX, Thu Aug 29 21:31:07 2024]
@@ -218,17 +214,20 @@ from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
 
 - Exception :
 
-    HTTP_Request : Note that this class doesn't implement appropriate data parsing algorithm!!!!!!, it is useful for RESTful APIs
+    HTTP_Request : Note that this class doesn't implement appropriate data parsing algorithm!!!!!!, it is useful for simple RESTful APIs
 
     To send TCP/IP packet we need raw socket with `socket.IPPROTO_TCP` that
     we have limitations :\ on raw socket in some Windows versions(7, XP, Vista, ,...)
     to more information visit [Site](https://learn.microsoft.com/en-us/windows/win32/winsock/tcp-ip-raw-sockets-2)
 
-    so because of many incompatibility i limited hi6toolkit.py to use non-windows OS
+    so because of many incompatibility I limited hi6toolkit.py to use non-windows OS
     hi6toolkit has been tested on Linux & Unix(unix-based like darwin)
 
     <span style="color:red">for Sniff, DoS_SYN and Tunnel u have to have root access:)</span>.
 
-GitHub : [github.com/HI6Cypher](https://github.com/HI6Cypher) :)
+GitHub : [github.com/HI6Cypher](https://github.com/HI6Cypher)
 
-Email : [huaweisclu31@hotmail.com](mailto:huaweisclu31@hotmail.com) :)
+Email : [huaweisclu31@hotmail.com](mailto:huaweisclu31@hotmail.com)
+Email : [swhwap.net@gmail.com](mailto:swhwap.net@gmail.com)
+
+<span style="color:cyan;font-size:140">;)</span>
