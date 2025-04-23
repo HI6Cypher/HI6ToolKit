@@ -93,6 +93,7 @@ class Stack :
         self.__stack.append(value)
         return
 
+
 class Sniff :
     def __init__(self, loop : "async_event_loop", iface : str, tmp : bool, saddr : str, daddr : str, recvbuf : int) -> "Sniff_class" :
         self.loop = loop
@@ -514,6 +515,7 @@ class Sniff :
                 if raw_data : await self.add_to_stack(raw_data_memview)
                 await self.outputctl()
             return
+
 
 class Scan :
     def __init__(self, source : str, host : str, timeout : int, event_loop : "async_event_loop") -> "Scan_class" :
@@ -1092,12 +1094,14 @@ if not Constant.MODULE :
         timeout = args["timeout"]
         if not Constant.ISROOT : root_access_error()
         ensure()
+
         async def wait_to_empty(n : int, buffer : set | list) -> None :
             while len(buffer) >= n :
                 print("[" + Constant.RED("WAIT") + "]", end = " ")
                 print(f"buffer is full, {n} requests been sent, awaiting to empty buffer")
                 await asyncio.sleep(1)
             return
+
         async def prepare() -> None :
             print("[" + Constant.GREEN("START") + "]", end = " ")
             print("set async event loop")
@@ -1123,6 +1127,7 @@ if not Constant.MODULE :
                     print(" ".join([str(i) for i in sorted(scan.unspecified)]))
                 else : print("no open ports!")
                 return
+
         asyncio.run(prepare())
         return
 
