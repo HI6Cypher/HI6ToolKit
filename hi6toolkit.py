@@ -140,7 +140,7 @@ class Sniff :
         return dst, src, typ
 
     @staticmethod
-    async def ip_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, int, int, int, int, str | int, int, str, str] :
+    async def ipv4_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, int, int, int, int, str | int, int, str, str] :
         payload = struct.unpack("!BBHHHBBH4s4s", raw_payload[:20])
         ver = payload[0] >> 4
         ihl = (payload[0] & 0xf) * 4
@@ -151,15 +151,35 @@ class Sniff :
         oft = payload[4] & 0x1fff
         ttl = payload[5]
         protos = {
-            0x0001 : "ICMP",
+            0x0001 : "ICMPv4",
             0x0006 : "TCP",
-            0x0011 : "UDP"
+            0x0011 : "UDP",
+            0x003a : "ICMPv6"
             }
         prt = protos.get(payload[6], payload[6])
         csm = hex(payload[7])
         src = socket.inet_ntop(socket.AF_INET, payload[8])
         dst = socket.inet_ntop(socket.AF_INET, payload[9])
         return ver, ihl, tos, tln, idn, flg, oft, ttl, prt, csm, src, dst
+
+    @staticmethod
+    async def ipv6_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, str | int, int, str, str] :
+        payload = struct.unpack("!lHBB16s16s", raw_payload[:40])
+        ver = payload[0] >> 28
+        cls = (payload[0] >> 20) & 0xff
+        flw = payload[0] & 0xfffff
+        pln = payload[1]
+        protos = {
+            0x0001 : "ICMPv4",
+            0x0006 : "TCP",
+            0x0011 : "UDP",
+            0x003a : "ICMPv6"
+            }
+        prt = protos.get(payload[2], payload[2])
+        ttl = payload[3]
+        src = socket.inet_ntop(socket.AF_INET6, payload[4])
+        dst = socket.inet_ntop(socket.AF_INET6, payload[5])
+        return ver, cls, flw, pln, prt, ttl, src, dst
 
     @staticmethod
     async def arp_header(raw_payload : memoryview | bytes) -> tuple[str | int, str | int, int, int, str | int, str, str, str, str] :
@@ -224,15 +244,22 @@ class Sniff :
         return src_p, dst_p, tln, csm, data
 
     @staticmethod
-    async def icmp_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, int, memoryview | bytes] :
-        payload = struct.unpack("!BBHHH", raw_payload[:8])
+    async def icmpv4_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, memoryview | bytes] :
+        payload = struct.unpack("!BBH", raw_payload[:4])
         typ = payload[0]
         cod = payload[1]
         csm = hex(payload[2])
-        idn = payload[3]
-        seq = payload[4]
         data = raw_payload[8:]
-        return typ, cod, csm, idn, seq, data
+        return typ, cod, csm, data
+
+    @staticmethod
+    async def icmpv6_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, memoryview | bytes] :
+        payload = struct.unpack("!BBH", raw_payload[:4])
+        typ = payload[0]
+        cod = payload[1]
+        csm = hex(payload[2])
+        data = raw_payload[8:]
+        return typ, cod, csm, data
 
     @staticmethod
     async def indent_data(data : memoryview | bytes) -> str :
@@ -259,6 +286,26 @@ class Sniff :
         parsed_header += f"Ethernet Frame :{t}Source MAC : {src}{t}Destination MAC : {dst}{t}Ethernet Type : {typ}"
         return parsed_header, typ
 
+    async def parse_ipv4_header(self, data : memoryview | bytes) -> tuple[str, int, str | int] :
+        parsed_header = str()
+        t = "\n\t\t"
+        ver, ihl, tos, tln, idn, flg, oft, ttl, prt, csm, src, dst = await self.ipv4_header(data)
+        parsed_header += f"IPv4 Datagram :{t}Version : {ver}  Header Length : {ihl}  Time of Service : {tos}"
+        parsed_header += f"{t}Total Length : {tln}  Identification : {idn}  Flags : {flg}"
+        parsed_header += f"{t}Fragment Offset : {oft}  TTL : {ttl}  Protocol : {prt}"
+        parsed_header += f"{t}Checksum : {csm}  Source : {src}  Destination : {dst}"
+        return parsed_header, ihl, prt
+
+    async def parse_ipv6_header(self, data : memoryview | bytes) -> tuple[str, int, str | int] :
+        parsed_header = str()
+        t = "\n\t\t"
+        ver, cls, flw, pln, prt, ttl, src, dst = await self.ipv6_header(data)
+        parsed_header += f"IPv6 Datagram :{t}Version : {ver}  Traffic Class : {cls}  Flow Lable : {flw}"
+        parsed_header += f"{t}Payload Length : {pln}  Next Header : {prt}  Hop Limit : {ttl}"
+        parsed_header += f"{t}Source : {src}"
+        parsed_header += f"{t}Destination : {dst}"
+        return parsed_header, pln, prt
+
     async def parse_arp_header(self, data : memoryview | bytes) -> str :
         parsed_header = str()
         t = "\n\t\t"
@@ -268,16 +315,6 @@ class Sniff :
         parsed_header += f"{t}Sender Protocol Address : {spa}{t}Target Hardware Address : {tha}"
         parsed_header += f"{t}Target Protocol Address : {tpa}"
         return parsed_header
-
-    async def parse_ip_header(self, data : memoryview | bytes) -> tuple[str, int, str | int] :
-        parsed_header = str()
-        t = "\n\t\t"
-        ver, ihl, tos, tln, idn, flg, oft, ttl, prt, csm, src, dst = await self.ip_header(data)
-        parsed_header += f"IPv4 Datagram :{t}Version : {ver}  Header Length : {ihl}  Time of Service : {tos}"
-        parsed_header += f"{t}Total Length : {tln}  Identification : {idn}  Flags : {flg}"
-        parsed_header += f"{t}Fragment Offset : {oft}  TTL : {ttl}  Protocol : {prt}"
-        parsed_header += f"{t}Checksum : {csm}  Source : {src}  Destination : {dst}"
-        return parsed_header, ihl, prt
 
     async def parse_tcp_header(self, data : memoryview | bytes) -> str :
         parsed_header = str()
@@ -297,12 +334,20 @@ class Sniff :
         parsed_header += f"UDP Segment :{t}Source Port : {src_p}{t}Destination Port : {dst_p}{t}Length : {tln}{t}Checksum : {csm}{t}Raw Data :\n{data}"
         return parsed_header
 
-    async def parse_icmp_header(self, data : memoryview | bytes) -> str :
+    async def parse_icmpv4_header(self, data : memoryview | bytes) -> str :
         parsed_header = str()
         t = "\n\t\t"
-        typ, cod, csm, idn, seq, data = await self.icmp_header(data)
+        typ, cod, csm, data = await self.icmpv4_header(data)
         data = await self.indent_data(data)
-        parsed_header += f"ICMP Datagram :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Identifier : {idn}{t}Sequence : {seq}{t}Raw Data :\n{data}"
+        parsed_header += f"ICMPv4 Datagram :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Raw Data :\n{data}"
+        return parsed_header
+
+    async def parse_icmpv6_header(self, data : memoryview | bytes) -> str :
+        parsed_header = str()
+        t = "\n\t\t"
+        typ, cod, csm, data = await self.icmpv4_header(data)
+        data = await self.indent_data(data)
+        parsed_header += f"ICMPv6 Datagram :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Raw Data :\n{data}"
         return parsed_header
 
     async def parse_headers(self, raw_data : memoryview | bytes) -> str :
@@ -314,7 +359,7 @@ class Sniff :
         match typ :
             case "IPv4" :
                 ip_data = raw_data[14:]
-                parsed_ip_header, ihl, prt = await self.parse_ip_header(ip_data)
+                parsed_ip_header, ihl, prt = await self.parse_ipv4_header(ip_data)
                 match prt :
                     case "TCP" :
                         tcp_data = raw_data[14 + ihl:]
@@ -322,10 +367,41 @@ class Sniff :
                     case "UDP" :
                         udp_data = raw_data[14 + ihl:]
                         transport_layer_header = await self.parse_udp_header(udp_data)
-                    case "ICMP" :
+                    case "ICMPv4" :
                         icmp_data = raw_data[14 + ihl:]
-                        transport_layer_header = await self.parse_icmp_header(icmp_data)
+                        transport_layer_header = await self.parse_icmpv4_header(icmp_data)
+                    case "ICMPv6" :
+                        icmp_data = raw_data[14 + ihl:]
+                        transport_layer_header = await self.parse_icmpv6_header(icmp_data)
                     case _ :
+                        transport_layer_header = f"{prt} : unimplemented transport layer protocol"
+                parsed_headers += spec_header
+                parsed_headers += "\n\n"
+                parsed_headers += parsed_eth_header
+                parsed_headers += "\n\n"
+                parsed_headers += parsed_ip_header
+                parsed_headers += "\n\n"
+                parsed_headers += transport_layer_header
+                parsed_headers += "\n\n"
+                return parsed_headers
+            case "IPv6" :
+                ip_data = raw_data[14:]
+                parsed_ip_header, pln, prt = await self.parse_ipv6_header(ip_data)
+                match prt :
+                    case "TCP" :
+                        tcp_data = raw_data[14 + 40:]
+                        transport_layer_header = await self.parse_tcp_header(tcp_data)
+                    case "UDP" :
+                        udp_data = raw_data[14 + 40:]
+                        transport_layer_header = await self.parse_udp_header(udp_data)
+                    case "ICMPv4" :
+                        icmp_data = raw_data[14 + 40:]
+                        transport_layer_header = await self.parse_icmpv4_header(icmp_data)
+                    case "ICMPv6" :
+                        icmp_data = raw_data[14 + 40:]
+                        transport_layer_header = await self.parse_icmpv6_header(icmp_data)
+                    case _ :
+
                         transport_layer_header = f"{prt} : unimplemented transport layer protocol"
                 parsed_headers += spec_header
                 parsed_headers += "\n\n"
