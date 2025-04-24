@@ -155,7 +155,8 @@ class Sniff :
             0x0001 : "ICMPv4",
             0x0006 : "TCP",
             0x0011 : "UDP",
-            0x003a : "ICMPv6"
+            0x003a : "ICMPv6",
+            0x0002 : "IGMPv2"
             }
         prt = protos.get(payload[6], payload[6])
         csm = hex(payload[7])
@@ -174,7 +175,8 @@ class Sniff :
             0x0001 : "ICMPv4",
             0x0006 : "TCP",
             0x0011 : "UDP",
-            0x003a : "ICMPv6"
+            0x003a : "ICMPv6",
+            0x0002 : "IGMPv2"
             }
         prt = protos.get(payload[2], payload[2])
         ttl = payload[3]
@@ -261,6 +263,15 @@ class Sniff :
         csm = hex(payload[2])
         data = raw_payload[8:]
         return typ, cod, csm, data
+
+    @staticmethod
+    async def igmpv2_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, str] :
+        payload = struct.unpack("!BBH4s", raw_payload[:8])
+        typ = payload[0]
+        mrt = payload[1]
+        csm = hex(payload[2])
+        gad = socket.inet_ntop(socket.AF_INET, payload[3])
+        return typ, mrt, csm, gad
 
     @staticmethod
     async def indent_data(data : memoryview | bytes) -> str :
@@ -351,6 +362,13 @@ class Sniff :
         parsed_header += f"ICMPv6 Datagram :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Raw Data :\n{data}"
         return parsed_header
 
+    async def parse_igmpv2_header(self, data : memoryview | bytes) -> str :
+        parsed_header = str()
+        t = "\n\t\t"
+        typ, mrt, csm, gad = await self.igmpv2_header(data)
+        parsed_header += f"IGMPv2 Datagram :{t}Type : {typ}{t}Max Response Time :{mrt}{t}Checksum : {csm}{t}Group Address : {gad}"
+        return parsed_header
+
     async def parse_headers(self, raw_data : memoryview | bytes) -> str :
         parsed_headers = str()
         spec_header = f"[{self.count}][DATALINK_FRAME]________________{Constant.TIME}________________"
@@ -364,25 +382,28 @@ class Sniff :
                 match prt :
                     case "TCP" :
                         tcp_data = raw_data[14 + ihl:]
-                        transport_layer_header = await self.parse_tcp_header(tcp_data)
+                        next_layer_header = await self.parse_tcp_header(tcp_data)
                     case "UDP" :
                         udp_data = raw_data[14 + ihl:]
-                        transport_layer_header = await self.parse_udp_header(udp_data)
+                        next_layer_header = await self.parse_udp_header(udp_data)
                     case "ICMPv4" :
                         icmp_data = raw_data[14 + ihl:]
-                        transport_layer_header = await self.parse_icmpv4_header(icmp_data)
+                        next_layer_header = await self.parse_icmpv4_header(icmp_data)
                     case "ICMPv6" :
                         icmp_data = raw_data[14 + ihl:]
-                        transport_layer_header = await self.parse_icmpv6_header(icmp_data)
+                        next_layer_header = await self.parse_icmpv6_header(icmp_data)
+                    case "IGMPv2" :
+                        igmp_data = raw_data[14 + ihl:]
+                        next_layer_header = await self.parse_igmpv2_header(igmp_data)
                     case _ :
-                        transport_layer_header = f"{prt} : unimplemented transport layer protocol"
+                        next_layer_header = f"{prt} : unimplemented transport layer protocol"
                 parsed_headers += spec_header
                 parsed_headers += "\n\n"
                 parsed_headers += parsed_eth_header
                 parsed_headers += "\n\n"
                 parsed_headers += parsed_ip_header
                 parsed_headers += "\n\n"
-                parsed_headers += transport_layer_header
+                parsed_headers += next_layer_header
                 parsed_headers += "\n\n"
                 return parsed_headers
             case "IPv6" :
@@ -391,16 +412,19 @@ class Sniff :
                 match prt :
                     case "TCP" :
                         tcp_data = raw_data[14 + 40:]
-                        transport_layer_header = await self.parse_tcp_header(tcp_data)
+                        next_layer_header = await self.parse_tcp_header(tcp_data)
                     case "UDP" :
                         udp_data = raw_data[14 + 40:]
-                        transport_layer_header = await self.parse_udp_header(udp_data)
+                        next_layer_header = await self.parse_udp_header(udp_data)
                     case "ICMPv4" :
                         icmp_data = raw_data[14 + 40:]
-                        transport_layer_header = await self.parse_icmpv4_header(icmp_data)
+                        next_layer_header = await self.parse_icmpv4_header(icmp_data)
                     case "ICMPv6" :
                         icmp_data = raw_data[14 + 40:]
-                        transport_layer_header = await self.parse_icmpv6_header(icmp_data)
+                        next_layer_header = await self.parse_icmpv6_header(icmp_data)
+                    case "IGMPv2" :
+                        igmp_data = raw_data[14 + 40:]
+                        next_layer_header = await self.parse_igmpv2_header(igmp_data)
                     case _ :
 
                         transport_layer_header = f"{prt} : unimplemented transport layer protocol"
