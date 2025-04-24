@@ -265,27 +265,35 @@ class Sniff :
         return typ, cod, csm, data
 
     @staticmethod
-    async def igmp_header(raw_payload : memoryview | bytes) -> :
+    async def igmp_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, str] | tuple[int, int, int, str, int, int, int, int, list] :
         match hex(raw_payload[:1]) :
-            case 0x11 :
+            case 0x11 | 0x12 | 0x16 | 0x17 :
                 payload = struct.unpack("!BBH4s", raw_payload[:8])
-            case 0x12 :
-                ...
-            case 0x16 :
-                ...
-            case 0x17 :
-                ...
+                typ = payload[0]
+                mrt = payload[1]
+                csm = hex(payload[2])
+                gad = socket.inet_ntop(socket.AF_INET, payload[3])
+                return typ, mrt, csm, gad
             case 0x22 :
-                ...
+                payload_before_src_addrs = struct.unpack("!BBH4sBBH", raw_payload[:12])
+                typ = payload[0]
+                mrt = payload[1]
+                csm = payload[2]
+                gad = socket.inet_ntop(socket.AF_INET, payload[3])
+                srp = payload[4] >> 3
+                qrv = payload[4] & 0b111
+                qic = payload[5]
+                nos = payload[6]
+                payload_after_src_addrs = struct.unpack("!" + nos * "4s", raw_payload[12:12 + nos * 4])
+                src_addrs = [socket.inet_ntop(socket.AF_INET, src) for src in payload_after_src_addrs]
+                return typ, mrt, csm, gad, srp, qrv, qic, nos, src_addrs
             case _ :
-                ...
-        payload = struct.unpack("!BBH4s", raw_payload[:8])
-        typ = payload[0]
-        mrt = payload[1]
-        csm = hex(payload[2])
-
-        gad = socket.inet_ntop(socket.AF_INET, payload[3])
-        return typ, mrt, csm, gad
+                payload = struct.unpack("!BBH4s", raw_payload[:8])
+                typ = payload[0]
+                mrt = payload[1]
+                csm = hex(payload[2])
+                gad = socket.inet_ntop(socket.AF_INET, payload[3])
+                return typ, mrt, csm, gad
 
     @staticmethod
     async def indent_data(data : memoryview | bytes) -> str :
@@ -377,25 +385,26 @@ class Sniff :
         return parsed_header
 
     async def parse_igmp_header(self, data : memoryview | bytes) -> str :
+        parsed_header = str()
+        t = "\n\t\t"
         parsed_igmp_header = await self.igmp_header(data)
         match parsed_igmp_header[0] :
-            case 0x11 :
-                parsed_header = str()
-                t = "\n\t\t"
+            case 0x11 | 0x12 | 0x16 | 0x17 :
                 typ, mrt, csm, gad = parsed_igmp_header
-                parsed_header += f"IGMP Memship Query Datagram :{t}Type : {typ}{t}Max Response Time :{mrt}{t}Checksum : {csm}{t}Group Address : {gad}"
+                igmp_types = {
+                    0x11 : "IGMP Memship Query",
+                    0x12 : "IGMPv1 Memship Report",
+                    0x16 : "IGMPv2 Memship Report",
+                    0x17 : "IGMPv2 Leave Group"
+                    }
+                parsed_header += f"{igmp_types[typ]} Datagram :{t}Type : {typ}{t}Max Response Time :{mrt}{t}Checksum : {csm}{t}Group Address : {gad}"
                 return parsed_header
-            case 0x12 :
-                ...
-            case 0x16 :
-                ...
-            case 0x17 :
-                ...
             case 0x22 :
-                ...
+                typ, mrt, csm, gad, srp, qrv, qic, nos, src_addrs = await self.igmp_header(data)
+                parsed_header += f"IGMPv3 Memship Report Datagram :{t}Type : {typ}{t}Max Response Time :{mrt}{t}Checksum : {csm}{t}Group Address :{gad}{t}"
+
             case _ :
                 ...
-        
 
     async def parse_headers(self, raw_data : memoryview | bytes) -> str :
         parsed_headers = str()
