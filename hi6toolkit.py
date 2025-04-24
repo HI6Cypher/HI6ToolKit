@@ -156,7 +156,7 @@ class Sniff :
             0x0006 : "TCP",
             0x0011 : "UDP",
             0x003a : "ICMPv6",
-            0x0002 : "IGMPv2"
+            0x0002 : "IGMP"
             }
         prt = protos.get(payload[6], payload[6])
         csm = hex(payload[7])
@@ -176,7 +176,7 @@ class Sniff :
             0x0006 : "TCP",
             0x0011 : "UDP",
             0x003a : "ICMPv6",
-            0x0002 : "IGMPv2"
+            0x0002 : "IGMP"
             }
         prt = protos.get(payload[2], payload[2])
         ttl = payload[3]
@@ -265,11 +265,25 @@ class Sniff :
         return typ, cod, csm, data
 
     @staticmethod
-    async def igmpv2_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, str] :
+    async def igmp_header(raw_payload : memoryview | bytes) -> :
+        match hex(raw_payload[:1]) :
+            case 0x11 :
+                payload = struct.unpack("!BBH4s", raw_payload[:8])
+            case 0x12 :
+                ...
+            case 0x16 :
+                ...
+            case 0x17 :
+                ...
+            case 0x22 :
+                ...
+            case _ :
+                ...
         payload = struct.unpack("!BBH4s", raw_payload[:8])
         typ = payload[0]
         mrt = payload[1]
         csm = hex(payload[2])
+
         gad = socket.inet_ntop(socket.AF_INET, payload[3])
         return typ, mrt, csm, gad
 
@@ -362,12 +376,26 @@ class Sniff :
         parsed_header += f"ICMPv6 Datagram :{t}Type : {typ}{t}Code : {cod}{t}Checksum : {csm}{t}Raw Data :\n{data}"
         return parsed_header
 
-    async def parse_igmpv2_header(self, data : memoryview | bytes) -> str :
-        parsed_header = str()
-        t = "\n\t\t"
-        typ, mrt, csm, gad = await self.igmpv2_header(data)
-        parsed_header += f"IGMPv2 Datagram :{t}Type : {typ}{t}Max Response Time :{mrt}{t}Checksum : {csm}{t}Group Address : {gad}"
-        return parsed_header
+    async def parse_igmp_header(self, data : memoryview | bytes) -> str :
+        parsed_igmp_header = await self.igmp_header(data)
+        match parsed_igmp_header[0] :
+            case 0x11 :
+                parsed_header = str()
+                t = "\n\t\t"
+                typ, mrt, csm, gad = parsed_igmp_header
+                parsed_header += f"IGMP Memship Query Datagram :{t}Type : {typ}{t}Max Response Time :{mrt}{t}Checksum : {csm}{t}Group Address : {gad}"
+                return parsed_header
+            case 0x12 :
+                ...
+            case 0x16 :
+                ...
+            case 0x17 :
+                ...
+            case 0x22 :
+                ...
+            case _ :
+                ...
+        
 
     async def parse_headers(self, raw_data : memoryview | bytes) -> str :
         parsed_headers = str()
@@ -434,7 +462,7 @@ class Sniff :
                 parsed_headers += "\n\n"
                 parsed_headers += parsed_ip_header
                 parsed_headers += "\n\n"
-                parsed_headers += transport_layer_header
+                parsed_headers += next_layer_header
                 parsed_headers += "\n\n"
                 return parsed_headers
             case "ARP" :
