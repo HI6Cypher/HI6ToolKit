@@ -265,17 +265,21 @@ class Sniff :
         return typ, cod, csm, data
 
     @staticmethod
-    async def igmp_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, str] | tuple[int, int, int, str, int, int, int, int, list] :
+    async def igmp_header(raw_payload : memoryview | bytes) ->
+        tuple[int, int, int, str] |
+        tuple[int, int, int, str, int, int, int, int, list] |
+        tuple[int, int, int, list[int, int, int, str, list[str], memoryview | bytes] :
         match hex(raw_payload[:1]) :
-            case 0x11 | 0x12 | 0x16 | 0x17 :
+            case 0x12 | 0x16 | 0x17 :
                 payload = struct.unpack("!BBH4s", raw_payload[:8])
                 typ = payload[0]
                 mrt = payload[1]
                 csm = hex(payload[2])
                 gad = socket.inet_ntop(socket.AF_INET, payload[3])
                 return typ, mrt, csm, gad
-            case 0x22 :
+            case 0x11 :
                 payload_before_src_addrs = struct.unpack("!BBH4sBBH", raw_payload[:12])
+                payload = payload_before_src_addrs
                 typ = payload[0]
                 mrt = payload[1]
                 csm = payload[2]
@@ -287,6 +291,31 @@ class Sniff :
                 payload_after_src_addrs = struct.unpack("!" + nos * "4s", raw_payload[12:12 + nos * 4])
                 src_addrs = [socket.inet_ntop(socket.AF_INET, src) for src in payload_after_src_addrs]
                 return typ, mrt, csm, gad, srp, qrv, qic, nos, src_addrs
+            case 0x22 :
+                payload_before_group_records = struct.unpack("!BxHxxH", raw_payload[:8])
+                payload = payload_before_group_records
+                typ = payload[0]
+                csm = payload[1]
+                nog = payload[2]
+                group_records = list()
+                index = 8
+                while nog != 0 :
+                    payload_group_record_before_src_addrs = struct.unpack("!BBH4s", raw_payload[index:index + 8])
+                    index += 8
+                    payload = payload_group_record_before_src_addrs
+                    rtp = payload[0]
+                    adl = payload[1]
+                    nos = payload[2]
+                    mad = payload[3]
+                    payload_group_record_after_src_addrs = struct.unpack("!" + nos * "4s", raw_payload[index:index + nos * 4])
+                    index += nos * 4
+                    group_record_src_addrs = [socket.inet_ntop(socket.AF_INET, src) for src in payload_group_record_after_src_addrs]
+                    data = raw_payload[index:index + adl * 4]
+                    index += adl * 4
+                    group_record.append((rtp, adl, nos, mad, group_record_src_addrs, data))
+                    nog -= 1
+                else :
+                    return typ, csm, nog, group_records
             case _ :
                 payload = struct.unpack("!BBH4s", raw_payload[:8])
                 typ = payload[0]
@@ -389,22 +418,56 @@ class Sniff :
         t = "\n\t\t"
         parsed_igmp_header = await self.igmp_header(data)
         match parsed_igmp_header[0] :
-            case 0x11 | 0x12 | 0x16 | 0x17 :
+            case 0x12 | 0x16 | 0x17 :
                 typ, mrt, csm, gad = parsed_igmp_header
                 igmp_types = {
-                    0x11 : "IGMP Memship Query",
                     0x12 : "IGMPv1 Memship Report",
                     0x16 : "IGMPv2 Memship Report",
                     0x17 : "IGMPv2 Leave Group"
                     }
                 parsed_header += f"{igmp_types[typ]} Datagram :{t}Type : {typ}{t}Max Response Time :{mrt}{t}Checksum : {csm}{t}Group Address : {gad}"
                 return parsed_header
+            case 0x11 :
+
+                    async def handle_qqic(qqic : int) -> int :
+                        if qqic < 128 :
+                            qqi = qqic
+                        if qqic >= 128 :
+                            exp = (qqic >> 4) & 0b111
+                            mant = qqic & 0b1111
+                            qqi = (mant | 0x10) << (exp + 3)
+                        return qqi
+                            
+                typ, mrt, csm, gad, srp, qrv, qic, nos, src_addrs = parsed_igmp_header
+                parsed_header += f"IGMP Memship Query Datagram :{t}Type : {typ}{t}Max Response Time :{mrt}{t}Checksum : {csm}{t}Group Address :{gad}{t}"
+                parsed_header += f"S Flag : {srp}{t}QRV : {qrv}{t}"
+                parsed_header += f"QQI : {await handle_qqic(qic)}{t}Number of Sources : {nos}{t}Source Addresses{t}\t"
+                parsed_header += (t + "\t").join(src_addrs)
+                return parsed_header
             case 0x22 :
-                typ, mrt, csm, gad, srp, qrv, qic, nos, src_addrs = await self.igmp_header(data)
-                parsed_header += f"IGMPv3 Memship Report Datagram :{t}Type : {typ}{t}Max Response Time :{mrt}{t}Checksum : {csm}{t}Group Address :{gad}{t}"
+                typ, csm, nog, group_records = parsed_igmp_header
+                parsed_header += f"IGMPv3 Memship Report Datagram :{t}Type : {typ}{t}Checksum : {csm}{t}Number of Group Records : {nog}{t}Group Records :{t}\t"
+                record_types = {
+                    1 : "MODE_IS_INCLUDE",
+                    2 : "MODE_IS_EXCLUDE",
+                    3 : "CHANGE_TO_INCLUDE_MODE",
+                    4 : "CHANGE_TO_EXCLUDE_MODE",
+                    5 : "ALLOW_NEW_SOURCES",
+                    6 : "BLOCK_OLD_SOURCES"
+                    }
+                for group, index in enumerate(group_records) :
+                    rtp, adl, nos, mad, src_addrs, data = group
+                    parsed_header += f"Group_record[{index}] :{t}\t\tRecord Type : {record_types[rtp]}[{rtp}]{t}\t\tAux Data Length : {adl}{t}\t\t"
+                    parsed_header += f"Number of Sources : {nos}{t}\t\tMulticast Address : {mad}{t}Source Addresses :{t}\t\t\t"
+                    parsed_header += (t + "\t\t\t").join(src_addrs)
+                    parsed_header += f"{t}\t\tData : {t}\t\t\t{await self.indent_data(data)}"
+                    parsed_header += t + "\t"
+                else : return parsed_header
 
             case _ :
-                ...
+                typ, mrt, csm, gad = parsed_igmp_header
+                parsed_header += f"IGMP Unkown Datagram :{t}Type : {typ}{t}Max Response Time :{mrt}{t}Checksum : {csm}{t}Group Address : {gad}"
+                return parsed_header
 
     async def parse_headers(self, raw_data : memoryview | bytes) -> str :
         parsed_headers = str()
