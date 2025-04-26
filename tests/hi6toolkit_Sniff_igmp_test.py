@@ -99,7 +99,7 @@ class Sniff_igmp_Test(unittest.TestCase) :
         self.assertEqual(igmp_tests[2]["gad"], gad)
         self.assertEqual(igmp_tests[2]["srp"], srp)
         self.assertEqual(igmp_tests[2]["qrv"], qrv)
-        self.assertEqual(igmp_tests[2]["qic"], qic)
+        self.assertEqual(igmp_tests[2]["qic"], 512) # (160 -> 512) calculated with https://www.rfc-editor.org/rfc/rfc3376#section-4.1.1 instructions
         self.assertEqual(igmp_tests[2]["nos"], nos)
         self.assertEqual(igmp_tests[2]["src_addrs"], src_addrs)
         return
