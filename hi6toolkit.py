@@ -269,7 +269,7 @@ class Sniff :
         tuple[int, int, int, str] |
         tuple[int, int, int, str, int, int, int, int, list] |
         tuple[int, int, int, list[int, int, int, str, list[str], memoryview | bytes] :
-        match hex(raw_payload[:1]) :
+        match hex(raw_payload[:8]) :
             case 0x12 | 0x16 | 0x17 :
                 payload = struct.unpack("!BBH4s", raw_payload[:8])
                 typ = payload[0]
@@ -416,6 +416,16 @@ class Sniff :
     async def parse_igmp_header(self, data : memoryview | bytes) -> str :
         parsed_header = str()
         t = "\n\t\t"
+
+        async def handle_mrtc(qqic : int) -> int :
+            if mrtc < 128 :
+                mrt = mrtc
+            if mrtc >= 128 :
+                exp = (mrtc >> 4) & 0b111
+                mant = mrtc & 0b1111
+                mrt = (mant | 0x10) << (exp + 3)
+            return mrt
+
         parsed_igmp_header = await self.igmp_header(data)
         match parsed_igmp_header[0] :
             case 0x12 | 0x16 | 0x17 :
@@ -425,7 +435,8 @@ class Sniff :
                     0x16 : "IGMPv2 Memship Report",
                     0x17 : "IGMPv2 Leave Group"
                     }
-                parsed_header += f"{igmp_types[typ]} Datagram :{t}Type : {typ}{t}Max Response Time :{mrt}{t}Checksum : {csm}{t}Group Address : {gad}"
+                parsed_header += f"{igmp_types[typ]} Datagram :{t}Type : {typ}{t}Max Response Time :{await handle(mrtc(mrt))}{t}"
+                parsed_header += f"Checksum : {csm}{t}Group Address : {gad}"
                 return parsed_header
             case 0x11 :
 
@@ -439,8 +450,8 @@ class Sniff :
                         return qqi
                             
                 typ, mrt, csm, gad, srp, qrv, qic, nos, src_addrs = parsed_igmp_header
-                parsed_header += f"IGMP Memship Query Datagram :{t}Type : {typ}{t}Max Response Time :{mrt}{t}Checksum : {csm}{t}Group Address :{gad}{t}"
-                parsed_header += f"S Flag : {srp}{t}QRV : {qrv}{t}"
+                parsed_header += f"IGMP Memship Query Datagram :{t}Type : {typ}{t}Max Response Time :{mrt}{t}"
+                parsed_header += f"Group Address :{gad}{t}S-Flag : {srp}{t}QRV : {qrv}{t}Checksum : {csm}{t}"
                 parsed_header += f"QQI : {await handle_qqic(qic)}{t}Number of Sources : {nos}{t}Source Addresses{t}\t"
                 parsed_header += (t + "\t").join(src_addrs)
                 return parsed_header
@@ -455,7 +466,7 @@ class Sniff :
                     5 : "ALLOW_NEW_SOURCES",
                     6 : "BLOCK_OLD_SOURCES"
                     }
-                for group, index in enumerate(group_records) :
+                for index, group in enumerate(group_records) :
                     rtp, adl, nos, mad, src_addrs, data = group
                     parsed_header += f"Group_record[{index}] :{t}\t\tRecord Type : {record_types[rtp]}[{rtp}]{t}\t\tAux Data Length : {adl}{t}\t\t"
                     parsed_header += f"Number of Sources : {nos}{t}\t\tMulticast Address : {mad}{t}Source Addresses :{t}\t\t\t"
