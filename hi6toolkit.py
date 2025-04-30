@@ -528,8 +528,7 @@ class Sniff :
                         igmp_data = raw_data[14 + 40:]
                         next_layer_header = await self.parse_igmpv2_header(igmp_data)
                     case _ :
-
-                        transport_layer_header = f"{prt} : unimplemented transport layer protocol"
+                        next_layer_header = f"{prt} : unimplemented transport layer protocol"
                 parsed_headers += spec_header
                 parsed_headers += "\n\n"
                 parsed_headers += parsed_eth_header
@@ -605,7 +604,7 @@ class Sniff :
                 parsed_header = parsed_header.expandtabs(4)
                 if self.tmp :
                     await asyncio.to_thread(self.write, parsed_header)
-                print(parsed_header)
+                await asyncio.to_thread(print, parsed_header)
         return
 
     def write(self, data : str) -> None :
@@ -635,8 +634,9 @@ class Sniff :
     async def __sniff(self) -> None :
         with socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(socket.ETH_P_ALL)) as sniff :
             sniff.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, self.iface)
+            sniff.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, self.sock_recvbuf)
             while True :
-                raw_data = await self.loop.sock_recvfrom(sniff, self.sock_recvbuf)
+                raw_data = await self.loop.sock_recvfrom(sniff, 65535)
                 raw_data_memview = memoryview(raw_data[0])
                 if raw_data : await self.add_to_stack(raw_data_memview)
                 await self.outputctl()
@@ -1120,7 +1120,7 @@ if not Constant.MODULE :
         sniff_tool.add_argument("-s", "--saddr", type = str, help = "process IPv4 header with specified saddr", default = None)
         sniff_tool.add_argument("-d", "--daddr", type = str, help = "process IPv4 header with specified daddr", default = None)
         sniff_tool.add_argument("-t", "--tmp", action = "store_true", help = "tmps sniffed packets in file", default = False)
-        sniff_tool.add_argument("-b", "--buffer", type = int,  help = "sets socket.recvfrom buffer", default = 64 * 1024)
+        sniff_tool.add_argument("-b", "--buffer", type = int,  help = "sets socket.recvfrom buffer", default = 128 * 1024)
         sniff_tool.set_defaults(func = Sniff_args)
         scan_tool = subparser.add_parser("scan", help = "execute SYN port scanner")
         scan_tool.add_argument("-s", "--source", type = str, help = "sets source addr for scanning")
