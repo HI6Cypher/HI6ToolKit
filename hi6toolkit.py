@@ -1120,7 +1120,7 @@ if not Constant.MODULE :
         sniff_tool.add_argument("-s", "--saddr", type = str, help = "process IPv4 header with specified saddr", default = None)
         sniff_tool.add_argument("-d", "--daddr", type = str, help = "process IPv4 header with specified daddr", default = None)
         sniff_tool.add_argument("-t", "--tmp", action = "store_true", help = "tmps sniffed packets in file", default = False)
-        sniff_tool.add_argument("-b", "--buffer", type = int,  help = "sets socket.recvfrom buffer", default = 128 * 1024)
+        sniff_tool.add_argument("-b", "--buffer", type = int,  help = "sets socket.SO_RCVBUF size", default = 128 * 1024)
         sniff_tool.set_defaults(func = Sniff_args)
         scan_tool = subparser.add_parser("scan", help = "execute SYN port scanner")
         scan_tool.add_argument("-s", "--source", type = str, help = "sets source addr for scanning")
