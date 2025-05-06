@@ -759,6 +759,7 @@ class Trace :
         self.max_frequent_errors = max_error
         self.last_hop_ipaddr = (str(), int())
         self.current_ttl = Constant.COUNTER(1)
+        self._port = self.port = Constant.COUNTER(33434)
         self.hops = dict()
         self.frequent_error = int()
         self.stop = False
@@ -792,6 +793,15 @@ class Trace :
         else :
             raise Exception("efforts should be in range (1, 5)")
         return
+
+    @property
+    def port(self) -> int :
+        return self._port.value
+
+    @port.setter
+    def port(self, value : int) -> None :
+        self._port.value += 1
+        return self._port.value - 1
 
     @staticmethod
     def ip_header(src : str, dst : str, tln : int = 20, idn : int = 0, ttl : int = 40, csm : int = 0) -> bytes :
@@ -913,7 +923,7 @@ class Trace :
 
     def send(self, src : str, dst : str, ttl : int) -> memoryview :
         key_data = self.key_data
-        rand_src_p, rand_dst_p = random.randint(1024, 65535), random.randint(0, 65535)
+        rand_src_p, rand_dst_p = random.randint(1024, 65535), self.port
         payload = self.prepare(src, dst, rand_src_p, rand_dst_p, ttl = ttl, data = key_data)
         with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_UDP) as trace :
             trace.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
