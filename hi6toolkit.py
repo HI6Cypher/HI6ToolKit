@@ -17,8 +17,8 @@ class Constant :
     ISROOT : bool = os.geteuid() == 0
     TIME : int = round(time.time())
     ISOS : bool = any([os in sys.platform for os in ("linux", "bsd", "darwin")])
-    COUNTER : int = ctypes.c_uint32(0)
-    SUP_COLOR : bool = True if os.getenv("COLORTERM") in ("truecolor", "24bit", "color24") and os.getenv("NOCOLOR") in (None, 0, "false", "no") else False
+    COUNTER : int = ctypes.c_uint32
+    SUP_COLOR : bool = True if (os.getenv("COLORTERM") in ("truecolor", "24bit", "color24")) and (os.getenv("NOCOLOR") in (None, 0, "false", "no")) else False
     SLASH : str = chr(47)
     ESCAPE : str = chr(27)
     TOOLS : dict = dict()
@@ -101,7 +101,7 @@ class Sniff :
         self.tmp = tmp
         self.saddr = saddr
         self.daddr = daddr
-        self.__counter = Constant.COUNTER
+        self.__counter = Constant.COUNTER(0)
         self.bufstack = Stack(list())
         self.sock_recvbuf = recvbuf
         self.tmp_file = None
@@ -138,7 +138,7 @@ class Sniff :
             0x0806 : "ARP"
             }
         typ = protos.get(payload[2], payload[2])
-        return dst, src, typ
+        return (dst, src, typ)
 
     @staticmethod
     async def ipv4_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, int, int, int, int, str | int, int, str, str] :
@@ -162,7 +162,7 @@ class Sniff :
         csm = payload[7]
         src = socket.inet_ntop(socket.AF_INET, payload[8])
         dst = socket.inet_ntop(socket.AF_INET, payload[9])
-        return ver, ihl, tos, tln, idn, flg, oft, ttl, prt, csm, src, dst
+        return (ver, ihl, tos, tln, idn, flg, oft, ttl, prt, csm, src, dst)
 
     @staticmethod
     async def ipv6_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, str | int, int, str, str] :
@@ -182,7 +182,7 @@ class Sniff :
         ttl = payload[3]
         src = socket.inet_ntop(socket.AF_INET6, payload[4])
         dst = socket.inet_ntop(socket.AF_INET6, payload[5])
-        return ver, cls, flw, pln, prt, ttl, src, dst
+        return (ver, cls, flw, pln, prt, ttl, src, dst)
 
     @staticmethod
     async def arp_header(raw_payload : memoryview | bytes) -> tuple[str | int, str | int, int, int, str | int, str, str, str, str] :
@@ -205,7 +205,7 @@ class Sniff :
         spa = socket.inet_ntop(socket.AF_INET, payload[6])
         tha = standardize_mac_addr(payload[7])
         tpa = socket.inet_ntop(socket.AF_INET, payload[8])
-        return hdr, prt, hln, pln, opc, sha, spa, tha, tpa
+        return (hdr, prt, hln, pln, opc, sha, spa, tha, tpa)
 
     @staticmethod
     async def tcp_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, int, dict, int, int, int, memoryview | bytes] :
@@ -234,7 +234,7 @@ class Sniff :
         csm = payload[7]
         urg = payload[8]
         data = raw_payload[oft:]
-        return src_p, dst_p, seq, acn, oft, flg, win, csm, urg, data
+        return (src_p, dst_p, seq, acn, oft, flg, win, csm, urg, data)
 
     @staticmethod
     async def udp_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, memoryview | bytes] :
@@ -244,7 +244,7 @@ class Sniff :
         tln = payload[2]
         csm = payload[3]
         data = raw_payload[8:]
-        return src_p, dst_p, tln, csm, data
+        return (src_p, dst_p, tln, csm, data)
 
     @staticmethod
     async def icmpv4_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, memoryview | bytes] :
@@ -253,7 +253,7 @@ class Sniff :
         cod = payload[1]
         csm = payload[2]
         data = raw_payload[8:]
-        return typ, cod, csm, data
+        return (typ, cod, csm, data)
 
     @staticmethod
     async def icmpv6_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, memoryview | bytes] :
@@ -262,7 +262,7 @@ class Sniff :
         cod = payload[1]
         csm = payload[2]
         data = raw_payload[8:]
-        return typ, cod, csm, data
+        return (typ, cod, csm, data)
 
     @staticmethod
     async def igmp_header(raw_payload : memoryview | bytes) -> \
@@ -276,7 +276,7 @@ class Sniff :
                 mrt = payload[1]
                 csm = payload[2]
                 gad = socket.inet_ntop(socket.AF_INET, payload[3])
-                return typ, mrt, csm, gad
+                return (typ, mrt, csm, gad)
             case 0x11 :
                 payload_before_src_addrs = struct.unpack("!BBH4sBBH", raw_payload[:12])
                 payload = payload_before_src_addrs
@@ -290,7 +290,7 @@ class Sniff :
                 nos = payload[6]
                 payload_after_src_addrs = struct.unpack("!" + nos * "4s", raw_payload[12:12 + nos * 4])
                 src_addrs = [socket.inet_ntop(socket.AF_INET, src) for src in payload_after_src_addrs]
-                return typ, mrt, csm, gad, srp, qrv, qic, nos, src_addrs
+                return (typ, mrt, csm, gad, srp, qrv, qic, nos, src_addrs)
             case 0x22 :
                 payload_before_group_records = struct.unpack("!BxHxxH", raw_payload[:8])
                 payload = payload_before_group_records
@@ -314,20 +314,20 @@ class Sniff :
                     index += adl * 4
                     group_records.append((rtp, adl, nos, mad, group_record_src_addrs, data))
                 else :
-                    return typ, csm, nog, group_records
+                    return (typ, csm, nog, group_records)
             case _ :
                 payload = struct.unpack("!BBH4s", raw_payload[:8])
                 typ = payload[0]
                 mrt = payload[1]
                 csm = hex(payload[2])
                 gad = socket.inet_ntop(socket.AF_INET, payload[3])
-                return typ, mrt, csm, gad
+                return (typ, mrt, csm, gad)
 
     @staticmethod
     async def indent_data(data : memoryview | bytes) -> str :
         data = data.tolist() if isinstance(data, memoryview) else list(data)
         for i in range(len(data)) :
-            if data[i] not in range(32, 127) : data[i] = 46
+            if (data[i] not in range(32, 127)) : data[i] = 46
         data.insert(0, 9)
         data.insert(0, 9)
         for i in range((len(data) // 64) + 1) :
@@ -346,7 +346,7 @@ class Sniff :
         t = "\n\t\t"
         dst, src, typ = await self.eth_header(data)
         parsed_header += f"Ethernet Frame :{t}Source MAC : {src}{t}Destination MAC : {dst}{t}Ethernet Type : {typ}"
-        return parsed_header, typ
+        return (parsed_header, typ)
 
     async def parse_ipv4_header(self, data : memoryview | bytes) -> tuple[str, int, str | int] :
         parsed_header = str()
@@ -356,7 +356,7 @@ class Sniff :
         parsed_header += f"{t}Total Length : {tln}  Identification : {idn}  Flags : {flg}"
         parsed_header += f"{t}Fragment Offset : {oft}  TTL : {ttl}  Protocol : {prt}"
         parsed_header += f"{t}Checksum : {hex(csm)}  Source : {src}  Destination : {dst}"
-        return parsed_header, ihl, prt
+        return (parsed_header, ihl, prt)
 
     async def parse_ipv6_header(self, data : memoryview | bytes) -> tuple[str, int, str | int] :
         parsed_header = str()
@@ -366,7 +366,7 @@ class Sniff :
         parsed_header += f"{t}Payload Length : {pln}  Next Header : {prt}  Hop Limit : {ttl}"
         parsed_header += f"{t}Source : {src}"
         parsed_header += f"{t}Destination : {dst}"
-        return parsed_header, pln, prt
+        return (parsed_header, pln, prt)
 
     async def parse_arp_header(self, data : memoryview | bytes) -> str :
         parsed_header = str()
@@ -417,9 +417,9 @@ class Sniff :
         t = "\n\t\t"
 
         async def handle_codes(code : int) -> int :
-            if code < 128 :
+            if (code < 128) :
                 encoded = code
-            if code >= 128 :
+            if (code >= 128) :
                 exp = (code >> 4) & 0b111
                 mant = code & 0b1111
                 encoded = (mant | 0x10) << (exp + 3)
@@ -559,7 +559,7 @@ class Sniff :
 
     async def check_interface(self) -> None :
         ifaces = [iface[-1] for iface in socket.if_nameindex()]
-        if self.iface not in ifaces :
+        if (self.iface not in ifaces) :
             raise OSError(f"{self.iface} not in {ifaces}")
         self.iface = self.iface.encode()
         return
@@ -577,7 +577,7 @@ class Sniff :
         return dst == self.daddr
 
     async def check_eth_p_all(self) -> None :
-        if "ETH_P_ALL" not in socket.__all__ :
+        if ("ETH_P_ALL" not in socket.__all__) :
             socket.ETH_P_ALL = 3
         return
 
@@ -591,7 +591,7 @@ class Sniff :
                 nonce += 1 if await self.check_saddr_ip(frame) else -1
             if self.daddr :
                 nonce += 1 if await self.check_daddr_ip(frame) else -1
-            if nonce > 0 :
+            if (nonce > 0) :
                 return True
             else : return False
 
@@ -669,7 +669,7 @@ class Scan :
     @staticmethod
     def check_acknum(acn : int, tcp_header : bytes) -> bool :
         acknum_byte = tcp_header[8:12]
-        return True if int(bytes(acknum_byte).hex(), base = 16) - 1 == acn else False
+        return True if (int(bytes(acknum_byte).hex(), base = 16) - 1 == acn) else False
 
     @staticmethod
     def ip_header(src : str, dst : str, idn : int = 0, csm : int = 0) -> bytes :
@@ -706,13 +706,13 @@ class Scan :
         pseudo_header = self.pseudo_header(src = src, dst = dst, pln = len(header))
         checksum_tcp_header = self.checksum(header + pseudo_header)
         header = self.tcp_header(src_p = src_p, dst_p = dst_p, seq = randseq, syn = 1, csm = checksum_tcp_header)
-        return header, randseq
+        return (header, randseq)
 
     async def package(self, port : int) -> tuple[bytes, int] :
         ip_header = self.ipv4_static_header
         tcp_header = self.tcpip_header(port)
         payload = ip_header + tcp_header[0]
-        return payload, tcp_header[1]
+        return (payload, tcp_header[1])
 
     async def send(self, port : int) -> tuple[bool, bytes | None] :
         try :
@@ -726,11 +726,11 @@ class Scan :
                     while True :
                         rsp = await self.loop.sock_recv(scan, 1024)
                         if self.check_acknum(payload[1], rsp[20:]) :
-                            return True, rsp
+                            return (True, rsp)
         except asyncio.TimeoutError :
-            return False, None
+            return (False, None)
         except socket.timeout :
-            return False, None
+            return (False, None)
 
     async def scan(self, port : int) -> tuple[bool, bool] :
         return await self.__scan(port)
@@ -742,12 +742,248 @@ class Scan :
             is_open = self.is_open_port(tcp_header)
             if is_open :
                 self.opens.append(port)
-                return True, True
+                return (True, True)
             else :
-                return False, True
+                return (False, True)
         else :
             self.unspecified.append(port)
-            return False, False
+            return (False, False)
+
+
+class Trace :
+    def __init__(self, source : str, host : str, efforts : int, timeout : int, max_error : int) -> "Trace_class" :
+        self.source = source
+        self._host = self.host = host
+        self._efforts = self.efforts = efforts
+        self.timeout = timeout
+        self.max_frequent_errors = max_error
+        self.last_hop_ipaddr = (str(), int())
+        self.current_ttl = Constant.COUNTER(1)
+        self.hops = dict()
+        self.frequent_error = int()
+        self.stop = False
+        self.status = True
+        self.key_data = b"HI6Toolkit_Trace"
+
+    def __repr__(self) -> str :
+        items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
+        return f"{self.__class__}\n\t{items}"
+
+    def __str__(self) -> str :
+        return f"Sniff : \n\t{self.host}"
+
+    @property
+    def host(self) -> str :
+        return self._host
+
+    @host.setter
+    def host(self, host) -> None :
+        self._host = socket.gethostbyname(host)
+        return None
+
+    @property
+    def efforts(self) -> int :
+        return self._efforts
+
+    @efforts.setter
+    def efforts(self, value : int) -> None :
+        if (value >= 0) and (value <= 5) :
+            self._efforts = value
+        else :
+            raise Exception("efforts should be in range (1, 5)")
+        return
+
+    @staticmethod
+    def ip_header(src : str, dst : str, tln : int = 20, idn : int = 0, ttl : int = 40, csm : int = 0) -> bytes :
+        return DoS_SYN.ip_header(src = src, dst = dst, tln = tln, idn = idn, ttl = ttl, prt = socket.IPPROTO_UDP, csm = csm)
+
+    @staticmethod
+    def udp_header(src : int, dst : int, tln : int = 0, csm : int = 0) -> bytes :
+        return struct.pack("!HHHH", src, dst, tln, csm)
+
+    @staticmethod
+    def pseudo_header(src : str, dst : str, pln : int) -> bytes :
+        return DoS_SYN.pseudo_header(src = src, dst = dst, prt = socket.IPPROTO_UDP, pln = pln)
+
+    @staticmethod
+    def icmp_type_code(data : bytes) -> tuple[int, int] :
+        type = bytes(data[:8]).hex()
+        code = bytes(data[8:16]).hex()
+        return (type, code)
+
+    @staticmethod
+    def timer(func : "func") -> tuple[float, tuple[bool, memoryview, memoryview, tuple[str, int]]] :
+        def timer(self) -> tuple[float, "func"] :
+            start_time = time.time()
+            result = func(self)
+            return ((time.time() - start_time), result)
+        return timer
+
+    @staticmethod
+    def get_hostname(ipaddr : tuple[str, int]) -> str :
+        try : host = socket.getnameinfo(ipaddr, 0)[0]
+        except : return "*.*.*.*"
+        else : return host if (host != ipaddr[0]) else "*.*.*.*"
+
+    @staticmethod
+    def milisec(time : int) -> str :
+        return str(round(time * 1000, 3)) + "ms"
+
+    @staticmethod
+    def average_time(times : list) -> int :
+        if not times : return 0.0
+        for i in range(1, len(times)) : times[i] *= 2
+        else : return (sum(times) / ((len(times) - 1) * 2 + 1))
+
+    @staticmethod
+    def check_last_effort(effort : int) -> bool :
+        return True if (effort - 1 == 0) else False
+
+    @staticmethod
+    def check_icmp_dst_unreachable(payload : memoryview | bytes) -> bool :
+        istype = payload[0] == 3
+        return istype
+
+    @staticmethod
+    def check_icmp_time_exceeded(payload : memoryview | bytes) -> bool :
+        istype = payload[0] == 11
+        iscode = payload[1] == 0
+        return istype and iscode
+
+    @staticmethod
+    def get_ip_identification(payload : memoryview | bytes) -> int :
+        value = payload[4:6]
+        idn = (value[0] << 8) + value[1]
+        return idn
+
+    @staticmethod
+    def get_ip_checksum(payload : memoryview | bytes) -> int :
+        value = payload[10:12]
+        csm = (value[0] << 8) + value[1]
+        return csm
+
+    @staticmethod
+    def get_udp_csm(payload : memoryview | bytes) -> int :
+        value = payload[6:8]
+        csm = (value[0] << 8) + value[1]
+        return csm
+
+    @timer
+    def fetch(self) -> tuple[bool, memoryview, memoryview, tuple[str, int]] :
+        udp_payload = self.send(self.source, self.host, self.current_ttl.value)
+        status, response, ipaddr = self.recv(udp_payload)
+        return (status, udp_payload, response, ipaddr)
+
+    def prepare(self, src : str, dst : str, src_p : int, dst_p : int, ttl : int, data : bytes) -> bytes :
+        randnum : int = lambda x, y : random.randint(x, y)
+        randidn = randnum(0, 65535)
+        data_length = len(data)
+        src = socket.inet_pton(socket.AF_INET, src)
+        dst = socket.inet_pton(socket.AF_INET, dst)
+        ip_header = self.ip_header(src = src, dst = dst, tln = data_length + 28, idn = randidn, ttl = ttl)
+        ip_header_csm = DoS_SYN.checksum(ip_header)
+        ip_header = self.ip_header(src = src, dst = dst, tln = data_length + 28, idn = randidn, ttl = ttl, csm = ip_header_csm)
+        udp_header = self.udp_header(src = src_p, dst = dst_p, tln = data_length + 8)
+        pseudo_header = self.pseudo_header(src = src, dst = dst, pln = len(udp_header) + data_length)
+        udp_header_csm = DoS_SYN.checksum(udp_header + data + pseudo_header)
+        udp_header = self.udp_header(src = src_p, dst = dst_p, tln = data_length + 8, csm = udp_header_csm)
+        return ip_header + udp_header + data
+
+    def check_time_exceeded_response(self, payload : memoryview | bytes, resp_payload : memoryview | bytes) -> bool :
+        key_payload = payload[:28]
+        resp_key_payload = resp_payload[8:36]
+        nonce = 0
+        ip_idn = self.get_ip_identification(key_payload[:20])
+        ip_csm = self.get_ip_checksum(key_payload[:20])
+        origin_udp_csm = self.get_udp_csm(key_payload[20:])
+        resp_ip_idn = self.get_ip_identification(resp_key_payload[:20])
+        resp_ip_csm = self.get_ip_checksum(resp_key_payload[:20])
+        resp_origin_udp_csm = self.get_udp_csm(resp_key_payload[20:])
+        if self.check_icmp_time_exceeded(resp_payload[:8]) : nonce += 1
+        if (ip_idn == resp_ip_idn) : nonce += 1
+        if (ip_csm == resp_ip_csm) : nonce += 1
+        if (origin_udp_csm == resp_origin_udp_csm) : nonce += 1
+        return True if (nonce > 1) else False
+
+    def check_overshoot_error(self) -> bool :
+        if (self.frequent_error >= self.max_frequent_errors) :
+            self.status = False
+            return True
+        else : return False
+
+    def send(self, src : str, dst : str, ttl : int) -> memoryview :
+        key_data = self.key_data
+        rand_src_p, rand_dst_p = random.randint(1024, 65535), random.randint(0, 65535)
+        payload = self.prepare(src, dst, rand_src_p, rand_dst_p, ttl = ttl, data = key_data)
+        with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_UDP) as trace :
+            trace.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+            trace.sendto(payload, (dst, rand_dst_p))
+        return memoryview(payload)
+
+    def recv(self, key_payload : bytes) -> tuple[bool, memoryview, tuple[str, int]] :
+        with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP) as trace :
+            trace.settimeout(self.timeout)
+            try :
+                response = trace.recvfrom(len(key_payload) + 28)
+                payload  = memoryview(response[0])
+                ipaddr = response[1]
+            except socket.timeout :
+                return (False, bytes(), (str(), int()))
+            else :
+                return (True, payload, ipaddr)
+
+    def __log(self) -> None :
+        log = str()
+        ttl = self.current_ttl.value
+        ipaddr = self.hops[ttl][0][0]
+        hostname = self.hops[ttl][1]
+        average_time = self.hops[ttl][2]
+        times = self.hops[ttl][3]
+        log += "[" + Constant.GREEN("TTL") + " : " + str(ttl) + "]" + Constant.RED(" --> ")
+        log += ipaddr + " " + hostname
+        log += "\n\t"
+        log += " ".join([self.milisec(time) for time in times])
+        log += " " + Constant.YELLOW("AVG") + ":" + self.milisec(average_time) + "\n"
+        print(log)
+        return
+
+    def __log_fail(self) -> None :
+        log_fail = str()
+        log_fail += "[" + Constant.RED("FAILED") + "]" + " : "
+        log_fail += f"reached the max_frequent_errors({self.max_frequent_errors})"
+        print(log_fail)
+        return
+
+    def trace(self) -> None :
+        while (not self.stop) and (not self.check_overshoot_error()) :
+            self.__trace()
+            self.__log()
+            self.current_ttl.value += 1
+        if not self.status : self.__log_fail()
+        return
+
+    def __trace(self) -> None :
+        times = list()
+        efforts = self.efforts
+        while (efforts > 0) :
+            time, result = self.fetch()
+            status, udp_payload, response, ipaddr = result
+            if status :
+                self.frequent_error = 0
+                times.append(time)
+                if self.check_icmp_dst_unreachable(response[20:28]) :
+                    if self.check_last_effort(efforts) : self.stop = True
+                elif not self.check_time_exceeded_response(udp_payload, response[20:]) : times.pop()
+            else : self.frequent_error += 1
+            self.last_hop_ipaddr = ipaddr
+            efforts -= 1
+        self.hops[self.current_ttl.value] = [
+            self.last_hop_ipaddr,
+            self.get_hostname(self.last_hop_ipaddr),
+            self.average_time(times),
+            times
+            ]
+        return
 
 
 class DoS_SYN :
@@ -755,7 +991,7 @@ class DoS_SYN :
         self.host = host
         self.port = int(port)
         self.rate = rate
-        self.__counter = Constant.COUNTER
+        self.__counter = Constant.COUNTER(0)
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -825,7 +1061,7 @@ class DoS_SYN :
     @staticmethod
     def progress_bar(x : int, y : int) -> str :
         symbol = Constant.SLASH
-        if y < 32 : return 32 * symbol if x == y else 0 * symbol
+        if (y < 32) : return 32 * symbol if (x == y) else 0 * symbol
         sec = y // 32
         now = x // sec
         return now * symbol
@@ -854,7 +1090,7 @@ class DoS_SYN :
         return
 
     def __flood(self) -> None :
-        while self.count != self.rate :
+        while (self.count != self.rate) :
             payload = self.package()
             with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP) as flood :
                 flood.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
@@ -875,7 +1111,7 @@ class HTTP_Request :
     def __init__(self, host : str, port : int, method : str, header : str, end : str, https : bool) -> "HTTP_Request_class" :
         self.host = host
         self.port = int(port)
-        self.method = method if method in ("GET", "HEAD") else "GET"
+        self.method = method if (method in ("GET", "HEAD")) else "GET"
         self.header = header
         self.end = end if end else "/"
         self.https = bool(https)
@@ -921,7 +1157,7 @@ class HTTP_Request :
                     self.response = raw_data[-1]
                     if not Constant.MODULE :
                         print(self.response_header, end = "\n\n")
-                        if self.method == "GET" : print(self.response)
+                        if (self.method == "GET") : print(self.response)
                     if self.https : http.close()
                     break
                 else :
@@ -968,21 +1204,21 @@ class Tunnel :
     @staticmethod
     def get_name(headers : dict) -> str :
         keyword = "name"
-        if keyword in headers and headers[keyword] :
+        if (keyword in headers) and (headers[keyword]) :
             return headers[keyword] + f"_{Constant.TIME}"  + ".tmp"
         else : return f"new_{Constant.TIME}.tmp"
 
     @staticmethod
     def get_length(headers : dict) -> int :
         keyword = "Content-Length"
-        if keyword in headers :
+        if (keyword in headers) :
             return int(headers[keyword])
         else : return 0
 
     @staticmethod
     def get_status(headers : dict) -> str | None :
         keyword = "status"
-        if keyword in headers :
+        if (keyword in headers) :
             return headers[keyword]
         else :
             raise Exception("couldn't find status")
@@ -991,28 +1227,28 @@ class Tunnel :
     @staticmethod
     def get_version(headers : dict) -> str :
         keyword = "version"
-        if keyword in headers :
+        if (keyword in headers) :
             return headers[keyword]
         else : return "HTTP/1.0"
 
     @staticmethod
     def get_parts(length : int, buffer : int) -> tuple[int, int] :
-        if buffer > length : return length, 0
+        if (buffer > length) : return (length, 0)
         npart = length // buffer
         nrimd = length % buffer
-        return nrimd, npart
+        return (nrimd, npart)
 
     @staticmethod
     def readline(sock : socket.socket) -> bytes :
         line = bytes()
-        while not line.endswith(b"\r\n") :
+        while (not line.endswith(b"\r\n")) :
             line += sock.recv(1)
         else : return line
 
     @staticmethod
     def readbuffer(sock : socket.socket, buffer : int) -> bytes :
         data = bytes()
-        while len(data) != buffer :
+        while (len(data) != buffer) :
             data += sock.recv(buffer - len(data))
         else : return data
 
@@ -1042,7 +1278,7 @@ class Tunnel :
     @staticmethod
     def progress_bar(x : int, y : int) -> str :
         symbol = Constant.SLASH
-        if y < 32 : return 32 * symbol if x == y else 0 * symbol
+        if (y < 32) : return 32 * symbol if (x == y) else 0 * symbol
         sec = y // 32
         now = x // sec
         return now * symbol
@@ -1060,7 +1296,7 @@ class Tunnel :
 
     def get_header(self, sock : socket.socket) -> str :
         header = bytes()
-        while not header.endswith(b"\r\n\r\n") :
+        while (not header.endswith(b"\r\n\r\n")) :
             header += self.readline(sock)
         else : return header.decode()
 
@@ -1089,7 +1325,7 @@ class Tunnel :
         tail, parts = self.get_parts(length, self.buffer)
         file = self.open_file(name)
         OUTPUT : str = lambda x, y : "[" + Constant.GREEN("*") + "]" + " " + self.progress_bar(x, y) + " " + f"[{self.percent(x, y)}%]" + f"[{x}/{y}]"
-        while parts != 0 :
+        while (parts != 0) :
             data = self.readbuffer(conn, self.buffer)
             self.tmp_file(file, data)
             send_length += self.buffer
@@ -1128,6 +1364,13 @@ if not Constant.MODULE :
         scan_tool.add_argument("-p", "--port_range", type = str, help = "sets range of ports for scanning", default = "0-65535")
         scan_tool.add_argument("-t", "--timeout", type = int, help = "sets timeout for unanswered syn segments", default = 5)
         scan_tool.set_defaults(func = Scan_args)
+        trace_tool = subparser.add_parser("trace", help = "execute Trace class")
+        trace_tool.add_argument("-s", "--source", type = str, help = "sets source addr for tracing", default = None)
+        trace_tool.add_argument("-x", "--host", type = str, help = "sets hsot addr for tracing", default = None)
+        trace_tool.add_argument("-e", "--efforts", type = int, help = "sets number of efforts for each hop", default = 2)
+        trace_tool.add_argument("-t", "--timeout", type = int, help = "sets timeout for unanswered udp segments", default = 1)
+        trace_tool.add_argument("-m", "--max-error", type = int, help = "sets maximum number of unanswered udp segments", default = 20)
+        trace_tool.set_defaults(func = Trace_args)
         dos_tool = subparser.add_parser("dos", help = "execute DoS_SYN class")
         dos_tool.add_argument("-x", "--host", type = str, help = "sets host for flooding")
         dos_tool.add_argument("-p", "--port", type = int, help = "sets port for flooding")
@@ -1202,6 +1445,7 @@ if not Constant.MODULE :
         ensure()
         sniff = Sniff(asyncio.get_event_loop(), iface, tmp, filter_saddr, filter_daddr, buffer)
         asyncio.run(sniff.sniff())
+        return
 
     def Scan_args() -> None :
         global args
@@ -1222,7 +1466,7 @@ if not Constant.MODULE :
         ensure()
 
         async def wait_to_empty(n : int, buffer : set | list) -> None :
-            while len(buffer) >= n :
+            while (len(buffer) >= n) :
                 print("[" + Constant.RED("WAIT") + "]", end = " ")
                 print(f"buffer is full, {n} requests been sent, awaiting to empty buffer")
                 await asyncio.sleep(1)
@@ -1235,7 +1479,7 @@ if not Constant.MODULE :
             scan = Scan(source, host, timeout, loop)
             buffer = set()
             for port in range(port_range[0], port_range[1] + 1) :
-                if len(buffer) >= 100 :
+                if (len(buffer) >= 100) :
                     await wait_to_empty(100, buffer)
                 if (port % 100 == 0) and (port != 0) :
                     await asyncio.gather(*buffer)
@@ -1255,6 +1499,28 @@ if not Constant.MODULE :
                 return
 
         asyncio.run(prepare())
+        return
+
+    def Trace_args() -> None :
+        global args
+        args = {
+            "source" : args.source,
+            "host" : args.host,
+            "efforts" : args.efforts,
+            "timeout" : args.timeout,
+            "max_error" : args.max_error
+            }
+        success, nones = check(source = args["source"], host = args["host"])
+        if not success : invalid_args(" & ".join(nones) + " " + "NOT found")
+        source = args["source"]
+        host = args["host"]
+        efforts = args["efforts"]
+        timeout = args["timeout"]
+        max_error = args["max_error"]
+        if not Constant.ISROOT : root_access_error()
+        ensure()
+        trace = Trace(source, host, efforts, timeout, max_error)
+        trace.trace()
         return
 
     def DoS_SYN_args() -> None :
@@ -1312,10 +1578,10 @@ if not Constant.MODULE :
         port = args["port"]
         timeout = args["timeout"]
         buffer = args["buffer"]
-        if not Constant.ISROOT and port <= 1024 : root_access_error()
+        if (not Constant.ISROOT) and (port <= 1024) : root_access_error()
         ensure()
         tunnel = Tunnel(host, port, timeout, buffer)
-        gen = tunnel.tunnel()
+        tunnel.tunnel()
         return
 
     def main() -> bool :
@@ -1327,7 +1593,7 @@ if not Constant.MODULE :
             print("unsupported OS")
             Constant.EXIT(1)
         args = manage_args()
-        if "func" in vars(args) :
+        if ("func" in vars(args)) :
             args.func()
         else :
             invalid_args("argument NOT found")
