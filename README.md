@@ -3,13 +3,18 @@
 
 ## Classes :
 ``` python
-from hi6toolkit import Sniff, DoS_SYN, HTTP_Request, Tunnel
+from hi6toolkit import Sniff, Scan, Trace, DoS_SYN, HTTP_Request, Tunnel
 ```
 
 ## Usage :
 - raw code :
 
     [https://raw.githubusercontent.com/HI6Cypher/HI6ToolKit/main/hi6toolkit.py](https://raw.githubusercontent.com/HI6Cypher/HI6ToolKit/main/hi6toolkit.py)
+
+- To Trace(traceroute) :
+    ``` bash
+    ./hi6toolkit.py trace -s [source(local) ip like 192.168.*.*] -x [host]
+    ```
 
 - To Scan ports :
     ``` bash
