@@ -95,7 +95,7 @@ from hi6toolkit import Sniff, Scan, Trace, DoS_Arp, DoS_SYN, HTTP_Request, Tunne
 
 - To launch a DoS attack(SYN FLOOD) :
     ``` bash
-    python hi6toolkit.py dos -x [host] -p [port] -r [rate]
+    python hi6toolkit.py dos syn -x [host] -p [port] -r [rate]
     ```
 
 - Example of SYN flood to (127.0.0.1) :
