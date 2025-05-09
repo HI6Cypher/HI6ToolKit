@@ -3,13 +3,21 @@
 
 ## Classes :
 ``` python
-from hi6toolkit import Sniff, Scan, Trace, DoS_SYN, HTTP_Request, Tunnel
+from hi6toolkit import Sniff, Scan, Trace, DoS_Arp, DoS_SYN, HTTP_Request, Tunnel
 ```
 
 ## Usage :
 - raw code :
 
     [https://raw.githubusercontent.com/HI6Cypher/HI6ToolKit/main/hi6toolkit.py](https://raw.githubusercontent.com/HI6Cypher/HI6ToolKit/main/hi6toolkit.py)
+
+- To lunch ARP Request attack(it downs local gateway) :
+    ``` bash
+    ./hi6toolkit.py dos arp -if [interface] -g [gateway ip] -s [source ip] -sm [mac address]
+    ```
+    - source ip :
+        - can be specific -> 10.10.45.81
+        - can be range of ip addresses -> 192.168.\*.\*, hi6toolkit.py produces random ip addresses with this pattern itself
 
 - To Trace(traceroute) :
     ``` bash
