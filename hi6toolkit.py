@@ -1009,6 +1009,11 @@ class DoS_Arp :
         self._count = Constant.COUNTER(0)
         self.dstmac = "ff:ff:ff:ff:ff:ff"
         self.hattype = 1
+        self.ethernet = self.ethernet_header(
+            dst = self.dstmac,
+            src = self.srcmac,
+            typ = 0x0806
+            )
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -1100,11 +1105,7 @@ class DoS_Arp :
         return
 
     def prepare(self) -> bytes :
-        eth = self.ethernet_header(
-            dst = self.dstmac,
-            src = self.srcmac,
-            typ = 0x0806
-            )
+        eth = self.ethernet
         arp = self.arp_header(
             htp = self.hattype,
             ptp = 0x0800,
