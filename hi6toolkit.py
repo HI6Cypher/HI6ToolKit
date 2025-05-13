@@ -104,8 +104,7 @@ class Stack :
 
 
 class Sniff :
-    def __init__(self, loop : "async_event_loop", iface : str, tmp : bool, saddr : str, daddr : str, recvbuf : int, wait : float, verboss : bool) -> "Sniff_class" :
-        self.loop = loop
+    def __init__(self, iface : str, tmp : bool, saddr : str, daddr : str, recvbuf : int, wait : float, verboss : bool) -> "Sniff_class" :
         self.iface = iface
         self.tmp = tmp
         self.saddr = saddr
@@ -680,6 +679,7 @@ class Sniff :
             else : return False
 
     async def outputctl(self) -> None :
+        loop = asyncio.get_event_loop()
         while True :
             frame = self.bufstack.pop()
             if frame :
@@ -689,7 +689,7 @@ class Sniff :
                     parsed_header = parsed_header.expandtabs(4)
                     if self.tmp :
                         await asyncio.to_thread(self.write, parsed_header)
-                    await asyncio.to_thread(print, parsed_header)
+                    loop.call_soon(print, parsed_header)
             else : await asyncio.sleep(self.wait)
         return
 
@@ -1679,7 +1679,6 @@ if not Constant.MODULE :
         if not Constant.ISROOT : root_access_error()
         trigger(args)
         sniff = Sniff(
-            asyncio.get_event_loop(),
             args.iface,
             args.tmp,
             args.saddr,
