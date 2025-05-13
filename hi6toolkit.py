@@ -607,15 +607,17 @@ class Sniff :
             else : return False
 
     async def outputctl(self) -> None :
-        if not self.bufstack.stack_is_empty() :
-            frame = await self.bufstack.pop()
-            filter = await self.filter(frame)
-            if filter :
-                parsed_header = await self.parse_headers(frame)
-                parsed_header = parsed_header.expandtabs(4)
-                if self.tmp :
-                    await asyncio.to_thread(self.write, parsed_header)
-                await asyncio.to_thread(print, parsed_header)
+        while True :
+            await asyncio.sleep(0.001)
+            if not self.bufstack.stack_is_empty() :
+                frame = await self.bufstack.pop()
+                filter = await self.filter(frame)
+                if filter :
+                    parsed_header = await self.parse_headers(frame)
+                    parsed_header = parsed_header.expandtabs(4)
+                    if self.tmp :
+                        await asyncio.to_thread(self.write, parsed_header)
+                    await asyncio.to_thread(print, parsed_header)
         return
 
     def write(self, data : str) -> None :
@@ -639,19 +641,23 @@ class Sniff :
         if self.tmp :
             async_file = await self.create_file()
             self.tmp_file = async_file
-        await asyncio.gather(asyncio.create_task(self.__sniff()))
+        await asyncio.gather(
+            asyncio.create_task(self.__sniff()),
+            asyncio.create_task(self.outputctl())
+            )
         return
 
     async def __sniff(self) -> None :
         with socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(socket.ETH_P_ALL)) as sniff :
             sniff.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, self.iface)
             sniff.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, self.sock_recvbuf)
+            sniff.setblocking(False)
             while True :
-                raw_data = await self.loop.sock_recvfrom(sniff, 0xffff)
-                raw_data_memview = memoryview(raw_data[0])
+                loop = asyncio.get_event_loop()
+                raw_data, _ = await loop.sock_recvfrom(sniff, 0xffff)
+                raw_data_memview = memoryview(raw_data)
                 if raw_data : await self.add_to_stack(raw_data_memview)
-                await self.outputctl()
-            return
+        return
 
 
 class Scan :
@@ -1251,7 +1257,7 @@ class DoS_SYN :
         checksum = self.checksum(ip_header)
         ip_header = self.ip_header(src = src, dst = dst, idn = randidn, csm = checksum)
         randseq = randnum(0, 0xffff)
-        randsrp = randnum(1024, 0xffff) 
+        randsrp = randnum(1024, 0xffff)
         port = self.port
         tcp_header = self.tcp_header(src_p = randsrp, dst_p = port, seq = randseq, syn = 1)
         pseudo_header = self.pseudo_header(src = src, dst = dst, pln = len(tcp_header))
