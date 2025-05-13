@@ -34,7 +34,7 @@ from hi6toolkit import Sniff, Scan, Trace, DoS_Arp, DoS_SYN, HTTP_Request, Tunne
     python hi6toolkit.py sniff -if [interface(like wlo1, eth0 etc.)] -t [to tmp in file]
     ```
 
-- Example of a Ethernet frame with arp type
+- Example of a Ethernet frame with arp type(with -v option) :
     ``` text
         [+][DATALINK]________________1726738881________________
 
@@ -57,7 +57,7 @@ from hi6toolkit import Sniff, Scan, Trace, DoS_Arp, DoS_SYN, HTTP_Request, Tunne
 
     ```
 
-- Example of a Ethernet frame with IPv4 type and tcp protocol
+- Example of a Ethernet frame with IPv4 type and tcp protocol(with -v option) :
     ``` text
         [+][DATALINK]________________1726751606________________
 
@@ -91,6 +91,21 @@ from hi6toolkit import Sniff, Scan, Trace, DoS_Arp, DoS_SYN, HTTP_Request, Tunne
                     ge/avif,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\
                     r\nAccept-Encoding: gzip, deflate\r\nConnection: keep-alive\r\nU
                     pgrade-Insecure-Requests: 1\r\n\r\n
+    ```
+
+- Example of Ethernet frame with IPv4 and Tcp(without -v option)
+    ```
+    [48][DATALINK_FRAME]________________1747149132________________
+    Ethernet : Src:a2:50:9b:9f:d7:9b|Dst:cc:47:40:fc:7b:05|Type:IPv4
+    IPv4 : Ver:4|Ident:47072|Proto:TCP|Src:185.15.59.240|Dst:192.168.12.207|TTL:51
+    TCP : Src:443|Dst:34214|Seq:160349168|Acn:3746320966
+        Flags : URG:0 ACK:1 PSH:1 RST:0 SYN:0 FIN:0
+
+    [49][DATALINK_FRAME]________________1747149132________________
+    Ethernet : Src:cc:47:40:fc:7b:05|Dst:a2:50:9b:9f:d7:9b|Type:IPv4
+    IPv4 : Ver:4|Ident:36423|Proto:TCP|Src:192.168.12.207|Dst:185.15.59.224|TTL:64
+    TCP : Src:47988|Dst:443|Seq:1219226806|Acn:3990511773
+        Flags : URG:0 ACK:1 PSH:0 RST:0 SYN:0 FIN:0
     ```
 
 - To launch a DoS attack(SYN FLOOD) :
