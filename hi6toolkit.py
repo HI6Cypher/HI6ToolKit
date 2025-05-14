@@ -1,8 +1,8 @@
 #!/usr/bin/python3
 import socket
 import asyncio
-import queue
 import struct
+import queue
 import signal
 import ctypes
 import binascii
@@ -80,27 +80,6 @@ class Constant :
         return ":".join([f"{sec:02x}" for sec in mac])
 
 
-class Stack :
-    def __init__(self) -> None :
-        self.__stack = queue.Queue()
-        return
-
-    def stack_empty(self) -> bool :
-        return self.__stack.empty()
-
-    def stack_size(self) -> int :
-        return self.__stack.qsize()
-
-    def pop(self) -> "any" :
-        try : value = self.__stack.get()
-        except queue.Empty : return
-        else : return value
-
-    async def add(self, value : "any") -> None :
-        self.__stack.put(value)
-        return
-
-
 class Sniff :
     def __init__(self, iface : str, tmp : bool, saddr : str, daddr : str, recvbuf : int, wait : float, verboss : bool) -> None :
         self.iface = iface
@@ -111,7 +90,7 @@ class Sniff :
         self.wait = wait
         self.verboss = verboss
         self.__counter = Constant.COUNTER(0)
-        self.bufstack = Stack()
+        self.queue = queue.Queue()
         self.tmp_file = None
         return
 
@@ -680,8 +659,8 @@ class Sniff :
     async def outputctl(self) -> None :
         loop = asyncio.get_event_loop()
         while True :
-            if not self.bufstack.stack_empty() :
-                frame = self.bufstack.pop()
+            if not self.queue.empty() :
+                frame = self.queue.get()
                 filter = await self.filter(frame)
                 if filter :
                     parsed_header = await self.parse_headers(frame)
@@ -702,10 +681,6 @@ class Sniff :
         file = open(path, mode)
         Constant.FILES.append(file)
         return file
-
-    async def add_to_stack(self, value : memoryview | bytes) -> None :
-        await self.bufstack.add(value)
-        return
 
     async def sniff(self) -> None :
         await self.check_interface()
@@ -728,7 +703,7 @@ class Sniff :
                 loop = asyncio.get_event_loop()
                 raw_data, _ = await loop.sock_recvfrom(sniff, 0xffff)
                 raw_data_memview = memoryview(raw_data)
-                if raw_data : await self.add_to_stack(raw_data_memview)
+                if raw_data : self.queue.put(raw_data_memview)
         return
 
 
