@@ -85,19 +85,16 @@ class Stack :
         self.__stack = queue.Queue()
         return
 
-    def stack_is_empty(self) -> bool :
+    def stack_empty(self) -> bool :
         return self.__stack.empty()
 
     def stack_size(self) -> int :
         return self.__stack.qsize()
 
     def pop(self) -> "any" :
-        try :
-            value = self.__stack.get_nowait()
-        except queue.Empty :
-            return None
-        else :
-            return value
+        try : value = self.__stack.get()
+        except queue.Empty : return
+        else : return value
 
     async def add(self, value : "any") -> None :
         self.__stack.put(value)
@@ -683,8 +680,8 @@ class Sniff :
     async def outputctl(self) -> None :
         loop = asyncio.get_event_loop()
         while True :
-            frame = self.bufstack.pop()
-            if frame :
+            if not self.bufstack.stack_empty() :
+                frame = self.bufstack.pop()
                 filter = await self.filter(frame)
                 if filter :
                     parsed_header = await self.parse_headers(frame)
