@@ -17,7 +17,7 @@ import argparse
 class Constant :
     MODULE : bool = __name__ != "__main__"
     ISROOT : bool = os.geteuid() == 0
-    TIME : int = round(time.time())
+    TIME : int = lambda : round(time.time())
     ISOS : bool = any([os in sys.platform for os in ("linux", "bsd", "darwin")])
     IFACES : list = [iface[-1] for iface in socket.if_nameindex()]
     COUNTER : int = ctypes.c_uint64
@@ -81,8 +81,9 @@ class Constant :
 
 
 class Stack :
-    def __init__(self) -> "Stack_class" :
+    def __init__(self) -> None :
         self.__stack = queue.Queue()
+        return
 
     def stack_is_empty(self) -> bool :
         return self.__stack.empty()
@@ -104,7 +105,7 @@ class Stack :
 
 
 class Sniff :
-    def __init__(self, iface : str, tmp : bool, saddr : str, daddr : str, recvbuf : int, wait : float, verboss : bool) -> "Sniff_class" :
+    def __init__(self, iface : str, tmp : bool, saddr : str, daddr : str, recvbuf : int, wait : float, verboss : bool) -> None :
         self.iface = iface
         self.tmp = tmp
         self.saddr = saddr
@@ -115,6 +116,7 @@ class Sniff :
         self.__counter = Constant.COUNTER(0)
         self.bufstack = Stack()
         self.tmp_file = None
+        return
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -555,7 +557,7 @@ class Sniff :
 
     async def parse_headers(self, raw_data : memoryview | bytes) -> str :
         parsed_headers = str()
-        spec_header = f"[{self.count}][DATALINK_FRAME]________________{Constant.TIME}________________"
+        spec_header = f"[{self.count}][DATALINK_FRAME]________________{Constant.TIME()}________________"
         saperator = "\n\n" if self.verboss else "\n"
         self.count += 1
         eth_data = raw_data[:14]
@@ -577,7 +579,7 @@ class Sniff :
                     case "ICMPv6" :
                         icmp_data = raw_data[14 + ihl:]
                         next_layer_header = await self.parse_icmpv6_header_verboss(icmp_data) if self.verboss else await self.parse_icmpv6_header(icmp_data)
-                    case "IGMPv2" :
+                    case "IGMP" :
                         igmp_data = raw_data[14 + ihl:]
                         next_layer_header = await self.parse_igmp_header_verboss(igmp_data) if self.verboss else await self.parse_igmp_header(igmp_data)
                     case _ :
@@ -607,7 +609,7 @@ class Sniff :
                     case "ICMPv6" :
                         icmp_data = raw_data[14 + 40:]
                         next_layer_header = await self.parse_icmpv6_header_verboss(icmp_data) if self.verboss else await self.parse_icmpv6_header(icmp_data)
-                    case "IGMPv2" :
+                    case "IGMP" :
                         igmp_data = raw_data[14 + 40:]
                         next_layer_header = await self.parse_igmp_header_verboss(igmp_data) if self.verboss else await self.parse_igmp_header(igmp_data)
                     case _ :
@@ -698,7 +700,7 @@ class Sniff :
         return
 
     async def create_file(self) -> "file" :
-        path = f"data_{Constant.TIME}.txt"
+        path = f"captured_{Constant.TIME()}.txt"
         mode = "a" if os.path.exists(path) else "x"
         file = open(path, mode)
         Constant.FILES.append(file)
@@ -734,7 +736,7 @@ class Sniff :
 
 
 class Scan :
-    def __init__(self, host : str, timeout : float, event_loop : "async_event_loop") -> "Scan_class" :
+    def __init__(self, host : str, timeout : float, event_loop : "async_event_loop") -> None :
         self.host = host
         self.timeout = timeout
         self.loop = event_loop
@@ -742,6 +744,7 @@ class Scan :
         self.ipv4_static_header = self.ipv4_header()
         self.opens = list()
         self.unspecified = list()
+        return
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -841,7 +844,7 @@ class Scan :
 
 
 class Trace :
-    def __init__(self, host : str, efforts : int, timeout : float, max_error : int) -> "Trace_class" :
+    def __init__(self, host : str, efforts : int, timeout : float, max_error : int) -> None :
         self.host = host
         self._efforts = self.efforts = efforts
         self.timeout = timeout
@@ -855,6 +858,7 @@ class Trace :
         self.stop = False
         self.status = True
         self.key_data = b"HI6Toolkit_Trace"
+        return
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -1078,7 +1082,7 @@ class Trace :
 
 
 class DoS_Arp :
-    def __init__(self, iface : str, source : str, gateway : str, srcmac : str, number : int, wait : float) -> "DoS_Arp class" :
+    def __init__(self, iface : str, source : str, gateway : str, srcmac : str, number : int, wait : float) -> None :
         self._iface = self.iface = iface
         self._source = self.source = source
         self.gateway = gateway
@@ -1093,6 +1097,7 @@ class DoS_Arp :
             src = self.srcmac,
             typ = 0x0806
             )
+        return
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -1223,20 +1228,21 @@ class DoS_Arp :
                 if (self.num != -1) : self.progress_bar(self.load_bar, self.count, self.num)
                 time.sleep(self.wait)
             else :
-                end_time = round((time.time() - Constant.TIME), 2)
+                end_time = round((time.time() - Constant.TIME()), 2)
                 print("\n[" + Constant.GREEN("+") + "]" + " " + "ARP Requests datagrams have been sent")
                 print("[" + Constant.GREEN("+") + "]" + " " + f"{end_time}s")
         return
 
 
 class DoS_SYN :
-    def __init__(self, host : str, port : int, count : int, rand_port : bool) -> "DoS_SYN_class" :
+    def __init__(self, host : str, port : int, count : int, rand_port : bool) -> None :
         self.host = host
         self._port = self.port = port
         self.count = count
         self.rand_port = rand_port
         self.source = Constant.SOURCE()
         self.__counter = Constant.COUNTER(0)
+        return
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -1356,14 +1362,14 @@ class DoS_SYN :
             text = "[" + Constant.GREEN("+") + "]" + " " + f"{self.progress_bar(self.counter, self.count)}" + " " + f"[{self.counter}/{self.count}]"
             print(text, end = "\r", flush = True)
         else :
-            end_time = round((time.time() - Constant.TIME), 2)
+            end_time = round((time.time() - Constant.TIME()), 2)
             print("\n[" + Constant.GREEN("+") + "]" + " " + "all SYN segments have been sent")
             print("[" + Constant.GREEN("+") + "]" + " " + f"{end_time}s")
         return
 
 
 class HTTP_Request :
-    def __init__(self, host : str, port : int, method : str, header : str, end : str, https : bool) -> "HTTP_Request_class" :
+    def __init__(self, host : str, port : int, method : str, header : str, end : str, https : bool) -> None :
         self.host = host
         self.port = int(port)
         self.method = method if (method in ("GET", "HEAD")) else "GET"
@@ -1373,6 +1379,7 @@ class HTTP_Request :
         self.request_header = str()
         self.response = bytes()
         self.response_header = str()
+        return
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -1428,12 +1435,13 @@ class HTTP_Request :
 
 
 class Tunnel :
-    def __init__(self, host : str, port : int, timeout : float, buffer : int) -> "Tunnel_class" :
+    def __init__(self, host : str, port : int, timeout : float, buffer : int) -> None :
         self.host = host
         self.port = port
         self.timeout = timeout
         self.buffer = buffer
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP)
+        return
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -1467,8 +1475,8 @@ class Tunnel :
     def get_name(headers : dict) -> str :
         keyword = "name"
         if (keyword in headers) and (headers[keyword]) :
-            return headers[keyword] + f"_{Constant.TIME}"  + ".tmp"
-        else : return f"new_{Constant.TIME}.tmp"
+            return headers[keyword] + f"_{Constant.TIME()}"  + ".tmp"
+        else : return f"new_{Constant.TIME()}.tmp"
 
     @staticmethod
     def get_length(headers : dict) -> int :
