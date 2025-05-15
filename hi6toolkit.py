@@ -1774,7 +1774,7 @@ if not Constant.MODULE :
 
     def Tunnel_args(args : argparse.Namespace) -> None :
         args.msg = "Tunnel"
-        if (not Constant.ISROOT) and (port <= 1024) : root_access_error()
+        if (not Constant.ISROOT) and (args.port <= 1024) : root_access_error()
         trigger(args)
         tunnel = Tunnel(
             args.host,
