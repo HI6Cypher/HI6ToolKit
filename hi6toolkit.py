@@ -492,7 +492,7 @@ class Sniff :
                     }
                 for index, group in enumerate(group_records) :
                     rtp, adl, nos, mad, src_addrs, data = group
-                    parsed_header += f"Group_record({index}) :{t}\t\tRecord Type : {record_types[rtp]}[{rtp}]{t}\t\tAux Data Length : {adl}{t}\t\t"
+                    parsed_header += f"Group_record[{index}] :{t}\t\tRecord Type : {record_types[rtp]}({rtp}){t}\t\tAux Data Length : {adl}{t}\t\t"
                     parsed_header += f"Number of Sources : {nos}{t}\t\tMulticast Address : {mad}{t}\t\tSource Addresses :{t}\t\t\t"
                     parsed_header += (t + "\t\t\t").join(src_addrs)
                     parsed_header += f"{t}\t\tData : {t}\t\t\t{await self.indent_data(data)}"
