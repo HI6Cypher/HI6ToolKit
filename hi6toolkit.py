@@ -490,7 +490,7 @@ class Sniff :
                     5 : "ALLOW_NEW_SOURCES",
                     6 : "BLOCK_OLD_SOURCES"
                     }
-                for index, group in enumerate(group_records) :
+                for index, group in enumerate(group_records, start = 1) :
                     rtp, adl, nos, mad, src_addrs, data = group
                     parsed_header += f"Group_record[{index}] :{t}\t\tRecord Type : {record_types[rtp]}({rtp}){t}\t\tAux Data Length : {adl}{t}\t\t"
                     parsed_header += f"Number of Sources : {nos}{t}\t\tMulticast Address : {mad}{t}\t\tSource Addresses :{t}\t\t\t"
