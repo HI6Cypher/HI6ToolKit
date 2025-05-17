@@ -571,7 +571,7 @@ class Sniff :
                 return parsed_headers
             case "IPv6" :
                 ip_data = raw_data[14:]
-                parsed_ip_header, pln, prt = await self.parse_ipv6_header(ip_data)
+                parsed_ip_header, pln, prt = await self.parse_ipv6_header_verboss(ip_data) if self.verboss else await self.parse_ipv6_header(ip_data)
                 match prt :
                     case "TCP" :
                         tcp_data = raw_data[14 + 40:]
