@@ -34,11 +34,14 @@ class Constant :
         )
 
     def SOURCE() -> str :
-        try : host = socket.gethostbyname("_gateway")
-        except : host = "192.168.0.0"
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock :
-            sock.connect((host, 0))
-            source = sock.getsockname()[0]
+        try :
+            host = socket.gethostbyname("_gateway")
+        except :
+            host = socket.gethostbyname(input("Can't resolv \"_gateway\", enter gateway ip manually : "))
+        finally :
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock :
+                sock.connect((host, 0))
+                source = sock.getsockname()[0]
         return source
 
     def EXIT(code : int) -> None :
@@ -192,7 +195,7 @@ class Sniff :
         return (hdr, prt, hln, pln, opc, sha, spa, tha, tpa)
 
     @staticmethod
-    async def tcp_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, int, dict, int, int, int, memoryview | bytes] :
+    async def tcp_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, int, dict[int], int, int, int, memoryview | bytes] :
         payload = struct.unpack("!HHLLBBHHH", raw_payload[:20])
         src_p = payload[0]
         dst_p = payload[1]
@@ -308,12 +311,41 @@ class Sniff :
                 return (typ, mrt, csm, gad)
 
     @staticmethod
-    async def dns_header(raw_payload : memoryview | bytes) tuple[] :
-        ...
+    async def dns_header(raw_payload : memoryview | bytes) -> tuple[int, dict[int], int, int, int, int] :
+        payload = struct.unpack("!6H", raw_payload[:12])
+        tid = payload[0]
+        flg = payload[1]
+        qrf = (flg & 0b1000000000000000) >> 15
+        opf = (flg & 0b0111100000000000) >> 11
+        aaf = (flg & 0b0000010000000000) >> 10
+        tcf = (flg & 0b0000001000000000) >> 9
+        rdf = (flg & 0b0000000100000000) >> 8
+        raf = (flg & 0b0000000010000000) >> 7
+        adf = (flg & 0b0000000000100000) >> 5
+        cdf = (flg & 0b0000000000010000) >> 4
+        rcd = (flg & 0b0000000000001111) >> 0
+        flg = {
+            "qrf" : qrf,
+            "opf" : opf,
+            "aaf" : aaf,
+            "tcf" : tcf,
+            "rdf" : rdf,
+            "raf" : raf,
+            "adf" : adf,
+            "cdf" : cdf,
+            "rcd" : rcd
+            }
+        noq = payload[2]
+        noa = payload[3]
+        arr = payload[4]
+        add = payload[5]
+        #TODO : has not completed yet
+        return (tid, flg, noq, noa, arr, add)
+
 
     @staticmethod
     async def get_application_layer_protocol(data : memoryview | bytes, src_port : int, dst_port : int, data_length : int) -> str | None :
-        if ((src_port == 53) or (dst_port == 53) and (data_length >= 16)) :
+        if ((src_port == 53) or (dst_port == 53) and (data_length >= 16)) : #TODO : I haven't found true way to identify dns packet yet!
             return "DNS"
         else :
             return
