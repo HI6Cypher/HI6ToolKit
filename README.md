@@ -32,7 +32,7 @@ from hi6toolkit import Sniff, Scan, Trace, DoS_Arp, DoS_SYN, HTTP_Request, Tunne
 
 - To Sniff packets :
     ``` bash
-    python hi6toolkit.py sniff -if [interface(like wlo1, eth0 etc.)] -t [to store in file]
+    ./hi6toolkit.py sniff -if [interface(like wlo1, eth0 etc.)] -t [to store in file]
     ```
 
 - Example of a Ethernet frame with arp type(with -v option) :
@@ -111,22 +111,22 @@ from hi6toolkit import Sniff, Scan, Trace, DoS_Arp, DoS_SYN, HTTP_Request, Tunne
 
 - To launch a DoS attack(SYN FLOOD) :
     ``` bash
-    python hi6toolkit.py dos syn -x [host] -p [port] -r [rate]
+    ./hi6toolkit.py dos syn -x [host] -p [port] -r [rate]
     ```
 
 - To sending HTTP request :
     ``` bash
-    python hi6toolkit.py http -x [host] -e [endpoint/default="/"]
+    ./hi6toolkit.py http -x [host] -e [endpoint/default="/"]
     ```
 
 - To sending HTTPs request :
     ``` bash
-    python hi6toolkit.py http -x [host] -p 443 -e [endpoint/default="/"] -s
+    ./hi6toolkit.py http -x [host] -p 443 -e [endpoint/default="/"] -s
     ```
 
 - To print some information :
     ``` bash
-    python hi6toolkit.py info
+    ./hi6toolkit.py info
     ```
 
 - Note :  
