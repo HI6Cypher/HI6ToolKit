@@ -94,7 +94,7 @@ from hi6toolkit import Sniff, Scan, Trace, DoS_Arp, DoS_SYN, HTTP_Request, Tunne
                     pgrade-Insecure-Requests: 1\r\n\r\n
     ```
 
-- Example of Ethernet frame with IPv4 and TCP(without -v option)
+- Example of Ethernet frame with IPv4 and TCP(without -v option) :
     ```
     [48][DATALINK_FRAME]________________1747149132________________
     Ethernet : Src:a2:50:9b:9f:d7:9b|Dst:cc:47:40:fc:7b:05|Type:IPv4
