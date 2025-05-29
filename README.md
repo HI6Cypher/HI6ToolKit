@@ -1,37 +1,38 @@
-# HI6ToolKit :|
+# HI6ToolKit
+hi6toolkit.py is a script which include several useful network tools
+I've developed it for personal use, but it can be used everywhere by anybody
+most advanced tools of hi6toolkit is it's sniffer
 
-
-## Classes :
+## Classes
 ``` python
 from hi6toolkit import Sniff, Scan, Trace, DoS_Arp, DoS_SYN, HTTP_Request, Tunnel
 ```
 
-## Usage :
+## Usage
 - raw code :
+    [hi6toolkit.py](https://raw.githubusercontent.com/HI6Cypher/HI6ToolKit/main/hi6toolkit.py)
 
-    [https://raw.githubusercontent.com/HI6Cypher/HI6ToolKit/main/hi6toolkit.py](https://raw.githubusercontent.com/HI6Cypher/HI6ToolKit/main/hi6toolkit.py)
-
-- To lunch ARP Request attack(it downs local gateway) :
+- To lunch ARP Request flood attack(it downs local gateway) :
     ``` bash
     ./hi6toolkit.py dos arp -if [interface] -g [gateway ip] -s [source ip] -sm [mac address]
     ```
     - source ip :
-        - can be specific -> 10.10.45.81
-        - can be range of ip addresses -> 192.168.\*.\*, hi6toolkit.py produces random ip addresses with this pattern itself
+        - can be specific like 10.10.45.81
+        - can be range of ip addresses with using wildcard char like 192.168.\*.\* for random IPs
 
 - To Trace(traceroute) :
     ``` bash
-    ./hi6toolkit.py trace -s [source(local) ip like 192.168.*.*] -x [host]
+    ./hi6toolkit.py trace -x [host]
     ```
 
 - To Scan ports :
     ``` bash
-    ./hi6toolkit.py scan -s [source(local) ip like 192.168.*.*] -x [host] -p [port range like 0-443]
+    ./hi6toolkit.py scan -x [host] -p [port range like 0-443]
     ```
 
 - To Sniff packets :
     ``` bash
-    python hi6toolkit.py sniff -if [interface(like wlo1, eth0 etc.)] -t [to tmp in file]
+    python hi6toolkit.py sniff -if [interface(like wlo1, eth0 etc.)] -t [to store in file]
     ```
 
 - Example of a Ethernet frame with arp type(with -v option) :
@@ -93,7 +94,7 @@ from hi6toolkit import Sniff, Scan, Trace, DoS_Arp, DoS_SYN, HTTP_Request, Tunne
                     pgrade-Insecure-Requests: 1\r\n\r\n
     ```
 
-- Example of Ethernet frame with IPv4 and Tcp(without -v option)
+- Example of Ethernet frame with IPv4 and TCP(without -v option)
     ```
     [48][DATALINK_FRAME]________________1747149132________________
     Ethernet : Src:a2:50:9b:9f:d7:9b|Dst:cc:47:40:fc:7b:05|Type:IPv4
@@ -113,42 +114,14 @@ from hi6toolkit import Sniff, Scan, Trace, DoS_Arp, DoS_SYN, HTTP_Request, Tunne
     python hi6toolkit.py dos syn -x [host] -p [port] -r [rate]
     ```
 
-- Example of SYN flood to (127.0.0.1) :
-
-    command
-    ``` bash
-    hi6@hi6cypher : ~/Net/HI6ToolKit $ ./hi6toolkit.py dos -x localhost -p 1337 -r 4096
-    ```
-
-    output
-    ``` bash
-
-
-            [System] : [LINUX, Thu Aug 29 21:31:07 2024]
-            [Hostname] : [hi6cypher]
-            [Python] : [Cpython 3.11]
-
-            [GitHub] : [github.com/HI6Cypher]
-            [Email] : [huaweisclu31@hotmail.com]
-
-
-
-    Press ENTER to continue...
-
-    [+] //////////////////////////////// [4096/4096]
-    [+] all SYN segments have sent
-    [+] 0.71s
-
-    ```
-
 - To sending HTTP request :
     ``` bash
-    python hi6toolkit.py http -x [host] -p [port/default=80] -e [endpoint/default="/"] -s(for https/be sure u change port(changing default value))
+    python hi6toolkit.py http -x [host] -e [endpoint/default="/"]
     ```
 
-- To receiving file(Tunnel) : u can use `curl` or whatever u want to upload file(note that the request http header must indicate **Content-Length** value)
+- To sending HTTPs request :
     ``` bash
-    python hi6toolkit.py tunnel -x [host/default=0.0.0.0] -p [port/default=80] -t [timeout/default=60] -b [buffer/default=2048]
+    python hi6toolkit.py http -x [host] -p 443 -e [endpoint/default="/"] -s
     ```
 
 - To print some information :
@@ -156,7 +129,8 @@ from hi6toolkit import Sniff, Scan, Trace, DoS_Arp, DoS_SYN, HTTP_Request, Tunne
     python hi6toolkit.py info
     ```
 
-- Note : HI6ToolKit is a script, but it can use as module
+- Note :  
+HI6ToolKit is a script, but it can use as module
     ``` python
     from hi6toolkit import HTTP_Request
 
@@ -168,9 +142,8 @@ from hi6toolkit import Sniff, Scan, Trace, DoS_Arp, DoS_SYN, HTTP_Request, Tunne
 
     print(http.request_header, http.response_header, "\n\n", http.response)
     ```
-    ``` html
-    #output
 
+    ``` html
     GET / HTTP/1.1
     Host: www.example.com
     User-Agent: HI6ToolKit
@@ -192,70 +165,23 @@ from hi6toolkit import Sniff, Scan, Trace, DoS_Arp, DoS_SYN, HTTP_Request, Tunne
     Content-Length: 1256
     Connection: close
 
-     <!doctype html>
+    <!doctype html>
     <html>
-    <head>
-        <title>Example Domain</title>
-
-        <meta charset="utf-8" />
-        <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <style type="text/css">
-        body {
-            background-color: #f0f0f2;
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
-
-        }
-        div {
-            width: 600px;
-            margin: 5em auto;
-            padding: 2em;
-            background-color: #fdfdff;
-            border-radius: 0.5em;
-            box-shadow: 2px 3px 7px 2px rgba(0,0,0,0.02);
-        }
-        a:link, a:visited {
-            color: #38488f;
-            text-decoration: none;
-        }
-        @media (max-width: 700px) {
-            div {
-                margin: 0 auto;
-                width: auto;
-            }
-        }
-        </style>
-    </head>
-
-    <body>
-    <div>
-        <h1>Example Domain</h1>
-        <p>This domain is for use in illustrative examples in documents. You may use this
-        domain in literature without prior coordination or asking for permission.</p>
-        <p><a href="https://www.iana.org/domains/example">More information...</a></p>
-    </div>
-    </body>
+        ...
     </html>
     ```
 
-- Exception :
+## Exceptions
+- To send TCP/IP packet we need raw socket with `socket.IPPROTO_TCP` protocol which
+we have limitations :poker_face: on raw socket in some Windows versions(7, XP, Vista, ,...)
+to more information visit <https://learn.microsoft.com/en-us/windows/win32/winsock/tcp-ip-raw-sockets-2>
+so because of many incompatibility I limited hi6toolkit.py to use non-windows OS
+hi6toolkit has been tested on Linux(not tested on unix-based)
+- Note that this class doesn't implement appropriate data parsing algorithm!!!!!!, it is useful for simple RESTful APIs
 
-    HTTP_Request : Note that this class doesn't implement appropriate data parsing algorithm!!!!!!, it is useful for simple RESTful APIs
+## Contact
+Emails :  
+- [hotmail](mailto:huaweisclu31@hotmail.com)  
+- [gmail](mailto:swhwap.net@gmail.com)
 
-    To send TCP/IP packet we need raw socket with `socket.IPPROTO_TCP` that
-    we have limitations :\ on raw socket in some Windows versions(7, XP, Vista, ,...)
-    to more information visit [Site](https://learn.microsoft.com/en-us/windows/win32/winsock/tcp-ip-raw-sockets-2)
-
-    so because of many incompatibility I limited hi6toolkit.py to use non-windows OS
-    hi6toolkit has been tested on Linux & Unix(unix-based like darwin)
-
-    <span style="color:red">for Sniff, DoS_SYN and Tunnel u have to have root access:)</span>.
-
-GitHub : [github.com/HI6Cypher](https://github.com/HI6Cypher)
-
-Email : [huaweisclu31@hotmail.com](mailto:huaweisclu31@hotmail.com)
-Email : [swhwap.net@gmail.com](mailto:swhwap.net@gmail.com)
-
-<span style="color:cyan;font-size:140">;)</span>
+<span style="color:#002b36;font-size:140">;)</span>
