@@ -18,7 +18,7 @@ class IPv4_header :
         msg += f"Destination IPv4 Address : {self.dst_ip_addr}\n\t"
         msg += f"Internet Header Length : {self.ihl}\n\t"
         msg += f"Time to Live : {self.ttl}\n\t"
-        msg += f"Protocol : {self.protocol}\n\t"
+        msg += f"Protocol : {self.protocol}"
         return msg
 
     @staticmethod
@@ -37,7 +37,7 @@ class IPv4_header :
     @staticmethod
     async def match_IPv4_protocol(value : int) -> str :
         return self.get_IPv4_protocols().get(value, "unknown")
- 
+
     async def parse_IPv4_header(self) -> None :
         payload = struct.unpack(self.struct_pattern, self.payload[:self.IPv4_header_length])
         self.version = payload[0] >> 4
@@ -49,7 +49,7 @@ class IPv4_header :
         self.flags = bin(payload[4] >> 13)
         self.fragment_offset = payload[4] & 0x1fff
         self.ttl = payload[5]
-        self.protocol = self.get_IPv4_protocols().get(payload[6], payload[6])
+        self.protocol = await self.match_IPv4_protocol(payload[6])
         self.checksum = payload[7]
         self.src_ip_addr = socket.inet_ntop(socket.AF_INET, payload[8])
         self.dst_ip_addr = socket.inet_ntop(socket.AF_INET, payload[9])

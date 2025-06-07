@@ -34,14 +34,11 @@ class Ethernet_header :
     async def standardize_mac_addr(mac_addr : memoryview | bytes) -> str :
         return ":".join([f"{sec:02x}" for sec in mac_addr])
 
-    async def is_ethernet_header(self) -> bool :
-        return len(payload) == 14
-
     async def parse_ethernet_header(self) -> None :
         payload = struct.unpack(self.struct_pattern, self.payload)
         self.dst_mac_addr = self.standardize_mac_addr(payload[0])
         self.src_mac_addr = self.standardize_mac_addr(payload[1])
-        self.eth_type = self.get_ethernet_types().get(payload[2], payload[2])
+        self.eth_type = await self.match_ethernet_type(payload[2])
         return
 
     async def format_parsed_ethernet_header_verboss(self) -> str :
