@@ -4,7 +4,7 @@ class IPv6_header :
     def __init__(self, raw_data : memoryview | bytes) -> None :
         self.payload = raw_data
         self.struct_pattern = "!lHBB16s16s"
-        self.IPv6_header_length = 40
+        self.header_length = 40
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -37,17 +37,24 @@ class IPv6_header :
         return self.get_IPv6_protocols().get(value, "unknown")
 
     async def parse_IPv6_header(self) -> None :
-        payload = struct.unpack(self.struct_pattern, self.payload[:self.IPv6_header_length])
-        self.version = payload[0] >> 28
-        self.traffic_class = (payload[0] >> 20) & 0xff
-        self.flow_label = payload[0] & 0xfffff
-        self.payload_length = payload[1]
-        self.next_header = await self.match_IPv6_protocol(payload[2])
-        self.hop_limit = payload[3]
-        self.src_ip_addr = socket.inet_ntop(socket.AF_INET6, payload[4])
-        self.dst_ip_addr = socket.inet_ntop(socket.AF_INET6, payload[5])
+        try :
+            payload = struct.unpack(self.struct_pattern, self.payload[:self.header_length])
+        except struct.error :
+            msg = "unpacking the Datagram below failed" + "\n" + repr(self.__repr__)
+            raise RuntimeError(msg)
+        else :
+            self.version = payload[0] >> 28
+            self.traffic_class = (payload[0] >> 20) & 0xff
+            self.flow_label = payload[0] & 0xfffff
+            self.payload_length = payload[1]
+            self.next_header = await self.match_IPv6_protocol(payload[2])
+            self.hop_limit = payload[3]
+            self.src_ip_addr = socket.inet_ntop(socket.AF_INET6, payload[4])
+            self.dst_ip_addr = socket.inet_ntop(socket.AF_INET6, payload[5])
+        return
 
     async def format_parsed_IPv6_header_verboss(self) -> str :
+        await self.parse_IPv6_header()
         self.formatted_header_verboss = str()
         t = "\n\t\t"
         self.formatted_header_verboss += f"IPv6 Datagram :{t}Version : {self.version}  Traffic Class : {self.traffic_class}"
@@ -58,6 +65,7 @@ class IPv6_header :
         return self.formatted_header_verboss
 
     async def format_parsed_IPv6_header(self) -> str :
+        await self.parse_IPv6_header()
         self.formatted_header = str()
         self.formatted_header += f"IPv6 : Ver:{self.version}|Src:{self.src_ip_addr}|Dst:{self.dst_ip_addr}\n\t"
         self.formatted_header += f"Flow:{self.flow_label}|Next:{self.next_header}|Hop:{self.hop_limit}"

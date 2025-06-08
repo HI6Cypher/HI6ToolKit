@@ -4,7 +4,7 @@ class Arp_header :
     def __init__(self, raw_data : memoryview | bytes) -> None :
         self.payload = raw_data
         self.struct_pattern = "!HHBBH6s4s6s4s"
-        self.Arp_header_length = 28
+        self.header_length = 28
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -47,19 +47,25 @@ class Arp_header :
         return self.get_Arp_operations().get(value, "unknown")
 
     async def parse_Arp_header(self) -> None :
-        payload = struct.unpack(self.struct_pattern, self.payload[:self.Arp_header_length])
-        self.hardware_type = payload[0]
-        self.protocol_type = await self.match_hardware_type(payload[1])
-        self.hardware_length = payload[2]
-        self.protocol_length = payload[3]
-        self.operation = await self.match_Arp_operation(payload[4])
-        self.sender_hardware_addr = self.standardize_mac_addr(payload[5])
-        self.sender_protocol_addr = socket.inet_ntop(socket.AF_INET, payload[6])
-        self.target_hardware_addr = self.standardize_mac_addr(payload[7])
-        self.target_protocol_addr = socket.inet_ntop(socket.AF_INET, payload[8])
+        try :
+            payload = struct.unpack(self.struct_pattern, self.payload[:self.header_length])
+        except struct.error :
+            msg = "unpacking the Datagram below failed" + "\n" + repr(self.__repr__)
+            raise RuntimeError(msg)
+        else :
+            self.hardware_type = payload[0]
+            self.protocol_type = await self.match_hardware_type(payload[1])
+            self.hardware_length = payload[2]
+            self.protocol_length = payload[3]
+            self.operation = await self.match_Arp_operation(payload[4])
+            self.sender_hardware_addr = self.standardize_mac_addr(payload[5])
+            self.sender_protocol_addr = socket.inet_ntop(socket.AF_INET, payload[6])
+            self.target_hardware_addr = self.standardize_mac_addr(payload[7])
+            self.target_protocol_addr = socket.inet_ntop(socket.AF_INET, payload[8])
         return
 
     async def format_parsed_Arp_header_verboss(self) -> str :
+        await self.parse_Arp_header()
         formatted_header_verboss = str()
         t = "\n\t\t"
         formatted_header_verboss += f"Arp Datagram :{t}Hardware Type : {self.hardware_type}{t}Protocol Type : {self.protocol_type}"
@@ -71,6 +77,7 @@ class Arp_header :
         return formatted_header_verboss
 
     async def format_parsed_Arp_header(self) -> str :
+        await self.parse_Arp_header()
         formatted_header = str()
         formatted_header += f"Arp : SrcMac:{self.sender_hardware_addr}|SrcIP:{self.sender_protocol_addr}|"
         formatted_header += f"DstMac:{self.target_hardware_addr}|DstIP:{self.target_protocol_addr}"

@@ -4,7 +4,7 @@ class Ethernet_header :
     def __init__(self, raw_data : memoryview | bytes) -> None :
         self.payload = raw_data
         self.struct_pattern = "!6s6sH"
-        self.ethernet_header_length = 14
+        self.header_length = 14
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -35,14 +35,19 @@ class Ethernet_header :
         return ":".join([f"{sec:02x}" for sec in mac_addr])
 
     async def parse_ethernet_header(self) -> None :
-        payload = struct.unpack(self.struct_pattern, self.payload)
-        self.dst_mac_addr = self.standardize_mac_addr(payload[0])
-        self.src_mac_addr = self.standardize_mac_addr(payload[1])
-        self.eth_type = await self.match_ethernet_type(payload[2])
+        try :
+            payload = struct.unpack(self.struct_pattern, self.payload[:self.header_length])
+        except struct.error :
+            msg = "unpacking the Datagram below failed" + "\n" + repr(self.__repr__)
+            raise RuntimeError(msg)
+        else :
+            self.dst_mac_addr = self.standardize_mac_addr(payload[0])
+            self.src_mac_addr = self.standardize_mac_addr(payload[1])
+            self.eth_type = await self.match_ethernet_type(payload[2])
         return
 
     async def format_parsed_ethernet_header_verboss(self) -> str :
-        self.parse_ethernet_header()
+        await self.parse_ethernet_header()
         self.formatted_header_verboss = str()
         t = "\n\t\t"
         self.formatted_header_verboss += f"Ethernet Frame :{t}"
@@ -52,7 +57,7 @@ class Ethernet_header :
         return self.formatted_header_verboss
 
     async def format_parsed_ethernet_header(self) -> str :
-        self.parse_ethernet_header()
+        await self.parse_ethernet_header()
         self.formatted_header = str()
         self.formatted_header += f"Ethernet : "
         self.formatted_header += f"Dst:{self.dst_mac_addr}|"

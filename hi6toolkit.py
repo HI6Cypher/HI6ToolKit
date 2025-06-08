@@ -45,7 +45,7 @@ class Constant :
         return source
 
     def EXIT(code : int) -> None :
-        sys.exit(code)
+        raise SystemExit(code)
         return
 
     def SIGNAL(signum : int, stk_frm : "frame") -> None :
