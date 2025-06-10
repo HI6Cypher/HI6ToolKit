@@ -1,8 +1,8 @@
 import struct
 
 class Ethernet_header :
-    def __init__(self, raw_data : memoryview | bytes) -> None :
-        self.payload = raw_data
+    def __init__(self, raw_header : memoryview | bytes) -> None :
+        self.payload = raw_header
         self.struct_pattern = "!6s6sH"
         self.header_length = 14
 
@@ -38,7 +38,7 @@ class Ethernet_header :
         try :
             payload = struct.unpack(self.struct_pattern, self.payload[:self.header_length])
         except struct.error :
-            msg = "unpacking the Datagram below failed" + "\n" + repr(self.__repr__)
+            msg = "unpacking the Frame below failed" + "\n" + repr(self.__repr__)
             raise RuntimeError(msg)
         else :
             self.dst_mac_addr = self.standardize_mac_addr(payload[0])

@@ -1,11 +1,13 @@
 import struct
+from eth import Ethernet_header
 
 
-class IPv4_header :
-    def __init__(self, raw_data : memoryview | bytes) -> None :
-        self.payload = raw_data
+class IPv4_header(Ethernet_header) :
+    def __init__(self, raw_header : memoryview | bytes, datalink_raw_header : memoryview | bytes) -> None :
+        super().__init__(datalink_raw_header)
+        self.payload = raw_header
         self.struct_pattern = "!BBHHHBBH4s4s"
-        self.header_length = (raw_data[0] & 0x00001111) << 2
+        self.header_length = (raw_header[0] & 0x00001111) << 2
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])

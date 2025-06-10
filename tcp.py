@@ -1,11 +1,13 @@
 import struct
+from ipv4 import IPv4_header
+from ipv6 import IPv6_header
 
-
-class TCP_header :
-    def __init__(self, raw_data : memoryview) -> None :
-        self.payload = raw_data
+class TCP_header(IPv4_header, IPv6_header) :
+    def __init__(self, raw_header : memoryview | bytes, network_raw_header) -> None :
+        super().__init__(network_raw_header)
+        self.payload = raw_header
         self.struct_pattern = "!HHLLBBHHH"
-        self.header_length = (raw_data[13] >> 4) * 4
+        self.header_length = (raw_header[13] >> 4) * 4
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -23,7 +25,7 @@ class TCP_header :
         try :
             payload = struct.unpack(self.struct_pattern, self.payload[:self.header_length])
         except struct.error :
-            msg = "unpacking the Datagram below failed" + "\n" + repr(self.__repr__)
+            msg = "unpacking the Segment below failed" + "\n" + repr(self.__repr__)
             raise RuntimeError(msg)
         else :
             self.source_port = payload[0]

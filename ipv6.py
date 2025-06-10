@@ -1,8 +1,10 @@
+import struct
+from eth import Ethernet_header
 
-
-class IPv6_header :
-    def __init__(self, raw_data : memoryview | bytes) -> None :
-        self.payload = raw_data
+class IPv6_header(Ethernet_header) :
+    def __init__(self, raw_header : memoryview | bytes, datalink_raw_header : memoryview | bytes) -> None :
+        super().__init__(datalink_raw_header)
+        self.payload = raw_header
         self.struct_pattern = "!lHBB16s16s"
         self.header_length = 40
 
