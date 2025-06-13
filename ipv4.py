@@ -3,11 +3,16 @@ from eth import Ethernet_header
 
 
 class IPv4_header(Ethernet_header) :
-    def __init__(self, raw_header : memoryview | bytes, datalink_raw_header : memoryview | bytes) -> None :
-        super().__init__(datalink_raw_header)
-        self.payload = raw_header
+    def __init__(
+            self,
+            header : memoryview | bytes,
+            datalink_header : memoryview | bytes
+            ) -> None :
+        super().__init__(datalink_header)
+        self.payload = header
         self.struct_pattern = "!BBHHHBBH4s4s"
-        self.header_length = (raw_header[0] & 0x00001111) << 2
+        self.header_length = (header[0] & 0x00001111) << 2
+        self.failure = False
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -45,7 +50,8 @@ class IPv4_header(Ethernet_header) :
             payload = struct.unpack(self.struct_pattern, self.payload[:self.header_length])
         except struct.error :
             msg = "unpacking the Datagram below failed" + "\n" + repr(self.__repr__)
-            raise RuntimeError(msg)
+            Constant.LOG(msg)
+            self.failure = True
         else :
             self.version = payload[0] >> 4
             self.ihl = (payload[0] & 0xf) * 4
@@ -66,17 +72,19 @@ class IPv4_header(Ethernet_header) :
         await self.parse_IPv4_header()
         self.formatted_header_verboss = str()
         t = "\n\t\t"
-        self.formatted_header_verboss += f"IPv4 Datagram :{t}Version : {self.version}  Header Length : {self.ihl}"
-        self.formatted_header_verboss += f"{t}DSCP : {self.dscp}  ECN : {self.ecn}  Total Length : {self.total_length}"
-        self.formatted_header_verboss += f"{t}Identification : {self.identification}  Flags : {self.flags}"
-        self.formatted_header_verboss += f"{t}Fragment Offset : {self.fragment_offset}  TTL : {self.ttl}"
-        self.formatted_header_verboss += f"{t}Protocol : {self.protocol}  Chechsum : {hex(self.checksum)}"
-        self.formatted_header_verboss += f"{t}Source : {self.src_ip_addr}  Destination : {self.dst_ip_addr}"
+        if not self.failure :
+            self.formatted_header_verboss += f"IPv4 Datagram :{t}Version : {self.version}  Header Length : {self.ihl}"
+            self.formatted_header_verboss += f"{t}DSCP : {self.dscp}  ECN : {self.ecn}  Total Length : {self.total_length}"
+            self.formatted_header_verboss += f"{t}Identification : {self.identification}  Flags : {self.flags}"
+            self.formatted_header_verboss += f"{t}Fragment Offset : {self.fragment_offset}  TTL : {self.ttl}"
+            self.formatted_header_verboss += f"{t}Protocol : {self.protocol}  Chechsum : {hex(self.checksum)}"
+            self.formatted_header_verboss += f"{t}Source : {self.src_ip_addr}  Destination : {self.dst_ip_addr}"
         return header
 
     async def format_parsed_IPv4_header(self) -> str :
         await self.parse_IPv4_header()
         self.formatted_header = str()
-        self.formatted_header += f"IPv4 : Ver:{self.version}|Ident:{self.identification}|Proto:{self.protocol}|"
-        self.formatted_header += f"Src:{self.src_ip_addr}|Dst:{self.dst_ip_addr}|TTL:{self.ttl}"
+        if not self.failure :
+            self.formatted_header += f"IPv4 : Ver:{self.version}|Ident:{self.identification}|Proto:{self.protocol}|"
+            self.formatted_header += f"Src:{self.src_ip_addr}|Dst:{self.dst_ip_addr}|TTL:{self.ttl}"
         return self.formatted_header

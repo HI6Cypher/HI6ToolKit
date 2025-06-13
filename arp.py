@@ -2,11 +2,16 @@ import struct
 from eth import Ethernet_header
 
 class Arp_header(Ethernet_header) :
-    def __init__(self, raw_header : memoryview | bytes, datalink_raw_header : memoryview | bytes) -> None :
-        super().__init__(datalink_raw_header)
-        self.payload = raw_header
+    def __init__(
+            self,
+            header : memoryview | bytes,
+            datalink_header : memoryview | bytes
+            ) -> None :
+        super().__init__(datalink_header)
+        self.payload = header
         self.struct_pattern = "!HHBBH6s4s6s4s"
         self.header_length = 28
+        self.failure = False
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -53,7 +58,8 @@ class Arp_header(Ethernet_header) :
             payload = struct.unpack(self.struct_pattern, self.payload[:self.header_length])
         except struct.error :
             msg = "unpacking the Datagram below failed" + "\n" + repr(self.__repr__)
-            raise RuntimeError(msg)
+            Constant.LOG(msg)
+            self.failure = True
         else :
             self.hardware_type = payload[0]
             self.protocol_type = await self.match_hardware_type(payload[1])
@@ -70,17 +76,19 @@ class Arp_header(Ethernet_header) :
         await self.parse_Arp_header()
         formatted_header_verboss = str()
         t = "\n\t\t"
-        formatted_header_verboss += f"Arp Datagram :{t}Hardware Type : {self.hardware_type}{t}Protocol Type : {self.protocol_type}"
-        formatted_header_verboss += f"{t}Hardware Length : {self.hardware_length}  Protocol Length : {self.protocol_length}  Operation : {self.operation}"
-        formatted_header_verboss += f"{t}Sender Hardware Address : {self.sender_hardware_addr}"
-        formatted_header_verboss += f"{t}Sender Protocol Address : {self.sender_protocol_addr}"
-        formatted_header_verboss += f"{t}Target Hardware Address : {self.target_hardware_addr}"
-        formatted_header_verboss += f"{t}Target Protocol Address : {self.target_protocol_addr}"
+        if not self.failure :
+            formatted_header_verboss += f"Arp Datagram :{t}Hardware Type : {self.hardware_type}{t}Protocol Type : {self.protocol_type}"
+            formatted_header_verboss += f"{t}Hardware Length : {self.hardware_length}  Protocol Length : {self.protocol_length}  Operation : {self.operation}"
+            formatted_header_verboss += f"{t}Sender Hardware Address : {self.sender_hardware_addr}"
+            formatted_header_verboss += f"{t}Sender Protocol Address : {self.sender_protocol_addr}"
+            formatted_header_verboss += f"{t}Target Hardware Address : {self.target_hardware_addr}"
+            formatted_header_verboss += f"{t}Target Protocol Address : {self.target_protocol_addr}"
         return formatted_header_verboss
 
     async def format_parsed_Arp_header(self) -> str :
         await self.parse_Arp_header()
         formatted_header = str()
-        formatted_header += f"Arp : SrcMac:{self.sender_hardware_addr}|SrcIP:{self.sender_protocol_addr}|"
-        formatted_header += f"DstMac:{self.target_hardware_addr}|DstIP:{self.target_protocol_addr}"
+        if not self.failure :
+            formatted_header += f"Arp : SrcMac:{self.sender_hardware_addr}|SrcIP:{self.sender_protocol_addr}|"
+            formatted_header += f"DstMac:{self.target_hardware_addr}|DstIP:{self.target_protocol_addr}"
         return formatted_header

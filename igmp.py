@@ -4,10 +4,16 @@ from ipv4 import IPv4_header
 from ipv6 import IPv6_header
 
 class IGMP_header(IPv4_header, IPv6_header) :
-    def __init__(self, raw_header : memoryview | bytes, network_raw_header : memoryview | bytes) -> None :
-        super().__init__(network_raw_header)
-        self.payload = raw_header
-        self.igmp_type = raw_header[0]
+    def __init__(
+            self,
+            header : memoryview | bytes,
+            network_header : memoryview | bytes,
+            ethernet_header : memoryview | bytes
+            ) -> None :
+        super().__init__(network_header, ethernet_header)
+        self.payload = header
+        self.igmp_type = header[0]
+        self.failure = False
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -61,7 +67,8 @@ class IGMP_header(IPv4_header, IPv6_header) :
             payload = struct.unpack(self.struct_pattern(0x12), self.payload[:8])
         except struct.error :
             msg = "unpacking the Datagram below failed" + "\n" + repr(self.__repr__)
-            raise RuntimeError(msg)
+            Constant.LOG(msg)
+            self.failure = True
         else :
             self.type = payload[0]
             self.max_response_time = payload[1]
@@ -82,7 +89,8 @@ class IGMP_header(IPv4_header, IPv6_header) :
             payload_before_src_addrs = struct.unpack(self.struct_pattern(0x11), self.payload[:12])
         except struct.error :
             msg = "unpacking the Datagram below failed" + "\n" + repr(self.__repr__)
-            raise RuntimeError(msg)
+            Constant.LOG(msg)
+            self.failure = True
         else :
             payload = payload_before_src_addrs
             self.type = payload[0]
@@ -102,7 +110,8 @@ class IGMP_header(IPv4_header, IPv6_header) :
             payload_before_group_records = struct.unpack(self.struct_pattern(0x22)[0], self.payload[:8])
         except struct.error :
             msg = "unpacking the Datagram below failed" + "\n" + repr(self.__repr__)
-            raise RuntimeError(msg)
+            Constant.LOG(msg)
+            self.failure = True
         else :
             payload = payload_before_group_records
             self.type = payload[0]
@@ -139,84 +148,94 @@ class IGMP_header(IPv4_header, IPv6_header) :
         await self.parse_IGMPv1_memship_report_header()
         self.formatted_header_verboss = str()
         t = "\n\t\t"
-        self.formatted_header_verboss += "IGMPv1 Memship Report Datagram :"
-        self.formatted_header_verboss += f"{t}Type : {hex(self.type)}  Max Response Time : {self.float_decode(self.max_response_time)}"
-        self.formatted_header_verboss += f"Checksum : {hex(self.checksum)}  Group Address : {self.group_addr}"
+        if not self.failure :
+            self.formatted_header_verboss += "IGMPv1 Memship Report Datagram :"
+            self.formatted_header_verboss += f"{t}Type : {hex(self.type)}  Max Response Time : {self.float_decode(self.max_response_time)}"
+            self.formatted_header_verboss += f"Checksum : {hex(self.checksum)}  Group Address : {self.group_addr}"
         return
 
     async def _format_parsed_IGMPv1_memship_report_header(self) -> None :
         await self.parse_IGMPv1_memship_report_header()
         self.formatted_header = str()
-        self.formatted_header += f"IGMPv1 Memship Report : Type:{hex(self.type)}|Group:{self.group_addr}"
+        if not self.failure :
+            self.formatted_header += f"IGMPv1 Memship Report : Type:{hex(self.type)}|Group:{self.group_addr}"
         return
 
     async def _format_parsed_IGMPv2_memship_report_header_verboss(self) -> None :
         await self.parse_IGMPv2_memship_report_header()
         self.formatted_header_verboss = str()
         t = "\n\t\t"
-        self.formatted_header_verboss += "IGMPv2 Memship Report Datagram :"
-        self.formatted_header_verboss += f"{t}Type : {hex(self.type)}  Max Response Time : {self.float_decode(self.max_response_time)}"
-        self.formatted_header_verboss += f"Checksum : {hex(self.checksum)}  Group Address : {self.group_addr}"
+        if not self.failure :
+            self.formatted_header_verboss += "IGMPv2 Memship Report Datagram :"
+            self.formatted_header_verboss += f"{t}Type : {hex(self.type)}  Max Response Time : {self.float_decode(self.max_response_time)}"
+            self.formatted_header_verboss += f"Checksum : {hex(self.checksum)}  Group Address : {self.group_addr}"
         return
 
     async def _format_parsed_IGMPv2_memship_report_header(self) -> None :
         await self.parse_IGMPv2_memship_report_header()
         self.formatted_header = str()
-        self.formatted_header += f"IGMPv2 Memship Report : Type:{hex(self.type)}|Group:{self.group_addr}"
+        if not self.failure :
+            self.formatted_header += f"IGMPv2 Memship Report : Type:{hex(self.type)}|Group:{self.group_addr}"
         return
 
     async def _format_parsed_IGMP_leave_group_header_verboss(self) -> None :
         await self.parse_IGMP_leave_group_header()
         self.formatted_header_verboss = str()
         t = "\n\t\t"
-        self.formatted_header_verboss += "IGMP Leave Group Datagram :"
-        self.formatted_header_verboss += f"{t}Type : {hex(self.type)}  Max Response Time : {self.float_decode(self.max_response_time)}"
-        self.formatted_header_verboss += f"{t}Checksum : {hex(self.checksum)}  Group Address : {self.group_addr}"
+        if not self.failure :
+            self.formatted_header_verboss += "IGMP Leave Group Datagram :"
+            self.formatted_header_verboss += f"{t}Type : {hex(self.type)}  Max Response Time : {self.float_decode(self.max_response_time)}"
+            self.formatted_header_verboss += f"{t}Checksum : {hex(self.checksum)}  Group Address : {self.group_addr}"
         return
 
     async def _format_parsed_IGMP_leave_group_header(self) -> None :
         await self.parse_IGMP_leave_group_header()
         self.formatted_header = str()
-        self.formatted_header += f"IGMP Leave Group : Type:{hex(self.type)}|Group:{self.group_addr}"
+        if not self.failure :
+            self.formatted_header += f"IGMP Leave Group : Type:{hex(self.type)}|Group:{self.group_addr}"
         return
 
     async def _format_parsed_IGMP_memship_query_header_verboss(self) -> None :
         await self.parse_IGMP_memship_query_header()
         self.formatted_header_verboss = str()
         t = "\n\t\t"
-        self.formatted_header_verboss += "IGMP Memship Query Datagram :"
-        self.formatted_header_verboss += f"{t}Type : {hex(self.type)}  Max Response Time : {self.float_decode(self.max_response_time)}"
-        self.formatted_header_verboss += f"{t}Checksum : {hex(self.checksum)}  Group Address : {self.group_addr}"
-        self.formatted_header_verboss += f"S-Flag : {self.s}  QRV : {self.qrv}  QQIC : {self.qqic}  Number of Sources : {self.number_of_sources}"
-        self.formatted_header_verboss += f"{t}Source Addresses{t}\t"
-        self.formatted_header_verboss += (t + "\t").join(self.source_addrs)
+        if not self.failure :
+            self.formatted_header_verboss += "IGMP Memship Query Datagram :"
+            self.formatted_header_verboss += f"{t}Type : {hex(self.type)}  Max Response Time : {self.float_decode(self.max_response_time)}"
+            self.formatted_header_verboss += f"{t}Checksum : {hex(self.checksum)}  Group Address : {self.group_addr}"
+            self.formatted_header_verboss += f"S-Flag : {self.s}  QRV : {self.qrv}  QQIC : {self.qqic}  Number of Sources : {self.number_of_sources}"
+            self.formatted_header_verboss += f"{t}Source Addresses{t}\t"
+            self.formatted_header_verboss += (t + "\t").join(self.source_addrs)
         return
 
     async def _format_parsed_IGMP_memship_query_header(self) -> None :
         await self.parse_IGMP_memship_query_header()
         self.formatted_header = str()
-        self.formatted_header += f"IGMP Memship Query : Type:{hex(self.type)}|Group:{self.group_addr}|Number:{self.number_of_sources}"
+        if not self.failure :
+            self.formatted_header += f"IGMP Memship Query : Type:{hex(self.type)}|Group:{self.group_addr}|Number:{self.number_of_sources}"
         return
 
     async def _format_parsed_IGMPv3_memship_report_header_verboss(self) -> None :
         await self.parse_IGMPv3_memship_report_header()
         self.formatted_header_verboss = str()
         t = "\n\t\t"
-        self.formatted_header_verboss += f"IGMPv3 Memship Report Datagram :{t}Type : {hex(self.type)}"
-        self.formatted_header_verboss += f"{t}Checksum : {hex(self.checksum)}{t}Number of Group Records : {self.number_of_group_records}"
-        self.formatted_header_verboss += "{t}Group Records :{t}\t"
-        for index, group in enumerate(self.group_records, start = 1) :
-            record_type, aux_data_length, number_of_sources, multicast_addr, source_addrs, auxiliary_data = group
-            self.formatted_header_verboss += f"Group_record[{index}] :{t}\t\tRecord Type : {await match_record_type(record_type)}({record_type})"
-            self.formatted_header_verboss += f"{t}\t\tAux Data Length : {aux_data_length}  Number of Sources : {number_of_sources}"
-            self.formatted_header_verboss += f"{t}\t\tMulticast Address : {multicast_addr}  Source Addresses :{t}\t\t\t"
-            self.formatted_header_verboss += (t + "\t\t\t").join(source_addrs)
+        if not self.failure :
+            self.formatted_header_verboss += f"IGMPv3 Memship Report Datagram :{t}Type : {hex(self.type)}"
+            self.formatted_header_verboss += f"{t}Checksum : {hex(self.checksum)}{t}Number of Group Records : {self.number_of_group_records}"
+            self.formatted_header_verboss += "{t}Group Records :{t}\t"
+            for index, group in enumerate(self.group_records, start = 1) :
+                record_type, aux_data_length, number_of_sources, multicast_addr, source_addrs, auxiliary_data = group
+                self.formatted_header_verboss += f"Group_record[{index}] :{t}\t\tRecord Type : {await match_record_type(record_type)}({record_type})"
+                self.formatted_header_verboss += f"{t}\t\tAux Data Length : {aux_data_length}  Number of Sources : {number_of_sources}"
+                self.formatted_header_verboss += f"{t}\t\tMulticast Address : {multicast_addr}  Source Addresses :{t}\t\t\t"
+                self.formatted_header_verboss += (t + "\t\t\t").join(source_addrs)
         return
 
     async def _format_parsed_IGMPv3_memship_report_header(self) -> None :
         await self.parse_IGMPv3_memship_report_header()
         self.formatted_header = str()
-        self.formatted_header += f"IGMPv3 Memship Report : Type:{hex(self.type)}|Number:{self.number_of_group_records}"
+        if not self.failure :
+            self.formatted_header += f"IGMPv3 Memship Report : Type:{hex(self.type)}|Number:{self.number_of_group_records}"
         return
 
     async def format_parsed_IGMP_header_verboss(self) -> str :

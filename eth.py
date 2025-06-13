@@ -1,10 +1,14 @@
 import struct
 
 class Ethernet_header :
-    def __init__(self, raw_header : memoryview | bytes) -> None :
-        self.payload = raw_header
+    def __init__(
+            self,
+            header : memoryview | bytes
+            ) -> None :
+        self.payload = header
         self.struct_pattern = "!6s6sH"
         self.header_length = 14
+        self.failure = False
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -39,7 +43,8 @@ class Ethernet_header :
             payload = struct.unpack(self.struct_pattern, self.payload[:self.header_length])
         except struct.error :
             msg = "unpacking the Frame below failed" + "\n" + repr(self.__repr__)
-            raise RuntimeError(msg)
+            Constant.LOG(msg)
+            self.failure = True
         else :
             self.dst_mac_addr = self.standardize_mac_addr(payload[0])
             self.src_mac_addr = self.standardize_mac_addr(payload[1])
@@ -50,17 +55,19 @@ class Ethernet_header :
         await self.parse_ethernet_header()
         self.formatted_header_verboss = str()
         t = "\n\t\t"
-        self.formatted_header_verboss += f"Ethernet Frame :{t}"
-        self.formatted_header_verboss += f"Source MAC : {self.src_mac_addr}{t}"
-        self.formatted_header_verboss += f"Destination MAC : {self.dst_mac_addr}{t}"
-        self.formatted_header_verboss += f"EtherType : {self.eth_type}"
+        if not self.failure :
+            self.formatted_header_verboss += f"Ethernet Frame :{t}"
+            self.formatted_header_verboss += f"Source MAC : {self.src_mac_addr}{t}"
+            self.formatted_header_verboss += f"Destination MAC : {self.dst_mac_addr}{t}"
+            self.formatted_header_verboss += f"EtherType : {self.eth_type}"
         return self.formatted_header_verboss
 
     async def format_parsed_ethernet_header(self) -> str :
         await self.parse_ethernet_header()
         self.formatted_header = str()
-        self.formatted_header += f"Ethernet : "
-        self.formatted_header += f"Dst:{self.dst_mac_addr}|"
-        self.formatted_header += f"Src:{self.src_mac_addr}|"
-        self.formatted_header += f"Type:{self.eth_type}"
+        if not self.failure :
+            self.formatted_header += f"Ethernet : "
+            self.formatted_header += f"Dst:{self.dst_mac_addr}|"
+            self.formatted_header += f"Src:{self.src_mac_addr}|"
+            self.formatted_header += f"Type:{self.eth_type}"
         return self.formatted_header

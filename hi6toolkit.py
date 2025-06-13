@@ -6,12 +6,12 @@ import queue
 import signal
 import ctypes
 import binascii
+import argparse
+import random
+import time
 import ssl
 import sys
 import os
-import random
-import time
-import argparse
 
 
 class Constant :
@@ -495,7 +495,7 @@ class Sniff :
         parsed_header += f"ICMPv6 : Type:{typ}|Code:{cod}"
         return (parsed_header, typ, cod, csm)
 
-    async def parse_igmp_header_verboss(self, data : memoryview | bytes) -> tuple[str, int, int, int, str] | tuple[str, int, int, int, str, int, int, int, int, list[str]] | tuple[str, int, int, int, list[tuple[int, int, int, str, list[str]]] :
+    async def parse_igmp_header_verboss(self, data : memoryview | bytes) -> tuple[str, int, int, int, str] :
         parsed_header = str()
         t = "\n\t\t"
 
@@ -555,7 +555,7 @@ class Sniff :
                 parsed_header += f"Checksum : {hex(csm)}{t}Group Address : {gad}"
                 return (parsed_header, typ, mrt, csm, gad)
 
-    async def parse_igmp_header(self, data : memoryview | bytes) -> tuple[str, int, int, int, str] | tuple[str, int, int, int, str, int, int, int, int, list[str]] | tuple[str, int, int, int, list[tuple[int, int, int, str, list[str]]] :
+    async def parse_igmp_header(self, data : memoryview | bytes) -> tuple[str, int, int, int, str] :
         parsed_header = str()
         parsed_igmp_header = await self.igmp_header(data)
         match parsed_igmp_header[0] :
