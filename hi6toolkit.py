@@ -153,7 +153,7 @@ class Sniff :
 
     @staticmethod
     async def ipv6_header(raw_payload : memoryview | bytes) -> tuple[int, int, int, int, str | int, int, str, str] :
-        payload = struct.unpack("!lHBB16s16s", raw_payload[:40])
+        payload = struct.unpack("!IHBB16s16s", raw_payload[:40])
         ver = payload[0] >> 28
         cls = (payload[0] >> 20) & 0xff
         flw = payload[0] & 0xfffff

@@ -14,6 +14,7 @@ class IGMP_header(IPv4_header, IPv6_header) :
         self.payload = header
         self.igmp_type = header[0]
         self.failure = False
+        self.type = int
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -66,7 +67,7 @@ class IGMP_header(IPv4_header, IPv6_header) :
         try :
             payload = struct.unpack(self.struct_pattern(0x12), self.payload[:8])
         except struct.error :
-            msg = "unpacking the Datagram below failed" + "\n" + repr(self.__repr__)
+            msg = "unpacking the Datagram below failed" + "\n" + self.__repr__()
             Constant.LOG(msg)
             self.failure = True
         else :
@@ -88,7 +89,7 @@ class IGMP_header(IPv4_header, IPv6_header) :
         try :
             payload_before_src_addrs = struct.unpack(self.struct_pattern(0x11), self.payload[:12])
         except struct.error :
-            msg = "unpacking the Datagram below failed" + "\n" + repr(self.__repr__)
+            msg = "unpacking the Datagram below failed" + "\n" + self.__repr__()
             Constant.LOG(msg)
             self.failure = True
         else :
@@ -109,7 +110,7 @@ class IGMP_header(IPv4_header, IPv6_header) :
         try :
             payload_before_group_records = struct.unpack(self.struct_pattern(0x22)[0], self.payload[:8])
         except struct.error :
-            msg = "unpacking the Datagram below failed" + "\n" + repr(self.__repr__)
+            msg = "unpacking the Datagram below failed" + "\n" + self.__repr__()
             Constant.LOG(msg)
             self.failure = True
         else :

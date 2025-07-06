@@ -9,6 +9,9 @@ class Ethernet_header :
         self.struct_pattern = "!6s6sH"
         self.header_length = 14
         self.failure = False
+        self.dst_mac_addr : str
+        self.src_mac_addr : str
+        self.eth_type : str
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -42,7 +45,7 @@ class Ethernet_header :
         try :
             payload = struct.unpack(self.struct_pattern, self.payload[:self.header_length])
         except struct.error :
-            msg = "unpacking the Frame below failed" + "\n" + repr(self.__repr__)
+            msg = "unpacking the Frame below failed" + "\n" + self.__repr__()
             Constant.LOG(msg)
             self.failure = True
         else :

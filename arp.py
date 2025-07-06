@@ -12,6 +12,15 @@ class Arp_header(Ethernet_header) :
         self.struct_pattern = "!HHBBH6s4s6s4s"
         self.header_length = 28
         self.failure = False
+        self.hardware_type : int
+        self.protocol_type : str
+        self.hardware_length : int
+        self.protocol_length : int
+        self.operation : str
+        self.sender_hardware_addr : str
+        self.sender_protocol_addr : str
+        self.target_hardware_addr : str
+        self.target_protocol_addr : str
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -38,8 +47,8 @@ class Arp_header(Ethernet_header) :
     @staticmethod
     def get_Arp_operations() -> dict :
         opcodes = {
-            0x0001 : "ARP REQ",
-            0x0002 : "ARP REP"
+            0x0001 : "ARP_REQ",
+            0x0002 : "ARP_REP"
             }
         return opcodes
 
@@ -57,7 +66,7 @@ class Arp_header(Ethernet_header) :
         try :
             payload = struct.unpack(self.struct_pattern, self.payload[:self.header_length])
         except struct.error :
-            msg = "unpacking the Datagram below failed" + "\n" + repr(self.__repr__)
+            msg = "unpacking the Datagram below failed" + "\n" + self.__repr__()
             Constant.LOG(msg)
             self.failure = True
         else :

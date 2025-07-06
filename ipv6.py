@@ -9,9 +9,17 @@ class IPv6_header(Ethernet_header) :
             ) -> None :
         super().__init__(datalink_header)
         self.payload = header
-        self.struct_pattern = "!lHBB16s16s"
+        self.struct_pattern = "!IHBB16s16s"
         self.header_length = 40
         self.failure = False
+        self.version : int
+        self.traffic_class : int
+        self.flow_label : int
+        self.payload_length : int
+        self.next_header : str
+        self.hop_limit : int
+        self.src_ip_addr : str
+        self.dst_ip_addr : str
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -47,7 +55,7 @@ class IPv6_header(Ethernet_header) :
         try :
             payload = struct.unpack(self.struct_pattern, self.payload[:self.header_length])
         except struct.error :
-            msg = "unpacking the Datagram below failed" + "\n" + repr(self.__repr__)
+            msg = "unpacking the Datagram below failed" + "\n" + self.__repr__()
             Constant.LOG(msg)
             self.failure = True
         else :

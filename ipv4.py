@@ -13,6 +13,19 @@ class IPv4_header(Ethernet_header) :
         self.struct_pattern = "!BBHHHBBH4s4s"
         self.header_length = (header[0] & 0x00001111) << 2
         self.failure = False
+        self.version : int
+        self.ihl : int
+        self.dscp : int
+        self.ecn : int
+        self.total_length : int
+        self.identification : int
+        self.flags : str
+        self.fragment_offset : int
+        self.ttl : int
+        self.protocol : str
+        self.checksum : int
+        self.src_ip_addr : str
+        self.dst_ip_addr : str
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -49,7 +62,7 @@ class IPv4_header(Ethernet_header) :
         try :
             payload = struct.unpack(self.struct_pattern, self.payload[:self.header_length])
         except struct.error :
-            msg = "unpacking the Datagram below failed" + "\n" + repr(self.__repr__)
+            msg = "unpacking the Datagram below failed" + "\n" + self.__repr__()
             Constant.LOG(msg)
             self.failure = True
         else :

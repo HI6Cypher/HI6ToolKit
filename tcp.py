@@ -14,6 +14,23 @@ class TCP_header(IPv4_header, IPv6_header) :
         self.struct_pattern = "!HHLLBBHHH"
         self.header_length = (header[13] >> 4) * 4
         self.failure = False
+        self.source_port : int
+        self.destination_port : int
+        self.sequence_number : int
+        self.acknowledgement_number : int
+        self.data_offset : int
+        self.flags : int
+        self.cwr : int
+        self.ece : int
+        self.urg : int
+        self.ack : int
+        self.psh : int
+        self.rst : int
+        self.syn : int
+        self.fin : int
+        self.window : int
+        self.checksum : int
+        self.urgent_pointer : int
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -31,7 +48,7 @@ class TCP_header(IPv4_header, IPv6_header) :
         try :
             payload = struct.unpack(self.struct_pattern, self.payload[:self.header_length])
         except struct.error :
-            msg = "unpacking the Segment below failed" + "\n" + repr(self.__repr__)
+            msg = "unpacking the Segment below failed" + "\n" + self.__repr__()
             Constant.LOG(msg)
             self.failure = True
         else :

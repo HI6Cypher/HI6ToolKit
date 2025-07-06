@@ -14,6 +14,10 @@ class UDP_header(IPv4_header, IPv6_header) :
         self.struct_pattern = "!HHHH"
         self.header_length = 8
         self.failure = False
+        self.source_port : int
+        self.destination_port : int
+        self.length : int
+        self.checksum : int
 
     def __repr__(self) -> str :
         items = "\n\t".join([f"{k} : {v}" for k, v in self.__dict__.items()])
@@ -29,7 +33,7 @@ class UDP_header(IPv4_header, IPv6_header) :
         try :
             payload = struct.unpack(self.struct_pattern, self.payload[:self.header_length])
         except struct.error :
-            msg = "unpacking the Datagram below failed" + "\n" + repr(self.__repr__)
+            msg = "unpacking the Datagram below failed" + "\n" + self.__repr__()
             Constant.LOG(msg)
             self.failure = True
         else :
