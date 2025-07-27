@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+!/usr/bin/python3
 import socket
 import asyncio
 import struct
