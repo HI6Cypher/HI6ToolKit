@@ -1,6 +1,5 @@
 captured*
 *.tmp
-*__pycache__/
 *~
 *.swp
 *.swo
