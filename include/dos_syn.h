@@ -2,10 +2,15 @@
 #define DOS_SYN
 #include <sys/socket.h>
 #include <netinet/ip.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define PAYLOAD_SIZE (20 + 20)
+#define MAX_RANDOM_RANGE 0xffff
+#define MAX_RANDOM_IDENTIFICATION 0xffff
+#define MAX_RANDOM_SEQUENCE 0xffffffff
 
 typedef struct {
     unsigned char version;
@@ -20,7 +25,7 @@ typedef struct {
     unsigned short checksum;
     unsigned char src_addr[4];
     unsigned char dst_addr[4];
-} ipv4_header;
+} IPv4_Header;
 
 typedef struct {
     unsigned short src_port;
@@ -39,7 +44,7 @@ typedef struct {
     unsigned short window;
     unsigned short checksum;
     unsigned short urgent_pointer;
-} tcp_header;
+} TCP_Header;
 
 typedef struct {
     unsigned char src_addr[4];
@@ -47,21 +52,25 @@ typedef struct {
     unsigned char zeros;
     unsigned char protocol;
     unsigned short tcp_length;
-} tcp_pseudo_header;
+} TCP_Pseudo_Header;
 
 typedef struct {
-    ipv4_header *ip;
-    tcp_header *tcp;
+    IPv4_Header *ip;
+    TCP_Header *tcp;
+    TCP_Pseudo_Header *pseudo;
 } Payload;
 
 typedef struct {
     void *buffer;
     unsigned short index;
+    unsigned char ip_length;
+    unsigned char tcp_length;
+    unsigned char tcp_pseudo_length;
 } Buffer;
 
 typedef struct {
-    char src_addr[4];
-    char host[4];
+    unsigned char src_addr[4];
+    unsigned char dst_addr[4];
     unsigned int port;
     unsigned long count;
     unsigned char rand_port : 1;
@@ -71,10 +80,9 @@ typedef struct {
 unsigned int init_socket(void);
 void pack_ipv4_header(Buffer *buf, Payload *payload);
 void pack_tcp_header(Buffer *buf, Payload *payload);
-unsigned short handle_checksum(Payload *payload, tcp_pseudo_header *pseudo_header);
-signed int push_payload(int sockfd, Buffer *buf, struct sockaddr_in *addr);
-
+void pack_tcp_pseudo_header(unsigned char *buf, Payload *payload);
+unsigned int push_payload(int sockfd, Buffer *buf, Payload *payload, struct sockaddr_in *addr);
 void free_buffer(Buffer *buf);
-size_t flood(DoS_SYN_args *args);
+unsigned int flood(DoS_SYN_args *args);
 
 #endif
