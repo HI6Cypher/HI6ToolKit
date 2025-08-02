@@ -17,3 +17,4 @@ void free_getifaces(void) {
     if_freenameindex(ifaces);
     return;
 }
+/* TODO : not cool */

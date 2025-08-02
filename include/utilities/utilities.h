@@ -18,4 +18,8 @@
 #define GREEN(text) "\e[32m" #text "\e[0m"
 #define YELLOW(text) "\e[33m" #text "\e[0m"
 char *SYSINFO;
+
+unsigned char *handle_progress_bar(const unsigned long x, const unsigned long y);
+void free_progress_bar(unsigned char *bar);
+
 #endif

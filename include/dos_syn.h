@@ -1,5 +1,6 @@
 #ifndef DOS_SYN
 #define DOS_SYN
+#include "utilities/utilities.h"
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -16,8 +17,7 @@
 #define TCP_PSEUDO_HEADER_SIZE 0xc
 #define PROTOCOL_NUMBER 0x6
 #define MAX_RANDOM_RANGE 0xffff
-#define MAX_RANDOM_IDENTIFICATION 0xffff
-#define MAX_RANDOM_SEQUENCE 0xffff
+#define RANDOM_NUMBER (rand() % MAX_RANDOM_RANGE)
 
 typedef struct {
     unsigned char version;
@@ -79,21 +79,23 @@ typedef struct {
     unsigned char src_addr[4];
     unsigned char dst_addr[4];
     unsigned int port;
-    unsigned long count;
+    unsigned long num;
     unsigned char rand_port : 1;
     float wait_time;
 } DoS_SYN_args;
 
+void progress_bar(unsigned char *bar, unsigned long x, unsigned long y);
 unsigned int init_socket(void);
 void init_buffer(Buffer *buf);
 void init_ipv4_header_structure(IPv4_Header *ip, DoS_SYN_args *args);
 void init_tcp_header_structure(TCP_Header *tcp, DoS_SYN_args *args);
 void init_tcp_pseudo_header_structure(TCP_Pseudo_Header *pseudo, DoS_SYN_args *args);
+void init_payload_structure(Payload *payload, IPv4_Header *ip, TCP_Header *tcp, TCP_Pseudo_Header *pseudo);
 void pack_ipv4_header(Buffer *buf, Payload *payload);
 void pack_tcp_header(Buffer *buf, Payload *payload);
 void pack_tcp_pseudo_header(unsigned char *buf, Payload *payload);
-unsigned int push_payload(int sockfd, Buffer *buf, Payload *payload, struct sockaddr_in *addr);
-void free_buffer();
+unsigned int push_payload(unsigned int sockfd, Buffer *buf, Payload *payload, struct sockaddr_in *addr);
 unsigned int flood(DoS_SYN_args *args);
+void free_buffer(void);
 
 #endif
